@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Needed so a locked device can still show our screen over everything -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Talk to the backend for enrollment / check-in / command ack -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/Theme.DeviceLock">
+
+        <!-- Admin / dashboard screen used by the agent (shop staff) -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Full-screen lock screen shown to the customer when overdue. -->
+        <activity
+            android:name=".LockScreenActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.DeviceLock.Lock" />
+
+        <!-- HOME entry-point for the lock screen. Disabled by default so it is
+             NOT a home candidate normally (no launcher chooser). While locked,
+             DeviceLockController enables it and routes HOME here, so a reboot
+             lands straight on the lock screen with no usable window. -->
+        <activity-alias
+            android:name=".LockHomeAlias"
+            android:targetActivity=".LockScreenActivity"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Re-assert lock + delivery after a reboot -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- On-demand background check-in trigger (FCM push / manual sync) -->
+        <receiver
+            android:name=".SyncTriggerReceiver"
+            android:exported="true" />
+
+        <!-- FCM instant-delivery receiver. Inert until google-services.json is
+             added and the google-services plugin is applied (see build.gradle). -->
+        <service
+            android:name=".AgentMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- The Device Admin / Device Owner receiver -->
+        <receiver
+            android:name=".LockAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <!-- Delivered when QR / zero-touch provisioning makes us Device
+                     Owner; carries the enrollment token for auto-enroll. -->
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+</manifest>

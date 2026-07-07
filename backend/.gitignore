@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+coverage/
+
+# Firebase service-account private key — never commit
+fcm-service-account.json
+*service-account*.json

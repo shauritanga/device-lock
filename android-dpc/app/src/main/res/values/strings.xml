@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Device Lock Agent</string>
+
+    <string name="hint_ready">This device is managed by your provider. Lock status is controlled remotely.</string>
+    <string name="hint_not_owner">Not the Device Owner yet. Provision via:\n adb shell dpm set-device-owner com.devicelock.agent/.LockAdminReceiver</string>
+
+    <string name="action_refresh">Refresh status</string>
+
+    <string name="staff_setup">Staff setup</string>
+    <string name="hint_staff_pin">Staff PIN</string>
+    <string name="action_staff_unlock">Unlock setup</string>
+    <string name="hint_enroll_token">Enrollment token</string>
+    <string name="action_enroll">Enroll with backend</string>
+    <string name="action_release">Release device (loan fully paid)</string>
+    <string name="release_confirm_title">Release this device?</string>
+    <string name="release_confirm_msg">This asks the server to release the device. It only completes if the loan is fully paid (or an owner authorizes it). Release lifts all restrictions and removes management — it cannot be undone without re-provisioning.</string>
+    <string name="release_checking">Checking with server…</string>
+    <string name="release_done">Device released — management removed</string>
+    <string name="release_not_authorized">Not released — the loan isn\'t fully paid yet</string>
+    <string name="release_not_enrolled">Not enrolled — nothing to release</string>
+    <string name="managed_notice">This device is managed. Enrolled: %1$s</string>
+    <string name="staff_pin_wrong">Incorrect staff PIN</string>
+
+    <string name="lock_title">Device Locked</string>
+    <string name="lock_message">Your installment payment is overdue. Pay via mobile money to restore access. The device unlocks automatically once your payment is confirmed. Emergency calls remain available.</string>
+    <string name="lock_check_payment">I\'ve paid — check now</string>
+    <string name="lock_check_payment_toast">Checking payment status…</string>
+    <string name="lock_emergency">Emergency call</string>
+</resources>

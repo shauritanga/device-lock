@@ -1,0 +1,35 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { CustomersService } from './customers.service';
+import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
+
+@Controller('customers')
+export class CustomersController {
+  constructor(private readonly customers: CustomersService) {}
+
+  @Post()
+  create(@Body() dto: CreateCustomerDto) {
+    return this.customers.create(dto);
+  }
+
+  @Get()
+  findAll() {
+    return this.customers.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.customers.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
+    return this.customers.update(id, dto);
+  }
+}

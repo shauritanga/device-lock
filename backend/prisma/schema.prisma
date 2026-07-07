@@ -1,0 +1,319 @@
+// Device-Lock SaaS — Postgres schema (Prisma)
+// Multi-tenant: shared schema, every business-owned row carries `tenantId`.
+// Tenant isolation is enforced in two layers:
+//   1. App layer: a Prisma client extension injects `tenantId` from request context.
+//   2. DB layer:  Postgres Row-Level Security policies keyed on `tenantId`
+//                 (added via a raw SQL migration, see docs/DESIGN.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN // platform operator (you) — not bound to a tenant
+  OWNER // owner of a credit shop
+  MANAGER
+  AGENT // front-desk staff who enrolls devices / takes payments
+}
+
+enum DeviceStatus {
+  PENDING_ENROLLMENT // token issued, agent not yet provisioned
+  ACTIVE // enrolled, in good standing
+  LOCKED // kiosk lock enforced (overdue)
+  RELEASED // loan completed, management removed
+  DEFAULTED // written off
+  WIPED
+}
+
+enum LoanStatus {
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+  CANCELLED
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+enum PaymentMethod {
+  MPESA
+  TIGOPESA
+  AIRTELMONEY
+  CARD
+  BANK
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REVERSED
+}
+
+enum CommandType {
+  LOCK
+  UNLOCK
+  RELEASE // loan fully paid: relinquish device-owner, hand device to customer
+  REMIND // show a non-blocking reminder banner
+  SYNC_POLICY // push new offline / grace settings
+  WIPE // last resort, gated by role + policy
+}
+
+enum CommandStatus {
+  QUEUED
+  SENT // delivered to device (push or pulled at check-in)
+  ACKED // agent confirmed execution
+  FAILED
+  EXPIRED
+}
+
+// ---------------------------------------------------------------------------
+// Tenant & identity
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  country   String   @default("TZ")
+  timezone  String   @default("Africa/Dar_es_Salaam")
+  isActive  Boolean  @default(true)
+  // Default lock policy applied to new devices (overridable per device).
+  graceDays      Int @default(3)
+  maxOfflineDays Int @default(4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  customers     Customer[]
+  devices       Device[]
+  loans         Loan[]
+  installments  Installment[]
+  payments      Payment[]
+  commands      DeviceCommand[]
+  events        DeviceEvent[]
+  enrollTokens  EnrollmentToken[]
+
+  @@index([isActive])
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String? // null only for SUPER_ADMIN
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  role         UserRole @default(AGENT)
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  issuedCommands DeviceCommand[] @relation("CommandIssuedBy")
+  refreshTokens  RefreshToken[]
+
+  @@index([tenantId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Customers, devices, financing
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fullName      String
+  phone         String // primary mobile-money number
+  nationalId    String?
+  address       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  devices Device[]
+  loans   Loan[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+}
+
+model Device {
+  id            String       @id @default(uuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId    String?
+  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  imei          String
+  serialNumber  String?
+  make          String?
+  model         String?
+
+  status        DeviceStatus @default(PENDING_ENROLLMENT)
+  // Per-device overrides of the tenant policy (null => inherit tenant).
+  graceDays      Int?
+  maxOfflineDays Int?
+
+  // Agent identity / push
+  agentTokenHash String?   @unique // hash of the device's auth token
+  fcmToken       String?           // for instant push commands
+  lastCheckInAt  DateTime?
+  lockedAt       DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  loan       Loan?
+  commands   DeviceCommand[]
+  events     DeviceEvent[]
+  enrollToken EnrollmentToken?
+
+  @@unique([tenantId, imei])
+  @@index([tenantId, status])
+  @@index([lastCheckInAt])
+}
+
+model EnrollmentToken {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deviceId   String   @unique
+  device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  token      String   @unique // embedded in the provisioning QR code
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Loan {
+  id            String     @id @default(uuid())
+  tenantId      String
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deviceId      String     @unique
+  device        Device     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  principal     Decimal    @db.Decimal(14, 2) // device price financed
+  downPayment   Decimal    @db.Decimal(14, 2) @default(0)
+  interestRate  Decimal    @db.Decimal(5, 2)  @default(0) // % flat, simple model for MVP
+  termMonths    Int
+  currency      String     @default("TZS")
+  status        LoanStatus @default(ACTIVE)
+  startDate     DateTime   @default(now())
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  installments Installment[]
+  payments     Payment[]
+
+  @@index([tenantId, status])
+}
+
+model Installment {
+  id          String            @id @default(uuid())
+  tenantId    String
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanId      String
+  loan        Loan              @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  sequence    Int // 1..termMonths
+  dueDate     DateTime
+  amount      Decimal           @db.Decimal(14, 2)
+  amountPaid  Decimal           @db.Decimal(14, 2) @default(0)
+  status      InstallmentStatus @default(PENDING)
+  paidAt      DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([loanId, sequence])
+  @@index([tenantId, status, dueDate])
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanId        String
+  loan          Loan          @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  amount        Decimal       @db.Decimal(14, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  // Our unique reference sent to ClickPesa; matched back on the webhook.
+  orderReference String?      @unique
+  phoneNumber   String? // payer mobile-money number (mobile money only)
+  providerRef   String?       @unique // ClickPesa transaction id (idempotency)
+  rawPayload    Json? // original webhook body for audit/reconciliation
+  receivedAt    DateTime      @default(now())
+
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Device control & audit
+// ---------------------------------------------------------------------------
+
+model DeviceCommand {
+  id          String        @id @default(uuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deviceId    String
+  device      Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  type        CommandType
+  status      CommandStatus @default(QUEUED)
+  reason      String? // e.g. "installment #3 overdue"
+  issuedById  String?
+  issuedBy    User?         @relation("CommandIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+  sentAt      DateTime?
+  ackedAt     DateTime?
+  expiresAt   DateTime?
+
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, deviceId, status])
+}
+
+// Append-only audit log: check-ins, lock/unlock results, policy changes.
+model DeviceEvent {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deviceId  String
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  type      String // CHECK_IN | LOCKED | UNLOCKED | ENROLLED | POLICY_SYNCED | ...
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, deviceId, createdAt])
+}

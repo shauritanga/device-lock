@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only override: permit cleartext so the agent can reach the local LAN
+  backend (http://<laptop-ip>:3001) during development. This file does NOT ship
+  in release builds, which use the strict HTTPS-only config in src/main.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

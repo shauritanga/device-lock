@@ -1,0 +1,21 @@
+# OS / editor
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Node
+node_modules/
+
+# Local tool caches (downloaded Gradle distribution, etc.)
+.tools/
+
+# Secrets — never commit
+.env
+*.env.local
+*service-account*.json
+google-services.json
+
+# Build output
+dist/
+build/

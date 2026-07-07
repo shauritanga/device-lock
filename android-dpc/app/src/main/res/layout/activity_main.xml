@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/txtHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/txtStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:background="#11000000"
+            android:padding="12dp"
+            android:textSize="13sp" />
+
+        <!-- Read-only managed status, shown once the device is enrolled. -->
+        <TextView
+            android:id="@+id/txtAgent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:fontFamily="monospace"
+            android:background="#11000000"
+            android:padding="12dp"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <!-- Staff area. The PIN gate is always visible but does nothing without
+             the PIN; the actions inside are hidden until it's entered. -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/staff_setup"
+            android:textStyle="bold"
+            android:textSize="15sp" />
+
+        <EditText
+            android:id="@+id/inputPin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/hint_staff_pin"
+            android:inputType="numberPassword"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnStaffUnlock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/action_staff_unlock" />
+
+        <LinearLayout
+            android:id="@+id/staffActions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Shown before enrollment. -->
+            <LinearLayout
+                android:id="@+id/enrollGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <EditText
+                    android:id="@+id/inputEnrollToken"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/hint_enroll_token"
+                    android:inputType="text"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btnEnroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/action_enroll" />
+            </LinearLayout>
+
+            <!-- Shown once enrolled: hand a fully-paid device back to the customer. -->
+            <Button
+                android:id="@+id/btnRelease"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:visibility="gone"
+                android:text="@string/action_release" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnRefresh"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/action_refresh" />
+
+    </LinearLayout>
+</ScrollView>

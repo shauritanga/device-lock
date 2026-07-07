@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DeviceLock" parent="Theme.Material3.DayNight" />
+
+    <!-- Fullscreen, no action bar, for the kiosk lock screen -->
+    <style name="Theme.DeviceLock.Lock" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>

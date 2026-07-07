@@ -1,0 +1,150 @@
+package com.devicelock.agent
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import com.devicelock.agent.databinding.ActivityLockBinding
+
+/**
+ * Full-screen lock shown to the customer when an installment is overdue.
+ *
+ * It runs in **lock-task (kiosk) mode**, so the customer cannot swipe it away,
+ * open recents, or reach settings. We deliberately keep an "emergency call"
+ * affordance and a clear payment instruction visible — locking should never
+ * trap a customer with no way to call for help or to pay.
+ *
+ * The "Simulate payment" button stands in for the real flow, where the backend
+ * receives a mobile-money confirmation and pushes an UNLOCK command.
+ */
+class LockScreenActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityLockBinding
+    private lateinit var controller: DeviceLockController
+    private lateinit var agent: AgentManager
+
+    private val poll = Handler(Looper.getMainLooper())
+    private val pollRunnable = object : Runnable {
+        override fun run() {
+            if (agent.isEnrolled()) checkForRemoteUnlock()
+            poll.postDelayed(this, POLL_INTERVAL_MS)
+        }
+    }
+
+    // Dismiss the lock screen as soon as *anything* unlocks the device — the
+    // foreground poll here, or a background [CheckinWorker] running the UNLOCK.
+    private val unlockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            dismiss()
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityLockBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        controller = DeviceLockController(this)
+        agent = AgentManager(this)
+
+        // If we somehow launched (e.g. as HOME after a reboot) but the device is
+        // no longer locked, don't show the lock at all — go straight home.
+        if (!controller.isLocked()) {
+            dismiss()
+            return
+        }
+
+        // Enter kiosk mode so this screen owns the device.
+        runCatching { startLockTask() }
+
+        binding.btnEmergency.setOnClickListener {
+            // In a full build this dials the local emergency number; kept inert
+            // for the POC so we don't place real calls.
+            Toast.makeText(this, "Emergency dialer (demo)", Toast.LENGTH_SHORT).show()
+        }
+
+        // "I've paid" only asks the backend to re-check; it can NEVER unlock the
+        // device locally. The device unlocks only when the backend confirms
+        // payment and sends an UNLOCK command (delivered via FCM / check-in).
+        binding.btnCheckPayment.setOnClickListener {
+            AgentSync.requestImmediateSync(applicationContext)
+            Toast.makeText(this, R.string.lock_check_payment_toast, Toast.LENGTH_SHORT)
+                .show()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Safety net: if an unlock happened while we were paused (broadcast
+        // missed), dismiss as soon as we come back and notice we're unlocked.
+        if (!controller.isLocked()) {
+            dismiss()
+            return
+        }
+        registerUnlockReceiver()
+        poll.postDelayed(pollRunnable, POLL_INTERVAL_MS)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        poll.removeCallbacks(pollRunnable)
+        runCatching { unregisterReceiver(unlockReceiver) }
+    }
+
+    private fun registerUnlockReceiver() {
+        val filter = IntentFilter(DeviceLockController.ACTION_UNLOCKED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(unlockReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(unlockReceiver, filter)
+        }
+    }
+
+    /**
+     * While locked, keep checking in so a remote UNLOCK (e.g. staff clears the
+     * arrears from the dashboard) releases the device without customer action.
+     * The check-in runs [DeviceLockController.unlock] (which clears the lock
+     * state); we then dismiss ourselves.
+     */
+    private fun checkForRemoteUnlock() {
+        agent.checkinNow(currentlyLocked = true) {
+            if (!controller.isLocked()) dismiss()
+        }
+    }
+
+    /**
+     * Leave the lock screen and hand control back to the real launcher. Because
+     * the lock screen can be the HOME activity, a bare finish() would race the
+     * system re-resolving HOME; instead we leave kiosk mode and explicitly launch
+     * HOME (the lock alias is already disabled by unlock, so this is the launcher)
+     * before finishing.
+     */
+    private fun dismiss() {
+        poll.removeCallbacks(pollRunnable)
+        runCatching { stopLockTask() }
+        runCatching {
+            startActivity(
+                Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_HOME)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+        finish()
+    }
+
+    // Block the back button while locked.
+    @Deprecated("Intentionally swallow back while locked")
+    override fun onBackPressed() {
+        // no-op
+    }
+
+    companion object {
+        private const val POLL_INTERVAL_MS = 10_000L
+    }
+}
