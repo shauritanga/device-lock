@@ -75,6 +75,12 @@ export class ReleaseDeviceDto {
   force?: boolean;
 }
 
+export class ApproveSimChangeDto {
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
 export class ListDevicesQuery {
   @IsOptional()
   @IsEnum(DeviceStatus)

@@ -91,7 +91,7 @@ export class LoansService {
   findAll() {
     return this.prisma.scoped.loan.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { customer: true, device: true },
+      include: { customer: true, device: true, contract: true },
     });
   }
 
@@ -101,6 +101,7 @@ export class LoansService {
       include: {
         customer: true,
         device: true,
+        contract: true,
         installments: { orderBy: { sequence: 'asc' } },
       },
     });

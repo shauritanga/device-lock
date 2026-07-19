@@ -24,6 +24,7 @@ class CheckinWorker(context: Context, params: WorkerParameters) :
             agent.performCheckin(currentlyLocked = agent.isLocked())
             Result.success()
         } catch (t: Throwable) {
+            agent.enforceOfflinePolicy()
             // Transient (e.g. offline): let WorkManager retry with backoff.
             Result.retry()
         }

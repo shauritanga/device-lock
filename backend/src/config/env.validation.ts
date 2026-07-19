@@ -36,6 +36,16 @@ export const envSchema = z.object({
   BEEM_SECRET_KEY: z.string().optional(),
   BEEM_SENDER_ID: z.string().default('INFO'),
 
+  // Voice/IVR provider. Generic JSON POST integration; unset => dev stub.
+  VOICE_CALL_URL: z.string().url().optional(),
+  VOICE_API_KEY: z.string().optional(),
+  VOICE_SENDER_ID: z.string().default('SimuLinda'),
+
+  // Staff/customer bridge calls for call-centre verification. Unset => self-reported attempts.
+  CALL_PROVIDER_URL: z.string().url().optional(),
+  CALL_PROVIDER_API_KEY: z.string().optional(),
+  CALL_PROVIDER_NAME: z.string().default('GENERIC'),
+
   // Zero-touch / QR provisioning of the DPC agent.
   // Public base URL of THIS backend, used to build the APK download link the
   // setup wizard fetches (must be reachable by a factory-fresh device).

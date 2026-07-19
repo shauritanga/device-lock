@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class EnrollDto {
   @IsString()
@@ -24,6 +24,22 @@ export class EnrollDto {
   @IsOptional()
   @IsString()
   fcmToken?: string;
+
+  @IsOptional()
+  @IsString()
+  simIccid?: string;
+
+  @IsOptional()
+  @IsString()
+  simOperator?: string;
+
+  @IsOptional()
+  @IsString()
+  simCountryIso?: string;
+
+  @IsOptional()
+  @IsString()
+  simPhoneNumber?: string;
 }
 
 export class CheckinDto {
@@ -34,6 +50,30 @@ export class CheckinDto {
   @IsOptional()
   @IsString()
   lockState?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isDeviceOwner?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  managedRestrictionsApplied?: boolean;
+
+  @IsOptional()
+  @IsString()
+  simIccid?: string;
+
+  @IsOptional()
+  @IsString()
+  simOperator?: string;
+
+  @IsOptional()
+  @IsString()
+  simCountryIso?: string;
+
+  @IsOptional()
+  @IsString()
+  simPhoneNumber?: string;
 }
 
 export class AckDto {
@@ -43,4 +83,15 @@ export class AckDto {
   @IsOptional()
   @IsString()
   detail?: string;
+}
+
+export class PayNowDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  amount?: number;
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
 }

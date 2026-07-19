@@ -23,7 +23,7 @@ android {
         // Backend URL is baked into the build, NOT entered on-device, so a
         // customer can't repoint the agent at a rogue server that would just
         // reply "UNLOCK". Debug uses the local LAN backend for testing.
-        buildConfigField("String", "AGENT_BASE_URL", "\"http://192.168.1.194:3001/v1\"")
+        buildConfigField("String", "AGENT_BASE_URL", "\"http://192.168.1.196:3000/v1\"")
         // Staff gate for the one-time enrollment screen. Override per-release;
         // a real deployment should inject this from a secret, not ship a default.
         buildConfigField("String", "STAFF_PIN", "\"2468\"")

@@ -1,82 +1,281 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="24dp">
+    android:orientation="vertical">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="24dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/app_name"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:paddingBottom="16dp" />
-
-        <TextView
-            android:id="@+id/txtHint"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:paddingBottom="16dp" />
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/txtStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:background="#11000000"
-            android:padding="12dp"
-            android:textSize="13sp" />
-
-        <!-- Read-only managed status, shown once the device is enrolled. -->
-        <TextView
-            android:id="@+id/txtAgent"
+        <LinearLayout
+            android:id="@+id/pageHome"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:fontFamily="monospace"
-            android:background="#11000000"
-            android:padding="12dp"
-            android:textSize="12sp"
-            android:visibility="gone" />
+            android:orientation="vertical">
 
-        <!-- Staff area. The PIN gate is always visible but does nothing without
-             the PIN; the actions inside are hidden until it's entered. -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/staff_setup"
-            android:textStyle="bold"
-            android:textSize="15sp" />
+            <LinearLayout
+                android:id="@+id/homeAppBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingBottom="18dp">
 
-        <EditText
-            android:id="@+id/inputPin"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="@string/hint_staff_pin"
-            android:inputType="numberPassword"
-            android:textSize="14sp" />
+                <TextView
+                    android:id="@+id/txtAvatar"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_avatar_circle"
+                    android:gravity="center"
+                    android:text="C"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btnStaffUnlock"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/action_staff_unlock" />
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/txtGreeting"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Good day"
+                        android:textColor="#6B7280"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/txtAppBarName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Customer"
+                        android:textColor="#111827"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/btnNotifications"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_notification_button"
+                    android:contentDescription="@string/action_notifications"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_notification" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/txtSummaryState"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="10dp"
+                android:background="#EEF6FF"
+                android:text="@string/summary_loading"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/txtWelcome"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textStyle="bold"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/txtRemaining"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="#FFEFE6"
+                android:padding="16dp"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtPaid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="#EAF8EF"
+                android:padding="16dp"
+                android:textSize="16sp" />
+
+            <ProgressBar
+                android:id="@+id/progressPaid"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:max="100" />
+
+            <TextView
+                android:id="@+id/txtNextPayment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="#F4F4F5"
+                android:padding="16dp"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnPayNow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/action_pay_now" />
+
+            <TextView
+                android:id="@+id/txtLockStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="#11000000"
+                android:padding="12dp"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/staffActions"
+            android:id="@+id/pagePayments"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:orientation="vertical"
             android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/payments_title"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtInstallments"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="#11000000"
+                android:fontFamily="monospace"
+                android:padding="12dp"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/txtRecentPayments"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="#11000000"
+                android:fontFamily="monospace"
+                android:padding="12dp"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/pageProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/txtProfile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#11000000"
+                android:padding="12dp"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/pageSupport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/txtSupport"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#11000000"
+                android:padding="12dp"
+                android:text="@string/support_body"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/txtHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:textSize="14sp"
+                android:paddingBottom="16dp" />
+
+            <TextView
+                android:id="@+id/txtStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:background="#11000000"
+                android:padding="12dp"
+                android:textSize="13sp" />
+
+            <!-- Read-only managed status, shown once the device is enrolled. -->
+            <TextView
+                android:id="@+id/txtAgent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:fontFamily="monospace"
+                android:background="#11000000"
+                android:padding="12dp"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <!-- Staff area. The PIN gate is only visible on Support. -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/staff_setup"
+                android:textStyle="bold"
+                android:textSize="15sp" />
+
+            <EditText
+                android:id="@+id/inputPin"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="@string/hint_staff_pin"
+                android:inputType="numberPassword"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/btnStaffUnlock"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/action_staff_unlock" />
+
+            <LinearLayout
+                android:id="@+id/staffActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
 
             <!-- Shown before enrollment. -->
             <LinearLayout
@@ -110,14 +309,35 @@
                 android:layout_marginTop="12dp"
                 android:visibility="gone"
                 android:text="@string/action_release" />
+
+            <Button
+                android:id="@+id/btnDebugRelease"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"
+                android:text="@string/action_debug_release" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnRefresh"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/action_refresh" />
+
         </LinearLayout>
 
-        <Button
-            android:id="@+id/btnRefresh"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/action_refresh" />
+        </LinearLayout>
+    </ScrollView>
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:itemIconTint="@android:color/black"
+        app:itemTextColor="@android:color/black"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/main_bottom_nav" />
 
     </LinearLayout>
-</ScrollView>

@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { createHmac } from 'crypto';
 import {
   CommandStatus,
   CommandType,
@@ -12,6 +13,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PushService } from '../notifications/push.service';
+import { SmsService } from '../notifications/sms.service';
 
 /** Commands the agent must execute, with their resulting device state. */
 const STATUS_AFTER_ACK: Partial<Record<CommandType, DeviceStatus>> = {
@@ -27,6 +29,7 @@ export class CommandsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly push: PushService,
+    private readonly sms: SmsService,
   ) {}
 
   /** Queue a command for a device and attempt instant push (fallback: check-in). */
@@ -37,7 +40,14 @@ export class CommandsService {
   ) {
     const device = await this.prisma.scoped.device.findFirst({
       where: { id: deviceId },
-      select: { id: true, tenantId: true, fcmToken: true },
+      select: {
+        id: true,
+        tenantId: true,
+        fcmToken: true,
+        smsSecret: true,
+        simPhoneNumber: true,
+        customer: { select: { phone: true } },
+      },
     });
     if (!device) throw new NotFoundException('Device not found');
 
@@ -63,7 +73,43 @@ export class CommandsService {
         data: { status: CommandStatus.SENT, sentAt: new Date() },
       });
     }
+    await this.sendSmsFallback(device, command);
     return command;
+  }
+
+  private async sendSmsFallback(
+    device: {
+      id: string;
+      tenantId: string;
+      smsSecret: string | null;
+      simPhoneNumber: string | null;
+      customer: { phone: string } | null;
+    },
+    command: { id: string; type: CommandType; expiresAt: Date | null },
+  ) {
+    if (!device.smsSecret) return;
+    if (!SMS_COMMAND_TYPES.has(command.type)) {
+      return;
+    }
+    const phone = device.simPhoneNumber ?? device.customer?.phone;
+    if (!phone) return;
+
+    const expiresAt = command.expiresAt?.getTime() ?? Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const payload = `DL1|${command.id}|${command.type}|${expiresAt}`;
+    const sig = createHmac('sha256', device.smsSecret)
+      .update(payload)
+      .digest('base64url')
+      .slice(0, 32);
+    const sent = await this.sms.send(phone, `${payload}|${sig}`);
+
+    await this.prisma.scoped.deviceEvent.create({
+      data: {
+        tenantId: device.tenantId,
+        deviceId: device.id,
+        type: sent ? 'SMS_COMMAND_SENT' : 'SMS_COMMAND_STUBBED',
+        metadata: { commandId: command.id, commandType: command.type },
+      },
+    });
   }
 
   listForDevice(deviceId: string) {
@@ -150,3 +196,9 @@ export class CommandsService {
     return { ok: true };
   }
 }
+
+const SMS_COMMAND_TYPES = new Set<CommandType>([
+  CommandType.LOCK,
+  CommandType.UNLOCK,
+  CommandType.RELEASE,
+]);

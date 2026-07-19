@@ -14,6 +14,7 @@ import { UsersModule } from './users/users.module';
 import { CustomersModule } from './customers/customers.module';
 import { DevicesModule } from './devices/devices.module';
 import { LoansModule } from './loans/loans.module';
+import { ContractsModule } from './contracts/contracts.module';
 import { CommandsModule } from './commands/commands.module';
 import { AgentModule } from './agent/agent.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -23,6 +24,8 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { JobsModule } from './jobs/jobs.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ProvisioningModule } from './provisioning/provisioning.module';
+import { CallCentreModule } from './call-centre/call-centre.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -36,6 +39,7 @@ import { ProvisioningModule } from './provisioning/provisioning.module';
     CustomersModule,
     DevicesModule,
     LoansModule,
+    ContractsModule,
     CommandsModule,
     AgentModule,
     NotificationsModule,
@@ -45,6 +49,8 @@ import { ProvisioningModule } from './provisioning/provisioning.module';
     JobsModule,
     DashboardModule,
     ProvisioningModule,
+    CallCentreModule,
+    BillingModule,
   ],
   controllers: [HealthController],
   providers: [

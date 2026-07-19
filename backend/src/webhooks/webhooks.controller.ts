@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import { Public } from '../common/decorators/public.decorator';
 import { PaymentsService } from '../payments/payments.service';
 import { ClickPesaService } from '../integrations/clickpesa/clickpesa.service';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 interface ClickPesaWebhook {
   event?: string;
@@ -31,7 +32,31 @@ export class WebhooksController {
   constructor(
     private readonly payments: PaymentsService,
     private readonly clickpesa: ClickPesaService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  @Post('voice')
+  @HttpCode(200)
+  async handleVoice(@Body() body: Record<string, any>) {
+    const deviceId = String(body.deviceId ?? '').trim();
+    if (!deviceId) return { received: true, result: 'ignored' };
+
+    const device = await this.prisma.device.findUnique({
+      where: { id: deviceId },
+      select: { tenantId: true },
+    });
+    if (!device) return { received: true, result: 'unknown_device' };
+
+    await this.prisma.deviceEvent.create({
+      data: {
+        tenantId: device.tenantId,
+        deviceId,
+        type: 'VOICE_CALLBACK',
+        metadata: body as Prisma.InputJsonValue,
+      },
+    });
+    return { received: true, result: 'recorded' };
+  }
 
   /**
    * ClickPesa payment callback (docs.clickpesa.com/home/webhooks).

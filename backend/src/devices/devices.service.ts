@@ -82,6 +82,37 @@ export class DevicesService {
     return this.prisma.scoped.device.update({ where: { id }, data: dto });
   }
 
+  async approveSimChange(id: string, reason?: string) {
+    const device = await this.prisma.scoped.device.findFirst({
+      where: { id },
+      select: { id: true, tenantId: true, simFingerprint: true },
+    });
+    if (!device) throw new NotFoundException('Device not found');
+    if (!device.simFingerprint) {
+      throw new ConflictException('No reported SIM metadata to approve');
+    }
+
+    const now = new Date();
+    return this.prisma.scoped.$transaction(async (tx) => {
+      const updated = await tx.device.update({
+        where: { id },
+        data: {
+          approvedSimFingerprint: device.simFingerprint,
+          simChangeApprovedAt: now,
+        },
+      });
+      await tx.deviceEvent.create({
+        data: {
+          tenantId: device.tenantId,
+          deviceId: id,
+          type: 'SIM_CHANGE_APPROVED',
+          metadata: reason ? { reason } : undefined,
+        },
+      });
+      return updated;
+    });
+  }
+
   /**
    * Authorize a device release. Release permanently relinquishes device-owner,
    * so it is gated on the backing loan being COMPLETED. An OWNER may `force` it

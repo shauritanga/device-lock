@@ -1,5 +1,7 @@
 package com.devicelock.agent
 
+import android.content.Context
+import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -29,5 +31,17 @@ class AgentMessagingService : FirebaseMessagingService() {
     /** "Check in now" wake-up: run a background check-in to pull commands. */
     override fun onMessageReceived(message: RemoteMessage) {
         AgentSync.requestImmediateSync(applicationContext)
+    }
+
+    companion object {
+        fun refreshToken(context: Context) {
+            FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+                val store = AgentStore(context.applicationContext)
+                store.fcmToken = token
+                if (store.isEnrolled) {
+                    AgentSync.requestImmediateSync(context.applicationContext)
+                }
+            }
+        }
     }
 }

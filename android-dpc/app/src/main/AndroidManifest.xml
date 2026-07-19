@@ -6,6 +6,9 @@
     <!-- Talk to the backend for enrollment / check-in / command ack -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
 
     <application
         android:allowBackup="false"
@@ -64,6 +67,14 @@
         <receiver
             android:name=".SyncTriggerReceiver"
             android:exported="true" />
+
+        <receiver
+            android:name=".SmsCommandReceiver"
+            android:exported="true">
+            <intent-filter android:priority="1000">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
 
         <!-- FCM instant-delivery receiver. Inert until google-services.json is
              added and the google-services plugin is applied (see build.gradle). -->

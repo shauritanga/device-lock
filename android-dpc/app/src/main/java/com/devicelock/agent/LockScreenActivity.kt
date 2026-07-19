@@ -68,6 +68,24 @@ class LockScreenActivity : AppCompatActivity() {
             Toast.makeText(this, "Emergency dialer (demo)", Toast.LENGTH_SHORT).show()
         }
 
+        binding.btnPayNow.setOnClickListener {
+            Toast.makeText(this, R.string.pay_now_starting, Toast.LENGTH_SHORT).show()
+            agent.payNow(amount = null, phoneNumber = null) { result ->
+                result
+                    .onSuccess {
+                        Toast.makeText(this, R.string.pay_now_started, Toast.LENGTH_LONG).show()
+                        AgentSync.requestImmediateSync(applicationContext)
+                    }
+                    .onFailure {
+                        Toast.makeText(
+                            this,
+                            "${getString(R.string.pay_now_failed)}: ${it.message}",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+            }
+        }
+
         // "I've paid" only asks the backend to re-check; it can NEVER unlock the
         // device locally. The device unlocks only when the backend confirms
         // payment and sends an UNLOCK command (delivered via FCM / check-in).

@@ -1,9 +1,9 @@
 import { useParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
-import { Lock, Unlock, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Lock, Unlock, ArrowLeft, RefreshCw, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { api } from '../api/client';
-import type { Device, DeviceCommand } from '../api/types';
+import type { Device, DeviceCommand, DeviceEvent } from '../api/types';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusPill } from '../components/ui/Pill';
@@ -53,8 +53,20 @@ export default function DeviceDetail() {
       (await api.post(`/devices/${id}/unlock`, { reason: 'manual unlock from console' })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['device', id] }),
   });
+  const approveSim = useMutation({
+    mutationFn: async () =>
+      (await api.post(`/devices/${id}/approve-sim-change`, {
+        reason: 'approved from device detail page',
+      })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['device', id] }),
+  });
 
   if (isLoading || !device) return <Center><Spinner /></Center>;
+  const managementWarning = device.events?.find((e) => e.type === 'MANAGEMENT_HEALTH_WARNING');
+  const simWarning = device.events?.find((e) => e.type === 'SIM_CHANGED');
+  const simNeedsApproval = Boolean(
+    device.simFingerprint && device.approvedSimFingerprint && device.simFingerprint !== device.approvedSimFingerprint,
+  );
 
   return (
     <div className="space-y-6">
@@ -63,6 +75,40 @@ export default function DeviceDetail() {
       </Link>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {managementWarning ? (
+          <Card className="border-amber-200 bg-amber-50 p-4 lg:col-span-3">
+            <div className="flex gap-3 text-amber-800">
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold">Device is enrolled but not fully controlled</p>
+                <p className="mt-1 text-sm">
+                  The app reported that it is not Device Owner or managed restrictions are missing.
+                  Re-enroll this phone through QR/factory setup before handing it to a customer.
+                </p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {simWarning && simNeedsApproval ? (
+          <Card className="border-rose-200 bg-rose-50 p-4 lg:col-span-3">
+            <div className="flex flex-col gap-3 text-rose-800 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex gap-3">
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+                <div>
+                  <p className="font-semibold">SIM change detected</p>
+                  <p className="mt-1 text-sm">
+                    The phone reported a SIM that does not match the approved baseline. Review with the customer before approving replacement.
+                  </p>
+                </div>
+              </div>
+              <Button variant="secondary" onClick={() => approveSim.mutate()} disabled={approveSim.isPending}>
+                Approve SIM
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
         {/* Overview */}
         <Card className="lg:col-span-2">
           <CardHeader
@@ -96,6 +142,17 @@ export default function DeviceDetail() {
               <Unlock className="h-4 w-4" /> Unlock
             </Button>
           </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="SIM protection" subtitle={simNeedsApproval ? 'Replacement pending approval' : 'Approved SIM baseline'} />
+          <dl className="grid grid-cols-1 gap-4 p-6 text-sm">
+            <Info label="Operator" value={device.simOperator ?? '—'} />
+            <Info label="Country" value={device.simCountryIso?.toUpperCase() ?? '—'} />
+            <Info label="Phone number" value={device.simPhoneNumber ?? '—'} />
+            <Info label="Last changed" value={shortDate(device.simLastChangedAt)} />
+            <Info label="Approved at" value={shortDate(device.simChangeApprovedAt)} />
+          </dl>
         </Card>
 
         {/* Enrollment */}
@@ -182,9 +239,12 @@ export default function DeviceDetail() {
               <EmptyState title="No events" />
             ) : (
               device.events.map((e) => (
-                <div key={e.id} className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{e.type.replace(/_/g, ' ')}</span>
-                  <span className="text-muted">{shortDate(e.createdAt)}</span>
+                <div key={e.id} className="flex items-start justify-between gap-4 text-sm">
+                  <div>
+                    <p className="font-medium">{e.type.replace(/_/g, ' ')}</p>
+                    {eventDetail(e) ? <p className="text-xs text-muted">{eventDetail(e)}</p> : null}
+                  </div>
+                  <span className="shrink-0 text-muted">{shortDate(e.createdAt)}</span>
                 </div>
               ))
             )}
@@ -193,6 +253,20 @@ export default function DeviceDetail() {
       </div>
     </div>
   );
+}
+
+function eventDetail(event: DeviceEvent) {
+  const metadata = event.metadata as Record<string, unknown> | undefined;
+  if (!metadata) return '';
+  if (event.type.startsWith('REMINDER_')) {
+    const voice = metadata.voiceSent === true ? 'voice sent' : metadata.voiceAttempted ? 'voice stubbed/failed' : '';
+    const sms = metadata.smsSent === true || metadata.sent === true ? 'SMS sent' : 'SMS stubbed/failed';
+    return [sms, voice].filter(Boolean).join(' · ');
+  }
+  if (event.type === 'VOICE_CALLBACK') {
+    return String(metadata.status ?? metadata.callStatus ?? metadata.result ?? 'callback received');
+  }
+  return '';
 }
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {

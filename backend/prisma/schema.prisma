@@ -94,6 +94,9 @@ model Tenant {
   // Default lock policy applied to new devices (overridable per device).
   graceDays      Int @default(3)
   maxOfflineDays Int @default(4)
+  lockOnSimChange Boolean @default(true)
+  billingPlan String @default("STARTER")
+  subscriptionStatus String @default("ACTIVE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -101,8 +104,12 @@ model Tenant {
   customers     Customer[]
   devices       Device[]
   loans         Loan[]
+  contracts     Contract[]
   installments  Installment[]
   payments      Payment[]
+  callFollowUps CallFollowUp[]
+  callAttempts  CallAttempt[]
+  billingInvoices BillingInvoice[]
   commands      DeviceCommand[]
   events        DeviceEvent[]
   enrollTokens  EnrollmentToken[]
@@ -124,6 +131,9 @@ model User {
   updatedAt    DateTime @updatedAt
 
   issuedCommands DeviceCommand[] @relation("CommandIssuedBy")
+  assignedCallFollowUps CallFollowUp[] @relation("CallAssignedTo")
+  createdCallFollowUps CallFollowUp[] @relation("CallCreatedBy")
+  callAttempts CallAttempt[]
   refreshTokens  RefreshToken[]
 
   @@index([tenantId])
@@ -158,6 +168,9 @@ model Customer {
 
   devices Device[]
   loans   Loan[]
+  contracts Contract[]
+  callFollowUps CallFollowUp[]
+  callAttempts CallAttempt[]
 
   @@unique([tenantId, phone])
   @@index([tenantId])
@@ -182,14 +195,25 @@ model Device {
 
   // Agent identity / push
   agentTokenHash String?   @unique // hash of the device's auth token
+  smsSecret      String?
   fcmToken       String?           // for instant push commands
   lastCheckInAt  DateTime?
   lockedAt       DateTime?
+  simIccid       String?
+  simOperator    String?
+  simCountryIso  String?
+  simPhoneNumber String?
+  simFingerprint String?
+  approvedSimFingerprint String?
+  simLastChangedAt DateTime?
+  simChangeApprovedAt DateTime?
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   loan       Loan?
+  callFollowUps CallFollowUp[]
+  callAttempts CallAttempt[]
   commands   DeviceCommand[]
   events     DeviceEvent[]
   enrollToken EnrollmentToken?
@@ -235,8 +259,100 @@ model Loan {
 
   installments Installment[]
   payments     Payment[]
+  contract     Contract?
+  callFollowUps CallFollowUp[]
+  callAttempts CallAttempt[]
 
   @@index([tenantId, status])
+}
+
+model CallFollowUp {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  loanId      String
+  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  assignedToId String?
+  assignedTo   User?   @relation("CallAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?   @relation("CallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  outcome      String
+  notes        String?
+  promiseToPayAt DateTime?
+  escalationStatus String @default("NONE")
+  nextFollowUpAt DateTime?
+  calledAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  attempts      CallAttempt[]
+
+  @@index([tenantId, calledAt])
+  @@index([tenantId, escalationStatus])
+  @@index([loanId, calledAt])
+}
+
+model CallAttempt {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  followUpId  String?
+  followUp    CallFollowUp? @relation(fields: [followUpId], references: [id], onDelete: SetNull)
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  loanId      String
+  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  staffId     String
+  staff       User     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  staffPhone    String?
+  customerPhone String
+  provider      String?
+  providerCallId String?
+  providerStatus String?
+  verificationStatus String @default("SELF_REPORTED")
+  durationSeconds Int?
+  recordingUrl String?
+  startedAt    DateTime @default(now())
+  endedAt      DateTime?
+  rawPayload   Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, startedAt])
+  @@index([staffId, startedAt])
+  @@index([loanId, startedAt])
+  @@index([providerCallId])
+}
+
+model Contract {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  loanId       String   @unique
+  loan         Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  acceptedAt   DateTime @default(now())
+  acceptedBy   String
+  language     String   @default("en")
+  termsVersion String   @default("simulinda-v1")
+  termsText    String
+  metadata     Json?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, acceptedAt])
+  @@index([customerId])
 }
 
 model Installment {
@@ -277,6 +393,31 @@ model Payment {
 
   createdAt     DateTime @default(now())
 
+  @@index([tenantId, status])
+}
+
+model BillingInvoice {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  periodStart DateTime
+  periodEnd   DateTime
+  planName    String
+  status      String   @default("OPEN")
+  currency    String   @default("TZS")
+  activeDevices Int    @default(0)
+  smsCount      Int    @default(0)
+  voiceCount    Int    @default(0)
+  callCentreCount Int  @default(0)
+  subtotal    Decimal  @db.Decimal(14, 2)
+  tax         Decimal  @db.Decimal(14, 2) @default(0)
+  total       Decimal  @db.Decimal(14, 2)
+  paidAt      DateTime?
+  lineItems   Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, periodStart])
   @@index([tenantId, status])
 }
 

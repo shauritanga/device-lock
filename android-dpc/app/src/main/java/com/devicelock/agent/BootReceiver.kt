@@ -29,6 +29,7 @@ class BootReceiver : BroadcastReceiver() {
         // Resume delivery and catch up on anything missed while off.
         AgentSync.schedulePeriodic(appContext)
         AgentSync.requestImmediateSync(appContext)
+        AgentManager(appContext).enforceOfflinePolicy()
 
         // Re-assert anti-removal (device-owner restrictions persist across reboot,
         // but re-applying is cheap insurance) and the lock if we were locked.

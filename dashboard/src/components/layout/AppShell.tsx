@@ -10,6 +10,9 @@ import {
   UserCog,
   LogOut,
   Bell,
+  ReceiptText,
+  PhoneCall,
+  WalletCards,
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { Avatar } from '../ui/misc';
@@ -17,20 +20,28 @@ import { cn } from '../../lib/cn';
 
 const mainNav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/sales', label: 'Sales', icon: ReceiptText },
   { to: '/devices', label: 'Devices', icon: Smartphone },
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/loans', label: 'Loans', icon: FileText },
   { to: '/payments', label: 'Payments', icon: CreditCard },
+  { to: '/call-centre', label: 'Call Centre', icon: PhoneCall },
 ];
 
-const adminNav = [{ to: '/staff', label: 'Staff', icon: UserCog }];
+const adminNav = [
+  { to: '/billing', label: 'Billing', icon: WalletCards },
+  { to: '/staff', label: 'Staff', icon: UserCog },
+];
 
 const subtitles: Record<string, string> = {
   Dashboard: 'Overview of your financed fleet and collections',
+  Sales: 'Credit sales from customer assignment to repayment',
   Devices: 'Enrolled devices and their lock status',
   Customers: 'People financing devices with you',
   Loans: 'Financing agreements and repayment schedules',
   Payments: 'Collections and reconciliation across loans',
+  'Call Centre': 'Overdue call queue, promises to pay, and escalation tracking',
+  Billing: 'Subscription plan, usage bundles, and monthly invoices',
   Staff: 'Team members with access to this console',
 };
 

@@ -29,6 +29,14 @@ export class CreateTenantDto {
   @IsInt()
   @Min(1)
   maxOfflineDays?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  lockOnSimChange?: boolean;
+
+  @IsOptional()
+  @IsString()
+  billingPlan?: string;
 }
 
 export class UpdateTenantDto {
@@ -50,4 +58,16 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  lockOnSimChange?: boolean;
+
+  @IsOptional()
+  @IsString()
+  billingPlan?: string;
+
+  @IsOptional()
+  @IsString()
+  subscriptionStatus?: string;
 }

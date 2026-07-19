@@ -16,6 +16,7 @@ import { DevicesService } from './devices.service';
 import { CommandsService } from '../commands/commands.service';
 import {
   CreateDeviceDto,
+  ApproveSimChangeDto,
   ListDevicesQuery,
   LockDeviceDto,
   ReleaseDeviceDto,
@@ -52,6 +53,12 @@ export class DevicesController {
   @Post(':id/enrollment-token')
   regenerate(@Param('id') id: string) {
     return this.devices.regenerateEnrollment(id);
+  }
+
+  @Post(':id/approve-sim-change')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  approveSimChange(@Param('id') id: string, @Body() dto: ApproveSimChangeDto) {
+    return this.devices.approveSimChange(id, dto.reason);
   }
 
   @Get(':id/qr')

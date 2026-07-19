@@ -14,9 +14,11 @@ import {
   Lock,
   AlertTriangle,
   Wallet,
+  CalendarClock,
+  PhoneCall,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { DashboardSummary, Payment } from '../api/types';
+import type { DashboardInstallmentRow, DashboardLockedDevice, DashboardSummary, Payment } from '../api/types';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatCard } from '../components/StatCard';
 import { StatusPill } from '../components/ui/Pill';
@@ -52,18 +54,46 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Smartphone} label="Active devices" value={data.devices.active} tone="green" />
         <StatCard icon={Lock} label="Locked devices" value={data.devices.locked} tone="red" />
+        <StatCard icon={CalendarClock} label="Due today" value={data.dueTodayInstallments} tone="amber" />
         <StatCard
           icon={AlertTriangle}
           label="Overdue installments"
           value={data.overdueInstallments}
           tone="amber"
         />
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={Wallet}
           label="Collections (this month)"
           value={money(data.collectionsThisMonth)}
           tone="brand"
         />
+        <StatCard
+          icon={AlertTriangle}
+          label="Overdue amount"
+          value={money(data.overdueAmount)}
+          tone="red"
+        />
+        <StatCard icon={PhoneCall} label="Customers" value={data.customers} tone="brand" />
+        <StatCard icon={Wallet} label="Active loans" value={data.activeLoans} tone="green" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <OperationsList
+          title="Due today"
+          subtitle="Customers to remind before close of business"
+          rows={data.dueToday}
+          empty="No installments due today"
+        />
+        <OperationsList
+          title="Overdue accounts"
+          subtitle="Highest priority collection follow-up"
+          rows={data.overdueAccounts}
+          empty="No overdue accounts"
+        />
+        <LockedDevicesList rows={data.lockedDevices} />
       </div>
 
       {/* Chart + donut */}
@@ -175,5 +205,76 @@ export default function Dashboard() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function OperationsList({
+  title,
+  subtitle,
+  rows,
+  empty,
+}: {
+  title: string;
+  subtitle: string;
+  rows: DashboardInstallmentRow[];
+  empty: string;
+}) {
+  return (
+    <Card>
+      <CardHeader title={title} subtitle={subtitle} />
+      <div className="space-y-3 px-6 pb-5 pt-4">
+        {rows.length === 0 ? (
+          <EmptyState title={empty} />
+        ) : (
+          rows.map((row) => (
+            <div key={row.id} className="rounded-xl border border-line bg-canvas/70 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{row.customerName ?? 'Unknown customer'}</p>
+                  <p className="text-xs text-muted">{row.customerPhone ?? 'No phone'} · {row.deviceImei ?? 'No device'}</p>
+                </div>
+                <StatusPill status={row.status} />
+              </div>
+              <div className="mt-3 flex items-end justify-between gap-3 text-sm">
+                <div>
+                  <p className="text-muted">Installment #{row.sequence}</p>
+                  <p className="font-semibold tabular-nums">{money(row.amountDue)}</p>
+                </div>
+                <p className="text-right text-xs text-muted">Due {shortDate(row.dueDate)}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function LockedDevicesList({ rows }: { rows: DashboardLockedDevice[] }) {
+  return (
+    <Card>
+      <CardHeader title="Locked devices" subtitle="Phones currently restricted" />
+      <div className="space-y-3 px-6 pb-5 pt-4">
+        {rows.length === 0 ? (
+          <EmptyState title="No locked devices" />
+        ) : (
+          rows.map((row) => (
+            <div key={row.id} className="rounded-xl border border-line bg-rose-50/50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{row.customerName ?? 'Unknown customer'}</p>
+                  <p className="text-xs text-muted">{row.customerPhone ?? 'No phone'}</p>
+                </div>
+                <StatusPill status="LOCKED" />
+              </div>
+              <div className="mt-3 text-sm">
+                <p className="font-medium">{row.imei}</p>
+                <p className="text-xs text-muted">{row.model ?? 'Model not set'} · locked {shortDate(row.lockedAt)}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
   );
 }

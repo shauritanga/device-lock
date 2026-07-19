@@ -2,10 +2,25 @@
 <resources>
     <string name="app_name">Device Lock Agent</string>
 
+    <string name="nav_home">Home</string>
+    <string name="nav_payments">Payments</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_support">Support</string>
+    <string name="action_notifications">Notifications</string>
+    <string name="summary_loading">Loading account details…</string>
+    <string name="summary_failed">Could not load account details</string>
+    <string name="summary_not_enrolled">Device is not enrolled yet. Ask staff to enroll it from Support using the staff PIN.</string>
+    <string name="payments_title">Installments and payments</string>
+    <string name="support_body">For payment questions or help with this device, contact the shop or agent who sold you the phone. Your payment information on this app is read-only and updates after confirmed payments.</string>
+
     <string name="hint_ready">This device is managed by your provider. Lock status is controlled remotely.</string>
     <string name="hint_not_owner">Not the Device Owner yet. Provision via:\n adb shell dpm set-device-owner com.devicelock.agent/.LockAdminReceiver</string>
 
     <string name="action_refresh">Refresh status</string>
+    <string name="action_pay_now">Pay Now</string>
+    <string name="pay_now_starting">Starting mobile money payment…</string>
+    <string name="pay_now_started">Payment request sent. Confirm on your phone, then the device will update automatically.</string>
+    <string name="pay_now_failed">Could not start payment</string>
 
     <string name="staff_setup">Staff setup</string>
     <string name="hint_staff_pin">Staff PIN</string>
@@ -19,6 +34,9 @@
     <string name="release_done">Device released — management removed</string>
     <string name="release_not_authorized">Not released — the loan isn\'t fully paid yet</string>
     <string name="release_not_enrolled">Not enrolled — nothing to release</string>
+    <string name="action_debug_release">Debug: release orphaned device</string>
+    <string name="debug_release_title">Release orphaned test device?</string>
+    <string name="debug_release_msg">Debug build only. Use this when test database rows were deleted before the phone was released. It removes Device Owner locally and forgets the stale enrollment.</string>
     <string name="managed_notice">This device is managed. Enrolled: %1$s</string>
     <string name="staff_pin_wrong">Incorrect staff PIN</string>
 

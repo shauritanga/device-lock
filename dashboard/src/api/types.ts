@@ -37,6 +37,14 @@ export interface Device {
   customerId?: string | null;
   lastCheckInAt?: string | null;
   lockedAt?: string | null;
+  simIccid?: string | null;
+  simOperator?: string | null;
+  simCountryIso?: string | null;
+  simPhoneNumber?: string | null;
+  simFingerprint?: string | null;
+  approvedSimFingerprint?: string | null;
+  simLastChangedAt?: string | null;
+  simChangeApprovedAt?: string | null;
   createdAt: string;
   customer?: Customer | null;
   loan?: Loan | null;
@@ -82,6 +90,18 @@ export interface Loan {
   device?: Device;
   installments?: Installment[];
   summary?: { financed: string; totalInterest: string; totalRepayable: string };
+  contract?: Contract | null;
+}
+
+export interface Contract {
+  id: string;
+  loanId: string;
+  customerId: string;
+  acceptedAt: string;
+  acceptedBy: string;
+  language: string;
+  termsVersion: string;
+  termsText: string;
 }
 
 export interface Payment {
@@ -113,7 +133,129 @@ export interface DashboardSummary {
   };
   customers: number;
   activeLoans: number;
+  dueTodayInstallments: number;
   overdueInstallments: number;
   collectionsThisMonth: number;
+  overdueAmount: number;
+  dueToday: DashboardInstallmentRow[];
+  overdueAccounts: DashboardInstallmentRow[];
+  lockedDevices: DashboardLockedDevice[];
   series: { label: string; amount: number }[];
+}
+
+export interface DashboardInstallmentRow {
+  id: string;
+  sequence: number;
+  dueDate: string;
+  amount: number;
+  amountPaid: number;
+  amountDue: number;
+  status: string;
+  loanId: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  deviceId?: string | null;
+  deviceImei?: string | null;
+  deviceModel?: string | null;
+}
+
+export interface DashboardLockedDevice {
+  id: string;
+  imei: string;
+  model?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  lockedAt?: string | null;
+  loanStatus?: string | null;
+}
+
+export interface CallQueueItem {
+  loanId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  deviceId: string;
+  deviceImei: string;
+  deviceModel?: string | null;
+  deviceStatus: string;
+  currency: string;
+  installmentId?: string | null;
+  installmentSequence?: number | null;
+  dueDate?: string | null;
+  amountDue: number;
+  daysOverdue: number;
+  lastFollowUp?: CallFollowUp | null;
+}
+
+export interface CallAttempt {
+  id: string;
+  followUpId?: string | null;
+  loanId: string;
+  staffPhone?: string | null;
+  customerPhone: string;
+  provider?: string | null;
+  providerCallId?: string | null;
+  providerStatus?: string | null;
+  verificationStatus: string;
+  durationSeconds?: number | null;
+  recordingUrl?: string | null;
+  startedAt: string;
+  endedAt?: string | null;
+  customer?: { fullName: string; phone: string };
+  staff?: { id: string; fullName: string };
+}
+
+export interface CallFollowUp {
+  id: string;
+  loanId: string;
+  outcome: string;
+  notes?: string | null;
+  promiseToPayAt?: string | null;
+  escalationStatus: string;
+  nextFollowUpAt?: string | null;
+  calledAt: string;
+  attempts?: CallAttempt[];
+  customer?: { fullName: string; phone: string };
+  assignedTo?: { id: string; fullName: string } | null;
+  createdBy?: { id: string; fullName: string } | null;
+}
+
+export interface CallPerformanceRow {
+  staffId?: string | null;
+  outcome: string;
+  count: number;
+  avgDurationSeconds?: number;
+}
+
+export interface BillingInvoice {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  planName: string;
+  status: string;
+  currency: string;
+  activeDevices: number;
+  smsCount: number;
+  voiceCount: number;
+  callCentreCount: number;
+  subtotal: string;
+  tax: string;
+  total: string;
+  paidAt?: string | null;
+  lineItems: BillingLineItem[];
+}
+
+export interface BillingLineItem {
+  label: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface BillingSummary {
+  tenant: { id: string; name: string; billingPlan: string; subscriptionStatus: string };
+  period: { start: string; end: string };
+  usage: { activeDevices: number; smsCount: number; voiceCount: number; callCentreCount: number };
+  estimate: { lineItems: BillingLineItem[]; subtotal: number; tax: number; total: number; plan: Record<string, unknown> };
+  invoices: BillingInvoice[];
 }

@@ -1,5 +1,6 @@
 package com.devicelock.agent
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -37,6 +38,25 @@ class DeviceLockController(private val context: Context) {
         if (!isDeviceOwner()) return
         for (restriction in MANAGED_RESTRICTIONS) {
             dpm.addUserRestriction(admin, restriction)
+        }
+        grantAgentPermissions()
+    }
+
+    fun managedRestrictionsApplied(): Boolean {
+        if (!isDeviceOwner()) return false
+        val restrictions = dpm.getUserRestrictions(admin)
+        return MANAGED_RESTRICTIONS.all { restrictions.getBoolean(it, false) }
+    }
+
+    private fun grantAgentPermissions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        for (permission in AGENT_PERMISSIONS) {
+            dpm.setPermissionGrantState(
+                admin,
+                context.packageName,
+                permission,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
+            )
         }
     }
 
@@ -173,6 +193,7 @@ class DeviceLockController(private val context: Context) {
      */
     fun statusSummary(): String = buildString {
         appendLine("Device owner: ${isDeviceOwner()}")
+        appendLine("Managed restrictions: ${managedRestrictionsApplied()}")
         appendLine("Locked (policy): ${isLocked()}")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             appendLine("API level: ${Build.VERSION.SDK_INT}")
@@ -194,6 +215,12 @@ class DeviceLockController(private val context: Context) {
             UserManager.DISALLOW_FACTORY_RESET,
             UserManager.DISALLOW_SAFE_BOOT,
             UserManager.DISALLOW_ADD_USER,
+        )
+
+        private val AGENT_PERMISSIONS = arrayOf(
+            Manifest.permission.RECEIVE_SMS,
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.READ_PHONE_NUMBERS,
         )
     }
 }
