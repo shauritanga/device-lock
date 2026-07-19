@@ -13,6 +13,7 @@ import { CommandsService } from '../commands/commands.service';
 import { SmsService } from '../notifications/sms.service';
 import { VoiceService } from '../notifications/voice.service';
 import { TENANT_ID_KEY } from '../common/tenant/tenant-context';
+import { CollectionsService } from '../collections/collections.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BEFORE_DUE_DAYS = 1;
@@ -42,6 +43,7 @@ export class InstallmentsEvaluator {
     private readonly sms: SmsService,
     private readonly voice: VoiceService,
     private readonly cls: ClsService,
+    private readonly collections: CollectionsService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
@@ -50,7 +52,8 @@ export class InstallmentsEvaluator {
     this.logger.log(
       `Repayment sweep: ${summary.beforeDue} before-due, ${summary.dueToday} due-today, ` +
         `${summary.grace} grace, ${summary.lockWarnings} lock-warning, ` +
-        `${summary.locked} locked across ${summary.tenants} tenants`,
+        `${summary.locked} locked across ${summary.tenants} tenants; ` +
+        `collections cases synced=${summary.collectionCases}`,
     );
   }
 
@@ -74,7 +77,14 @@ export class InstallmentsEvaluator {
         locked += r.locked;
       });
     }
-    return { tenants: tenants.length, ...totals, locked };
+    // After overdue statuses are updated, refresh managed collection cases.
+    const coll = await this.collections.syncAllActiveSubscriptions();
+    return {
+      tenants: tenants.length,
+      ...totals,
+      locked,
+      collectionCases: coll.cases,
+    };
   }
 
   private async evaluateTenant(tenantGraceDays: number) {

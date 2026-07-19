@@ -2,6 +2,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import {
   CommandStatus,
@@ -20,6 +22,7 @@ import { ClickPesaService } from '../integrations/clickpesa/clickpesa.service';
 import { TENANT_ID_KEY } from '../common/tenant/tenant-context';
 import { randomToken } from '../common/crypto.util';
 import { InitiatePaymentDto, RecordPaymentDto } from './dto/payment.dto';
+import { CollectionsService } from '../collections/collections.service';
 
 const toCents = (d: Prisma.Decimal | number | string) =>
   Math.round(Number(d) * 100);
@@ -34,6 +37,8 @@ export class PaymentsService {
     private readonly commands: CommandsService,
     private readonly clickpesa: ClickPesaService,
     private readonly cls: ClsService,
+    @Inject(forwardRef(() => CollectionsService))
+    private readonly collections: CollectionsService,
   ) {}
 
   /** Record a manual (e.g. cash) payment and apply it immediately. */
@@ -160,6 +165,11 @@ export class PaymentsService {
     });
     await this.recompute(payment.loanId);
     await this.settleDeviceState(payment.loanId);
+    await this.notifyCollections(
+      payment.loanId,
+      payment.id,
+      Number(payment.amount),
+    );
     return 'applied';
   }
 
@@ -178,11 +188,26 @@ export class PaymentsService {
   private async applyConfirmed(paymentId: string) {
     const payment = await this.prisma.scoped.payment.findFirst({
       where: { id: paymentId },
-      select: { loanId: true },
+      select: { id: true, loanId: true, amount: true },
     });
     if (!payment) throw new NotFoundException('Payment not found');
     await this.recompute(payment.loanId);
     await this.settleDeviceState(payment.loanId);
+    await this.notifyCollections(payment.loanId, payment.id, Number(payment.amount));
+  }
+
+  private async notifyCollections(
+    loanId: string,
+    paymentId: string,
+    amount: number,
+  ) {
+    try {
+      await this.collections.onPaymentConfirmed(loanId, paymentId, amount);
+    } catch (e) {
+      this.logger.warn(
+        `Collections hook failed for loan ${loanId}: ${(e as Error).message}`,
+      );
+    }
   }
 
   /**

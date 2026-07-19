@@ -20,9 +20,93 @@ datasource db {
 
 enum UserRole {
   SUPER_ADMIN // platform operator (you) — not bound to a tenant
+  COLLECTIONS_ADMIN // platform: manage collectors, assign cases across sellers
+  COLLECTOR // platform: follow up assigned collection cases only
   OWNER // owner of a credit shop
   MANAGER
   AGENT // front-desk staff who enrolls devices / takes payments
+}
+
+enum CollectionsPackage {
+  STARTER // < 30 devices, per-device pricing
+  GROWTH // 30–44 devices, flat monthly
+  BUSINESS // 45–55 devices, flat monthly
+}
+
+enum CollectionsSubscriptionStatus {
+  NONE
+  PENDING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+}
+
+enum CollectionCaseStatus {
+  OPEN
+  IN_PROGRESS
+  PROMISED
+  PAID
+  ESCALATED
+  CLOSED
+}
+
+enum CollectionCaseSource {
+  AUTO_OVERDUE
+  MANUAL
+  SELLER_HANDOFF
+}
+
+enum ContactChannel {
+  CALL
+  SMS
+  WHATSAPP
+}
+
+enum ContactSessionStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  FAILED
+}
+
+/// How strongly we proved the contact happened (see plan §3A).
+enum ContactVerificationStatus {
+  NONE
+  SELF_REPORTED
+  ATTEMPTED
+  DEVICE_LOG_MATCHED
+  PROVIDER_VERIFIED
+  NO_MATCH
+  FAILED
+}
+
+enum CommunicationDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum CommunicationStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  COMPLETED
+  PENDING_PROOF
+}
+
+enum PromiseToPayStatus {
+  OPEN
+  KEPT
+  BROKEN
+  CANCELLED
+}
+
+enum CollectionsInvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  PAST_DUE
 }
 
 enum DeviceStatus {
@@ -113,19 +197,28 @@ model Tenant {
   commands      DeviceCommand[]
   events        DeviceEvent[]
   enrollTokens  EnrollmentToken[]
+  collectionsSubscription CollectionsSubscription?
+  collectionCases CollectionCase[]
+  contactSessions ContactSession[]
+  communicationLogs CommunicationLog[]
+  promisesToPay PromiseToPay[]
+  collectionsInvoices CollectionsInvoice[]
 
   @@index([isActive])
 }
 
 model User {
   id           String   @id @default(uuid())
-  tenantId     String? // null only for SUPER_ADMIN
+  // null for SUPER_ADMIN, COLLECTIONS_ADMIN, COLLECTOR (platform operators)
+  tenantId     String?
   tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email        String   @unique
   passwordHash String
   fullName     String
   role         UserRole @default(AGENT)
   isActive     Boolean  @default(true)
+  // Phone the collector uses for BYOD follow-up (E.164 preferred).
+  phone        String?
   lastLoginAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -135,8 +228,249 @@ model User {
   createdCallFollowUps CallFollowUp[] @relation("CallCreatedBy")
   callAttempts CallAttempt[]
   refreshTokens  RefreshToken[]
+  assignedCollectionCases CollectionCase[] @relation("CaseAssignedTo")
+  activatedSubscriptions CollectionsSubscription[] @relation("SubscriptionActivatedBy")
+  contactSessions ContactSession[] @relation("ContactCollector")
+  communicationLogs CommunicationLog[] @relation("CommCollector")
+  promisesToPay PromiseToPay[] @relation("PtpCreatedBy")
+  workSessions CollectorWorkSession[]
+  dailyStats CollectorDailyStat[]
 
   @@index([tenantId])
+  @@index([role])
+}
+
+/// Clock-in / clock-out (primary source for "hours worked").
+model CollectorWorkSession {
+  id          String    @id @default(uuid())
+  collectorId String
+  collector   User      @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  source      String    @default("MANUAL_CLOCK") // MANUAL_CLOCK | AUTO_FROM_ACTIVITY
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([collectorId, startedAt])
+  @@index([collectorId, endedAt])
+}
+
+/// Materialized daily rollup for collector KPIs (day / month / year reports).
+model CollectorDailyStat {
+  id              String   @id @default(uuid())
+  collectorId     String
+  collector       User     @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+  /// Calendar day (UTC date truncated to midnight).
+  date            DateTime @db.Date
+  callsCount      Int      @default(0)
+  talkSeconds     Int      @default(0)
+  smsCount        Int      @default(0)
+  whatsappCount   Int      @default(0)
+  followUpsCount  Int      @default(0)
+  casesWorked     Int      @default(0)
+  ptpCount        Int      @default(0)
+  /// From work sessions that day (seconds).
+  hoursWorkedSeconds Int   @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([collectorId, date])
+  @@index([date])
+}
+
+// Seller subscribes so platform collectors can work their overdue book.
+model CollectionsSubscription {
+  id           String                         @id @default(uuid())
+  tenantId     String                         @unique
+  tenant       Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  packageCode  CollectionsPackage
+  status       CollectionsSubscriptionStatus  @default(PENDING)
+  // Snapshot / limits at activation
+  deviceBandMin Int
+  deviceBandMax Int
+  priceModel   String // PER_DEVICE | FLAT
+  unitPrice    Decimal? @db.Decimal(14, 2) // per device (Starter)
+  flatPrice    Decimal? @db.Decimal(14, 2) // Growth / Business
+  currency     String   @default("TZS")
+  activatedAt  DateTime?
+  activatedById String?
+  activatedBy  User?    @relation("SubscriptionActivatedBy", fields: [activatedById], references: [id], onDelete: SetNull)
+  endsAt       DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  invoices CollectionsInvoice[]
+
+  @@index([status])
+}
+
+/// Monthly invoice for managed collections service (separate from platform SaaS billing).
+model CollectionsInvoice {
+  id              String                    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptionId  String
+  subscription    CollectionsSubscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  periodStart     DateTime
+  periodEnd       DateTime
+  packageCode     CollectionsPackage
+  activeDevices   Int
+  priceModel      String
+  unitPrice       Decimal?                  @db.Decimal(14, 2)
+  flatPrice       Decimal?                  @db.Decimal(14, 2)
+  currency        String                    @default("TZS")
+  subtotal        Decimal                   @db.Decimal(14, 2)
+  total           Decimal                   @db.Decimal(14, 2)
+  status          CollectionsInvoiceStatus  @default(OPEN)
+  lineItems       Json
+  dueDate         DateTime
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@unique([subscriptionId, periodStart])
+  @@index([tenantId, periodStart])
+  @@index([status, dueDate])
+}
+
+// One open work unit per loan (overdue collection case), always tagged with seller tenant.
+model CollectionCase {
+  id             String               @id @default(uuid())
+  tenantId       String
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanId         String               @unique
+  loan           Loan                 @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deviceId       String
+  device         Device               @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  installmentId  String?
+  installment    Installment?         @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+
+  status         CollectionCaseStatus @default(OPEN)
+  source         CollectionCaseSource @default(AUTO_OVERDUE)
+  daysOverdue    Int                  @default(0)
+  amountDue      Decimal              @default(0) @db.Decimal(14, 2)
+  currency       String               @default("TZS")
+  followUpCount  Int                  @default(0)
+  assignedToId   String?
+  assignedTo     User?                @relation("CaseAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt     DateTime?
+  lastContactedAt DateTime?
+  nextActionAt   DateTime?
+  closedAt       DateTime?
+  closedReason   String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  contactSessions   ContactSession[]
+  communicationLogs CommunicationLog[]
+  promisesToPay     PromiseToPay[]
+
+  @@index([tenantId, status])
+  @@index([assignedToId, status])
+  @@index([status, daysOverdue])
+  @@index([nextActionAt])
+}
+
+/// System-initiated contact (must start here before Call/SMS/WhatsApp).
+model ContactSession {
+  id               String                    @id @default(uuid())
+  tenantId         String
+  tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseId           String
+  case             CollectionCase            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  loanId           String
+  customerId       String
+  collectorId      String
+  collector        User                      @relation("ContactCollector", fields: [collectorId], references: [id], onDelete: Cascade)
+
+  channel          ContactChannel
+  customerPhone    String
+  collectorPhone   String?
+  bodyPreview      String?
+  status           ContactSessionStatus      @default(PENDING)
+  verificationStatus ContactVerificationStatus @default(NONE)
+  provider         String?
+  providerRef      String?
+  durationSeconds  Int?
+  deviceMatchMeta  Json?
+  launchUrl        String? // tel: / sms: / wa.me deep link for client
+  initiatedAt      DateTime                  @default(now())
+  expiresAt        DateTime
+  completedAt      DateTime?
+  outcomeNote      String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  communicationLog CommunicationLog?
+
+  @@index([tenantId, initiatedAt])
+  @@index([caseId, initiatedAt])
+  @@index([collectorId, status])
+  @@index([status, expiresAt])
+}
+
+/// Unified timeline of call / SMS / WhatsApp per client/case.
+model CommunicationLog {
+  id               String                 @id @default(uuid())
+  tenantId         String
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseId           String
+  case             CollectionCase         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  loanId           String
+  customerId       String
+  contactSessionId String?                @unique
+  contactSession   ContactSession?        @relation(fields: [contactSessionId], references: [id], onDelete: SetNull)
+  collectorId      String?
+  collector        User?                  @relation("CommCollector", fields: [collectorId], references: [id], onDelete: SetNull)
+
+  channel          ContactChannel
+  direction        CommunicationDirection @default(OUTBOUND)
+  status           CommunicationStatus    @default(PENDING_PROOF)
+  verificationStatus ContactVerificationStatus @default(NONE)
+  customerPhone    String?
+  body             String?
+  durationSeconds  Int?
+  providerRef      String?
+  metadata         Json?
+  occurredAt       DateTime               @default(now())
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([tenantId, occurredAt])
+  @@index([caseId, occurredAt])
+  @@index([customerId, occurredAt])
+  @@index([collectorId, occurredAt])
+}
+
+model PromiseToPay {
+  id               String             @id @default(uuid())
+  tenantId         String
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseId           String
+  case             CollectionCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  loanId           String
+  customerId       String
+  promisedAmount   Decimal            @db.Decimal(14, 2)
+  currency         String             @default("TZS")
+  promisedAt       DateTime           @default(now())
+  dueDate          DateTime
+  status           PromiseToPayStatus @default(OPEN)
+  notes            String?
+  createdById      String?
+  createdBy        User?              @relation("PtpCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  keptPaymentId    String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([tenantId, dueDate])
+  @@index([caseId, status])
+  @@index([status, dueDate])
+  @@index([createdById])
 }
 
 model RefreshToken {
@@ -171,6 +505,8 @@ model Customer {
   contracts Contract[]
   callFollowUps CallFollowUp[]
   callAttempts CallAttempt[]
+  collectionCases CollectionCase[]
+  // ContactSession / CommunicationLog / PromiseToPay keyed via case/loan; no reverse needed on Customer for MVP
 
   @@unique([tenantId, phone])
   @@index([tenantId])
@@ -217,6 +553,7 @@ model Device {
   commands   DeviceCommand[]
   events     DeviceEvent[]
   enrollToken EnrollmentToken?
+  collectionCases CollectionCase[]
 
   @@unique([tenantId, imei])
   @@index([tenantId, status])
@@ -262,6 +599,7 @@ model Loan {
   contract     Contract?
   callFollowUps CallFollowUp[]
   callAttempts CallAttempt[]
+  collectionCase CollectionCase?
 
   @@index([tenantId, status])
 }
@@ -370,6 +708,8 @@ model Installment {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  collectionCases CollectionCase[]
 
   @@unique([loanId, sequence])
   @@index([tenantId, status, dueDate])

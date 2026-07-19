@@ -6,6 +6,6 @@ import { CallProviderService } from './call-provider.service';
 @Module({
   controllers: [CallCentreController],
   providers: [CallCentreService, CallProviderService],
-  exports: [CallCentreService],
+  exports: [CallCentreService, CallProviderService],
 })
 export class CallCentreModule {}

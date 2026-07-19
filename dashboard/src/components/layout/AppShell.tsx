@@ -13,6 +13,7 @@ import {
   ReceiptText,
   PhoneCall,
   WalletCards,
+  Headphones,
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { Avatar } from '../ui/misc';
@@ -26,6 +27,7 @@ const mainNav = [
   { to: '/loans', label: 'Loans', icon: FileText },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/call-centre', label: 'Call Centre', icon: PhoneCall },
+  { to: '/collections', label: 'Collections', icon: Headphones },
 ];
 
 const adminNav = [
@@ -41,6 +43,7 @@ const subtitles: Record<string, string> = {
   Loans: 'Financing agreements and repayment schedules',
   Payments: 'Collections and reconciliation across loans',
   'Call Centre': 'Overdue call queue, promises to pay, and escalation tracking',
+  Collections: 'Managed follow-up: subscriptions, company cases, collector queues',
   Billing: 'Subscription plan, usage bundles, and monthly invoices',
   Staff: 'Team members with access to this console',
 };

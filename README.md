@@ -9,6 +9,11 @@ Device Lock is a multi-tenant phone-financing platform for businesses that sell 
 | `backend/` | NestJS API, Prisma schema/migrations, tenant isolation, auth, device control, payments, webhooks, jobs, and provisioning endpoints. |
 | `dashboard/` | Vite + React + Tailwind staff dashboard for managing customers, devices, loans, payments, and staff. |
 | `android-dpc/` | Kotlin Android DPC/agent app that enrolls devices, stores an agent token, checks in with the backend, receives FCM sync triggers, and enforces lock state. |
+| `docs/` | Product and implementation plans (e.g. managed collections / call centre). |
+
+### Product plans
+
+- [Managed Call Centre / Collections-as-a-Service](docs/COLLECTIONS_CALL_CENTRE_PLAN.md) — subscription packages, platform collectors, case separation by seller company, PTP, communications log, and collector performance reports.
 
 ## Core Capabilities
 

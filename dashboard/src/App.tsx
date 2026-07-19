@@ -14,6 +14,9 @@ import Payments from './pages/Payments';
 import Staff from './pages/Staff';
 import CallCentre from './pages/CallCentre';
 import Billing from './pages/Billing';
+import Collections from './pages/Collections';
+import CollectionCaseDetail from './pages/CollectionCaseDetail';
+import CollectionsReports from './pages/CollectionsReports';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -22,11 +25,19 @@ function Protected({ children }: { children: React.ReactNode }) {
   return <AppShell>{children}</AppShell>;
 }
 
+function Home() {
+  const { user } = useAuth();
+  if (user?.role === 'COLLECTOR' || user?.role === 'COLLECTIONS_ADMIN') {
+    return <Navigate to="/collections" replace />;
+  }
+  return <Dashboard />;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Protected><Dashboard /></Protected>} />
+      <Route path="/" element={<Protected><Home /></Protected>} />
       <Route path="/sales" element={<Protected><Sales /></Protected>} />
       <Route path="/sales/new" element={<Navigate to="/sales" replace />} />
       <Route path="/devices" element={<Protected><Devices /></Protected>} />
@@ -36,6 +47,9 @@ export default function App() {
       <Route path="/loans/:id" element={<Protected><LoanDetail /></Protected>} />
       <Route path="/payments" element={<Protected><Payments /></Protected>} />
       <Route path="/call-centre" element={<Protected><CallCentre /></Protected>} />
+      <Route path="/collections" element={<Protected><Collections /></Protected>} />
+      <Route path="/collections/cases/:id" element={<Protected><CollectionCaseDetail /></Protected>} />
+      <Route path="/collections/reports" element={<Protected><CollectionsReports /></Protected>} />
       <Route path="/billing" element={<Protected><Billing /></Protected>} />
       <Route path="/staff" element={<Protected><Staff /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />

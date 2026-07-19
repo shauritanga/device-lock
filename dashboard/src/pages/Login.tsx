@@ -8,8 +8,9 @@ import { Field, Input } from '../components/ui/Field';
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('owner.a@acme.test');
-  const [password, setPassword] = useState('password123');
+  // Matches prisma/seed.ts platform admin (seed wipes old owner.a@acme.test).
+  const [email, setEmail] = useState('athanas@devicelock.test');
+  const [password, setPassword] = useState('Athanas@2015');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -41,7 +42,14 @@ export default function Login() {
         </div>
 
         <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted">Sign in to manage your financed devices.</p>
+        <p className="mt-1 text-sm text-muted">
+          Sign in to manage your financed devices.
+        </p>
+        <p className="mt-2 rounded-xl bg-canvas px-3 py-2 text-2xs text-muted">
+          After seed: <span className="font-medium text-ink">athanas@devicelock.test</span>
+          {' / '}
+          <span className="font-medium text-ink">Athanas@2015</span>
+        </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <Field label="Email">

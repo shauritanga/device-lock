@@ -26,6 +26,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ProvisioningModule } from './provisioning/provisioning.module';
 import { CallCentreModule } from './call-centre/call-centre.module';
 import { BillingModule } from './billing/billing.module';
+import { CollectionsModule } from './collections/collections.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { BillingModule } from './billing/billing.module';
     ProvisioningModule,
     CallCentreModule,
     BillingModule,
+    CollectionsModule,
   ],
   controllers: [HealthController],
   providers: [

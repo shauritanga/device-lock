@@ -1,4 +1,10 @@
-export type Role = 'SUPER_ADMIN' | 'OWNER' | 'MANAGER' | 'AGENT';
+export type Role =
+  | 'SUPER_ADMIN'
+  | 'COLLECTIONS_ADMIN'
+  | 'COLLECTOR'
+  | 'OWNER'
+  | 'MANAGER'
+  | 'AGENT';
 
 export interface AuthUser {
   userId: string;
