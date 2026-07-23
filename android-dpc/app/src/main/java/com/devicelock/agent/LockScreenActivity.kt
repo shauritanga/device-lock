@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -62,11 +63,18 @@ class LockScreenActivity : AppCompatActivity() {
         // Enter kiosk mode so this screen owns the device.
         runCatching { startLockTask() }
 
-        binding.btnEmergency.setOnClickListener {
-            // In a full build this dials the local emergency number; kept inert
-            // for the POC so we don't place real calls.
-            Toast.makeText(this, "Emergency dialer (demo)", Toast.LENGTH_SHORT).show()
-        }
+        // Show the helpline as text as well as a button: if the dialer is
+        // unavailable for any reason, the customer can still read the number and
+        // call from another phone.
+        binding.txtSupportNumber.text =
+            getString(R.string.lock_support_number, BuildConfig.SUPPORT_PHONE)
+
+        // Emergency services. Deliberately NOT the company helpline — someone in
+        // real trouble must reach 112, not our call centre.
+        binding.btnEmergency.setOnClickListener { dial(EMERGENCY_NUMBER) }
+
+        // Company helpline for payment and account questions.
+        binding.btnSupport.setOnClickListener { dial(BuildConfig.SUPPORT_PHONE) }
 
         binding.btnPayNow.setOnClickListener {
             Toast.makeText(this, R.string.pay_now_starting, Toast.LENGTH_SHORT).show()
@@ -93,6 +101,25 @@ class LockScreenActivity : AppCompatActivity() {
             AgentSync.requestImmediateSync(applicationContext)
             Toast.makeText(this, R.string.lock_check_payment_toast, Toast.LENGTH_SHORT)
                 .show()
+        }
+    }
+
+    /**
+     * Open the dialer with [number] pre-filled. We use ACTION_DIAL rather than
+     * ACTION_CALL so no call is placed without the customer confirming, and so
+     * the app needs no CALL_PHONE permission. The dialer package is whitelisted
+     * for lock-task in [DeviceLockController.lock], which is what lets this work
+     * while the kiosk is active.
+     */
+    private fun dial(number: String) {
+        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { startActivity(intent) }.onFailure {
+            Toast.makeText(
+                this,
+                getString(R.string.lock_call_failed, number),
+                Toast.LENGTH_LONG,
+            ).show()
         }
     }
 
@@ -164,5 +191,8 @@ class LockScreenActivity : AppCompatActivity() {
 
     companion object {
         private const val POLL_INTERVAL_MS = 10_000L
+
+        /** Tanzania / GSM standard emergency number. */
+        private const val EMERGENCY_NUMBER = "112"
     }
 }

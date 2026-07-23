@@ -31,6 +31,9 @@ android {
         // Staff gate for the one-time enrollment screen. Override per-release;
         // a real deployment should inject this from a secret, not ship a default.
         buildConfigField("String", "STAFF_PIN", "\"2468\"")
+        // Helpline shown and dialable from the lock screen. This is a support
+        // line, NOT an emergency service number.
+        buildConfigField("String", "SUPPORT_PHONE", "\"+255658216813\"")
     }
 
     buildTypes {

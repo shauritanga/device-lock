@@ -41,8 +41,11 @@
     <string name="staff_pin_wrong">Incorrect staff PIN</string>
 
     <string name="lock_title">Device Locked</string>
-    <string name="lock_message">Your installment payment is overdue. Pay via mobile money to restore access. The device unlocks automatically once your payment is confirmed. Emergency calls remain available.</string>
+    <string name="lock_message">Your installment payment is overdue. Pay via mobile money to restore access. The device unlocks automatically once your payment is confirmed. Emergency calls remain available at all times.</string>
     <string name="lock_check_payment">I\'ve paid — check now</string>
     <string name="lock_check_payment_toast">Checking payment status…</string>
-    <string name="lock_emergency">Emergency call</string>
+    <string name="lock_emergency">Emergency call (112)</string>
+    <string name="lock_support">Call Linda support</string>
+    <string name="lock_support_number">Support: %1$s</string>
+    <string name="lock_call_failed">Could not open the dialer. Call %1$s from another phone.</string>
 </resources>

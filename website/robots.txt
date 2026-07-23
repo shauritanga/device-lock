@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# The consoles are private application surfaces, not content. Keeping them out
+# of the index avoids diluting linda.co.tz and stops login pages ranking.
+Disallow: /login
+
+Sitemap: https://linda.co.tz/sitemap.xml

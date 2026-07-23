@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.UserManager
+import android.telecom.TelecomManager
 
 /**
  * Thin wrapper around [DevicePolicyManager] that expresses the locking policy
@@ -72,8 +73,11 @@ class DeviceLockController(private val context: Context) {
     fun lock() {
         require(isDeviceOwner()) { "Not device owner" }
 
-        // Permit our package to enter lock-task (kiosk) mode.
-        dpm.setLockTaskPackages(admin, arrayOf(context.packageName))
+        // Permit our package to enter lock-task (kiosk) mode. The dialer is
+        // whitelisted alongside it so the lock screen's emergency and support
+        // call buttons can actually place a call — a locked customer must never
+        // be left with no way to reach help.
+        dpm.setLockTaskPackages(admin, lockTaskPackages())
 
         // Lock the kiosk down hard: no status bar, home, recents, notifications,
         // system info, or long-press power menu. LOCK_TASK_FEATURE_NONE (0) turns
@@ -138,6 +142,18 @@ class DeviceLockController(private val context: Context) {
      * the lock-specific restrictions — the anti-removal policy stays in force
      * because the loan is still outstanding.
      */
+    /**
+     * Packages allowed to run while the kiosk is active: this app, plus the
+     * device's default dialer so emergency/support calls remain possible.
+     */
+    private fun lockTaskPackages(): Array<String> {
+        val dialer = runCatching {
+            (context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager)
+                ?.defaultDialerPackage
+        }.getOrNull()
+        return listOfNotNull(context.packageName, dialer).distinct().toTypedArray()
+    }
+
     fun unlock() {
         require(isDeviceOwner()) { "Not device owner" }
 
