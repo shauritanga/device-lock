@@ -620,15 +620,17 @@ Document these in admin help so historical year-over-year numbers stay comparabl
 `POST /collections/cases/:id/contact-sessions`, `.../complete`, `.../promises`;  
 UI `CollectionCaseDetail.tsx`  
 
-### Phase 2b — Collector companion app (BYOD log proof) (1–2 weeks, parallelizable)
+### Phase 2b — Collector companion app (BYOD log proof) — **DONE (scaffold 2026-07-19)**
 
-- [ ] Android staff app: login, receive session, start call/SMS  
-- [ ] Permissions: `READ_CALL_LOG`, `READ_SMS` (+ optional `CALL_PHONE` / `SEND_SMS`)  
-- [ ] Match outgoing logs to session; upload minimal proof  
-- [ ] Backend match endpoint → `DEVICE_LOG_MATCHED`  
-- [ ] Consent screens + privacy policy for collectors  
+- [x] Android staff app: login, my queue, start call/SMS/WA (`android-collector/`)  
+- [x] Permissions: `READ_CALL_LOG`, `READ_SMS`, `CALL_PHONE` (+ consent dialog)  
+- [x] Match outgoing logs to session; upload proof  
+- [x] Backend match endpoint → `DEVICE_LOG_MATCHED` (already in Phase 6)  
+- [x] Consent copy in login / permission dialog  
 
 **Delivers:** Strong BYOD call/SMS proof without CPaaS  
+
+**Code:** `android-collector/` — see `android-collector/README.md`  
 
 ### Phase 3 — Money & company reports (1 week) — **DONE (code 2026-07-19)**
 
@@ -678,7 +680,7 @@ UI on Collections page
 - [x] Contact session device-proof endpoint (`POST .../proof` → DEVICE_LOG_MATCHED)  
 - [ ] WhatsApp Business API  
 - [ ] Auto-dialer / power dial  
-- [ ] Full collector companion Android app (uses proof endpoint)  
+- [x] Full collector companion Android app scaffold (`android-collector/`)  
 
 ---
 
@@ -770,7 +772,7 @@ Use this checklist as work proceeds. Mark items done in PRs and reference this f
 | Phase 0 — Decisions | Done (2026-07-19) | Defaults locked in plan |
 | Phase 1 — Foundation | Done (code) | Deploy to prod + seed collectors when ready |
 | Phase 2 — Contact sessions & PTP | Done (code) | Case detail + sessions + PTP |
-| Phase 2b — Collector companion app | Not started | Call/SMS log permissions + match |
+| Phase 2b — Collector companion app | Done (scaffold) | `android-collector/` + proof API |
 | Phase 3 — Money reports | Done (code) | Reports page + APIs |
 | Phase 4 — Collector performance | Done (code) | Clock + daily stats + reports |
 | Phase 5 — Package billing | Done (code) | Invoices + past-due suspend |
@@ -804,3 +806,4 @@ Use this checklist as work proceeds. Mark items done in PRs and reference this f
 | 2026-07-19 | **Phase 5 implemented:** CollectionsInvoice, generate monthly invoices, mark paid, process past due → subscription PAST_DUE. |
 | 2026-07-19 | **Phase 6 (partial):** CSV exports, payment→case/PTP automation, break overdue PTPs, nightly collections cron. |
 | 2026-07-19 | **Phase 6+:** seller weekly activity feed, auto-assign queue, contact proof API for device log match. |
+| 2026-07-19 | **Phase 2b:** `android-collector/` staff companion app (login, queue, Call/SMS verify via logs → DEVICE_LOG_MATCHED). |

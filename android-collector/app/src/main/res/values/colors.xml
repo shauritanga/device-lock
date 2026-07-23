@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#4F46E5</color>
+    <color name="brand_blue">#2F6DEB</color>
+    <color name="brand_soft">#EEF3FF</color>
+    <color name="ink">#0F172A</color>
+    <color name="muted">#64748B</color>
+    <color name="muted_soft">#9AA4B2</color>
+    <color name="canvas">#F6F7F9</color>
+    <color name="line">#E9EDF3</color>
+    <color name="success">#10A06F</color>
+    <color name="success_soft">#E8F8F2</color>
+    <color name="danger">#DC2626</color>
+    <color name="danger_soft">#FFF1F2</color>
+    <color name="warning">#D97706</color>
+    <color name="warning_soft">#FFF7ED</color>
+    <color name="orange_action">#EA580C</color>
+    <color name="orange_deep">#D97706</color>
+    <color name="table_header">#F1F4FA</color>
+    <color name="nav_icon">#2F3A34</color>
+</resources>

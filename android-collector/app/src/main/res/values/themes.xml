@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DeviceLockCollector" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#4F46E5</item>
+        <item name="colorPrimaryVariant">#4338CA</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">#0F172A</item>
+        <item name="android:statusBarColor">#F4F6FB</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#F4F6FB</item>
+    </style>
+
+    <style name="Collector" />
+
+    <style name="Collector.TableHeader">
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/muted_soft</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0</item>
+        <item name="android:maxLines">1</item>
+    </style>
+
+    <style name="Collector.PagerButton">
+        <item name="android:layout_width">52dp</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:background">@drawable/bg_filter_card</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">@color/muted_soft</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Collector.DetailCell">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">72dp</item>
+        <item name="android:layout_columnWeight">1</item>
+        <item name="android:background">@drawable/bg_table_row</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+    </style>
+
+    <style name="Collector.DetailLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/muted_soft</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:maxLines">1</item>
+    </style>
+
+    <style name="Collector.DetailValue">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:maxLines">2</item>
+    </style>
+
+    <style name="Collector.DetailValueStrong" parent="Collector.DetailValue">
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Collector.DetailValueDanger" parent="Collector.DetailValueStrong">
+        <item name="android:textColor">@color/danger</item>
+    </style>
+
+    <style name="Collector.DetailValueSuccess" parent="Collector.DetailValueStrong">
+        <item name="android:textColor">@color/success</item>
+    </style>
+
+    <style name="Collector.ContactIcon">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:background">@drawable/bg_icon_circle</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Collector.ActionButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Collector.Tab">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Collector.BottomButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/bg_page_selected</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

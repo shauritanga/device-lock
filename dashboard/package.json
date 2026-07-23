@@ -1,12 +1,18 @@
 {
-  "name": "device-lock-dashboard",
+  "name": "linda-consoles",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "dev": "APP=client vite",
+    "dev:client": "APP=client vite",
+    "dev:admin": "APP=admin vite",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && npm run build:client && npm run build:admin",
+    "build:client": "APP=client vite build",
+    "build:admin": "APP=admin vite build",
+    "preview:client": "APP=client vite preview",
+    "preview:admin": "APP=admin vite preview"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",

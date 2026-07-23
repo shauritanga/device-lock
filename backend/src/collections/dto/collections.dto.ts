@@ -228,3 +228,14 @@ export {
   CollectionCaseStatus,
   ContactChannel,
 };
+
+export class ReferCaseDto {
+  /** Loan the seller wants the platform to follow up on. */
+  @IsUUID()
+  loanId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  note?: string;
+}

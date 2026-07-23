@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Linda — Sell phones on credit. Get paid on time.</title>
+<meta name="description" content="Linda is the phone-financing platform for dealers in Tanzania. Enroll a handset in minutes, track every installment, lock late devices remotely and unlock automatically the moment payment lands." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        colors: {
+          brand: {
+            50:  '#F0F9FF',
+            100: '#E0F2FE',
+            200: '#BAE6FD',
+            300: '#7DD3FC',
+            400: '#38BDF8',
+            500: '#0EA5E9',
+            600: '#0284C7',
+            700: '#0369A1',
+            800: '#075985',
+            900: '#0C4A6E',
+            950: '#082F49'
+          },
+          ink: {
+            50:  '#F8FAFC',
+            100: '#F1F5F9',
+            200: '#E2E8F0',
+            300: '#CBD5E1',
+            400: '#94A3B8',
+            500: '#64748B',
+            600: '#475569',
+            700: '#334155',
+            800: '#1E293B',
+            900: '#0F172A',
+            950: '#020617'
+          }
+        },
+        boxShadow: {
+          card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.12)',
+          lift: '0 2px 4px 0 rgb(15 23 42 / 0.04), 0 24px 48px -20px rgb(15 23 42 / 0.24)',
+          glow: '0 18px 40px -16px rgb(3 105 161 / 0.55)'
+        }
+      }
+    }
+  }
+</script>
+<style>
+  :root { color-scheme: light; }
+  body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(15,23,42,.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(15,23,42,.055) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  .mask-fade {
+    -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+  .tabular { font-variant-numeric: tabular-nums; }
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] .faq-icon { transform: rotate(45deg); }
+  .faq-icon { transition: transform 220ms cubic-bezier(.16,1,.3,1); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body class="bg-white font-sans text-ink-700 antialiased">
+
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ink-900 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">Skip to content</a>
+
+<!-- ============================== NAV ============================== -->
+<header id="nav" class="sticky top-0 z-50 border-b border-ink-200/80 bg-white/85 backdrop-blur-md">
+  <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-5 sm:px-6 lg:h-[72px] lg:px-8">
+    <a href="#" class="flex items-center gap-2.5" aria-label="Linda home">
+      <span class="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-700 shadow-glow">
+        <svg class="h-[18px] w-[18px] text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </span>
+      <span class="text-[17px] font-extrabold tracking-tight text-ink-900">Linda</span>
+    </a>
+
+    <nav class="hidden items-center gap-1 lg:flex" aria-label="Main">
+      <a href="#how" class="rounded-lg px-3 py-2 text-[14.5px] font-medium text-ink-600 transition-colors duration-200 hover:bg-ink-50 hover:text-ink-900">How it works</a>
+      <a href="#platform" class="rounded-lg px-3 py-2 text-[14.5px] font-medium text-ink-600 transition-colors duration-200 hover:bg-ink-50 hover:text-ink-900">Platform</a>
+      <a href="#collections" class="rounded-lg px-3 py-2 text-[14.5px] font-medium text-ink-600 transition-colors duration-200 hover:bg-ink-50 hover:text-ink-900">Collections</a>
+      <a href="#security" class="rounded-lg px-3 py-2 text-[14.5px] font-medium text-ink-600 transition-colors duration-200 hover:bg-ink-50 hover:text-ink-900">Security</a>
+      <a href="#pricing" class="rounded-lg px-3 py-2 text-[14.5px] font-medium text-ink-600 transition-colors duration-200 hover:bg-ink-50 hover:text-ink-900">Pricing</a>
+    </nav>
+
+    <div class="flex items-center gap-2 sm:gap-3">
+      <a href="https://client.linda.co.tz" class="hidden rounded-lg px-3 py-2 text-[14.5px] font-semibold text-ink-700 transition-colors duration-200 hover:text-brand-700 sm:inline-flex">Sign in</a>
+      <a href="#demo" class="inline-flex h-10 cursor-pointer items-center justify-center rounded-lg bg-brand-700 px-4 text-[14.5px] font-semibold text-white shadow-glow transition-colors duration-200 hover:bg-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">Book a demo</a>
+      <button id="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu" class="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-ink-200 text-ink-700 transition-colors duration-200 hover:bg-ink-50 lg:hidden">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" x2="20" y1="7" y2="7"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="17" y2="17"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="mobile-menu" hidden class="border-t border-ink-200 bg-white px-5 pb-5 pt-3 lg:hidden">
+    <nav class="flex flex-col" aria-label="Mobile">
+      <a href="#how" class="rounded-lg px-3 py-3 text-[15px] font-medium text-ink-700 hover:bg-ink-50">How it works</a>
+      <a href="#platform" class="rounded-lg px-3 py-3 text-[15px] font-medium text-ink-700 hover:bg-ink-50">Platform</a>
+      <a href="#collections" class="rounded-lg px-3 py-3 text-[15px] font-medium text-ink-700 hover:bg-ink-50">Collections</a>
+      <a href="#security" class="rounded-lg px-3 py-3 text-[15px] font-medium text-ink-700 hover:bg-ink-50">Security</a>
+      <a href="#pricing" class="rounded-lg px-3 py-3 text-[15px] font-medium text-ink-700 hover:bg-ink-50">Pricing</a>
+      <a href="https://client.linda.co.tz" class="mt-1 rounded-lg px-3 py-3 text-[15px] font-semibold text-brand-700 hover:bg-brand-50">Sign in</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============================== HERO ============================== -->
+<section class="relative overflow-hidden bg-white">
+  <div class="pointer-events-none absolute inset-0 grid-bg mask-fade" aria-hidden="true"></div>
+  <div class="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-brand-100/60 blur-3xl" aria-hidden="true"></div>
+
+  <div class="relative mx-auto max-w-7xl px-5 pb-16 pt-14 sm:px-6 sm:pb-20 sm:pt-20 lg:grid lg:grid-cols-12 lg:gap-12 lg:px-8 lg:pb-28 lg:pt-24">
+    <div class="lg:col-span-6 xl:col-span-6">
+      <span class="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-[12.5px] font-semibold tracking-wide text-brand-800">
+        <span class="relative flex h-1.5 w-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-500 opacity-70"></span><span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-600"></span></span>
+        Built for phone dealers selling on credit
+      </span>
+
+      <h1 class="mt-6 text-[38px] font-extrabold leading-[1.08] tracking-[-0.03em] text-ink-900 sm:text-[52px] lg:text-[56px] xl:text-[62px]">
+        Sell phones on credit.<br class="hidden sm:block" />
+        <span class="text-brand-700">Get paid on time,</span> every time.
+      </h1>
+
+      <p class="mt-6 max-w-xl text-[17px] leading-[1.65] text-ink-600 sm:text-[18px]">
+        Linda turns every financed handset into secured collateral. Enroll a phone in minutes, track each installment automatically, and lock a late device remotely — then unlock it the second the payment lands.
+      </p>
+
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <a href="#demo" class="inline-flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-700 px-7 text-[15.5px] font-semibold text-white shadow-glow transition-colors duration-200 hover:bg-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
+          Book a 20-minute demo
+          <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <a href="#how" class="inline-flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-6 text-[15.5px] font-semibold text-ink-800 transition-colors duration-200 hover:border-ink-300 hover:bg-ink-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900">
+          See how it works
+        </a>
+      </div>
+
+      <dl class="mt-12 grid max-w-lg grid-cols-2 gap-x-6 gap-y-7 border-t border-ink-200 pt-8 sm:grid-cols-3">
+        <div>
+          <dt class="text-[26px] font-extrabold tracking-tight text-ink-900 tabular">&lt; 60s</dt>
+          <dd class="mt-1 text-[13.5px] leading-snug text-ink-500">Lock or unlock reaches the handset</dd>
+        </div>
+        <div>
+          <dt class="text-[26px] font-extrabold tracking-tight text-ink-900 tabular">0</dt>
+          <dd class="mt-1 text-[13.5px] leading-snug text-ink-500">Staff visits needed to enforce</dd>
+        </div>
+        <div>
+          <dt class="text-[26px] font-extrabold tracking-tight text-ink-900 tabular">100%</dt>
+          <dd class="mt-1 text-[13.5px] leading-snug text-ink-500">Shop-level data isolation</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Product mockup -->
+    <div class="relative mt-14 lg:col-span-6 lg:mt-0 xl:col-span-6">
+      <div class="relative mx-auto max-w-[560px] lg:max-w-none">
+        <div class="absolute -inset-x-6 -inset-y-8 rounded-[32px] bg-gradient-to-br from-brand-100/70 via-white to-ink-100/70 blur-2xl" aria-hidden="true"></div>
+
+        <div class="relative overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-lift">
+          <!-- window chrome -->
+          <div class="flex items-center gap-3 border-b border-ink-200 bg-ink-50/70 px-4 py-3">
+            <div class="flex gap-1.5" aria-hidden="true">
+              <span class="h-2.5 w-2.5 rounded-full bg-ink-300"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-ink-300"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-ink-300"></span>
+            </div>
+            <div class="mx-auto rounded-md bg-white px-3 py-1 text-[11.5px] font-medium text-ink-400 ring-1 ring-ink-200">client.linda.co.tz / devices</div>
+          </div>
+
+          <div class="p-4 sm:p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-[15px] font-bold tracking-tight text-ink-900">Financed devices</p>
+                <p class="mt-0.5 text-[12.5px] text-ink-500">Kariakoo Mobile Centre</p>
+              </div>
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[11.5px] font-semibold text-brand-800 ring-1 ring-inset ring-brand-200">
+                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+                Live
+              </span>
+            </div>
+
+            <div class="mt-4 grid grid-cols-3 gap-2.5">
+              <div class="rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2.5">
+                <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Active</p>
+                <p class="mt-1 text-[19px] font-extrabold tracking-tight text-ink-900 tabular">128</p>
+              </div>
+              <div class="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2.5">
+                <p class="text-[11px] font-semibold uppercase tracking-wider text-amber-700">Overdue</p>
+                <p class="mt-1 text-[19px] font-extrabold tracking-tight text-amber-800 tabular">9</p>
+              </div>
+              <div class="rounded-xl border border-brand-200 bg-brand-50/80 px-3 py-2.5">
+                <p class="text-[11px] font-semibold uppercase tracking-wider text-brand-700">Locked</p>
+                <p class="mt-1 text-[19px] font-extrabold tracking-tight text-brand-800 tabular">4</p>
+              </div>
+            </div>
+
+            <ul class="mt-4 divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200">
+              <li class="flex items-center gap-3 bg-white px-3.5 py-3">
+                <span class="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-500 sm:flex">
+                  <svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-[13.5px] font-semibold text-ink-900">Tecno Spark 20 · Amina J.</p>
+                  <p class="mt-0.5 truncate text-[12px] text-ink-500 tabular">Next instalment 12 Aug · TZS 45,000</p>
+                </div>
+                <span class="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200">Active</span>
+              </li>
+              <li class="flex items-center gap-3 bg-white px-3.5 py-3">
+                <span class="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 sm:flex">
+                  <svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-[13.5px] font-semibold text-ink-900">Samsung A15 · Joseph M.</p>
+                  <p class="mt-0.5 truncate text-[12px] text-ink-500 tabular">6 days overdue · TZS 60,000</p>
+                </div>
+                <span class="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700 ring-1 ring-inset ring-amber-200">Overdue</span>
+              </li>
+              <li class="flex items-center gap-3 bg-brand-50/40 px-3.5 py-3">
+                <span class="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700 sm:flex">
+                  <svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-[13.5px] font-semibold text-ink-900">Infinix Hot 40 · Neema K.</p>
+                  <p class="mt-0.5 truncate text-[12px] text-ink-500 tabular">Locked 21 Jul · 18 days overdue</p>
+                </div>
+                <span class="shrink-0 rounded-full bg-brand-700 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">Locked</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- floating toast -->
+        <div class="relative mt-4 w-full rounded-xl border border-ink-200 bg-white p-3.5 shadow-lift sm:absolute sm:-bottom-16 sm:-left-8 sm:mt-0 sm:w-[300px]">
+          <div class="flex items-start gap-3">
+            <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <div class="min-w-0">
+              <p class="text-[13px] font-bold text-ink-900">Payment received — TZS 60,000</p>
+              <p class="mt-0.5 text-[12px] leading-snug text-ink-500">ClickPesa confirmed. Joseph M.'s device unlocked automatically.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== TRUST STRIP ============================== -->
+<section class="border-y border-ink-200 bg-ink-50/60" aria-label="Integrations">
+  <div class="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8">
+    <p class="text-center text-[12px] font-bold uppercase tracking-[0.14em] text-ink-400">Built on the rails your business already runs on</p>
+    <ul class="mt-6 grid grid-cols-2 items-center justify-items-center gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
+      <li class="text-[15px] font-bold tracking-tight text-ink-500">ClickPesa</li>
+      <li class="text-[15px] font-bold tracking-tight text-ink-500">M-Pesa &amp; Tigo Pesa</li>
+      <li class="text-[15px] font-bold tracking-tight text-ink-500">Beem SMS</li>
+      <li class="text-[15px] font-bold tracking-tight text-ink-500">Android Enterprise</li>
+      <li class="col-span-2 text-[15px] font-bold tracking-tight text-ink-500 sm:col-span-1">Firebase Cloud Messaging</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== PROBLEM ============================== -->
+<section class="bg-white py-20 sm:py-24">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="text-[12.5px] font-bold uppercase tracking-[0.14em] text-brand-700">The problem</p>
+      <h2 class="mt-3 text-[30px] font-extrabold leading-tight tracking-[-0.025em] text-ink-900 sm:text-[38px]">Credit sales grow revenue — and quietly destroy margin.</h2>
+      <p class="mt-4 text-[16.5px] leading-relaxed text-ink-600">Every dealer knows the cycle. The phone leaves the shop, the payments slow down, and recovery costs more than the handset is worth.</p>
+    </div>
+
+    <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="rounded-2xl border border-ink-200 bg-white p-6 shadow-card">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-ink-100 text-ink-700">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Chasing replaces selling</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Staff spend their week on phone calls and door visits instead of moving stock. Follow-up is manual, undocumented and easy to skip.</p>
+      </div>
+      <div class="rounded-2xl border border-ink-200 bg-white p-6 shadow-card">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-ink-100 text-ink-700">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">No leverage after the sale</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Once the handset walks out, the only pressure you have is goodwill. A customer who stops answering has already won.</p>
+      </div>
+      <div class="rounded-2xl border border-ink-200 bg-white p-6 shadow-card sm:col-span-2 lg:col-span-1">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-ink-100 text-ink-700">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Books that don't agree</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Schedules in one notebook, payments in another, and no single answer to "how much is actually outstanding this month?"</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== HOW IT WORKS ============================== -->
+<section id="how" class="scroll-mt-20 border-y border-ink-200 bg-ink-50/60 py-20 sm:py-24">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="text-[12.5px] font-bold uppercase tracking-[0.14em] text-brand-700">How it works</p>
+      <h2 class="mt-3 text-[30px] font-extrabold leading-tight tracking-[-0.025em] text-ink-900 sm:text-[38px]">Four steps from shop floor to secured loan.</h2>
+      <p class="mt-4 text-[16.5px] leading-relaxed text-ink-600">No new hardware, no custom ROM. Any modern Android handset becomes a managed device before the customer leaves the counter.</p>
+    </div>
+
+    <ol class="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+      <li class="relative rounded-2xl border border-ink-200 bg-white p-6 shadow-card">
+        <div class="flex items-center justify-between">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+          </span>
+          <span class="text-[13px] font-extrabold tracking-widest text-ink-300 tabular">01</span>
+        </div>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Scan to enroll</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Generate a QR from the dashboard and scan it on a factory-reset phone. The device provisions itself as a managed device and enrolls automatically.</p>
+      </li>
+      <li class="relative rounded-2xl border border-ink-200 bg-white p-6 shadow-card">
+        <div class="flex items-center justify-between">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01"/><path d="M18 12h.01"/></svg>
+          </span>
+          <span class="text-[13px] font-extrabold tracking-widest text-ink-300 tabular">02</span>
+        </div>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Set the loan</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Enter deposit, term and flat interest. Linda builds the instalment schedule, tracks every payment and flags overdue accounts on its own.</p>
+      </li>
+      <li class="relative rounded-2xl border border-ink-200 bg-white p-6 shadow-card">
+        <div class="flex items-center justify-between">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </span>
+          <span class="text-[13px] font-extrabold tracking-widest text-ink-300 tabular">03</span>
+        </div>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Remind, then enforce</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">SMS reminders go out before the due date. If an account stays overdue, the handset locks to a payment screen — calls to emergency numbers still work.</p>
+      </li>
+      <li class="relative rounded-2xl border border-brand-300 bg-white p-6 shadow-card ring-1 ring-brand-100">
+        <div class="flex items-center justify-between">
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-700 text-white">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+          </span>
+          <span class="text-[13px] font-extrabold tracking-widest text-brand-300 tabular">04</span>
+        </div>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Paid means unlocked</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">A confirmed ClickPesa payment releases the device within seconds — no staff action, no call to the shop, no argument at the counter.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================== PLATFORM / FEATURES ============================== -->
+<section id="platform" class="scroll-mt-20 bg-white py-20 sm:py-24">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="text-[12.5px] font-bold uppercase tracking-[0.14em] text-brand-700">The platform</p>
+      <h2 class="mt-3 text-[30px] font-extrabold leading-tight tracking-[-0.025em] text-ink-900 sm:text-[38px]">Everything the loan book needs, in one place.</h2>
+      <p class="mt-4 text-[16.5px] leading-relaxed text-ink-600">A staff dashboard, a device agent and a collector app — designed together, so what you see on screen is what is actually happening on the handset.</p>
+    </div>
+
+    <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+      <article class="group rounded-2xl border border-ink-200 bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-lift">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Remote lock &amp; release</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Lock, unlock, remind or permanently release a device from the dashboard. Every command is queued, delivered and acknowledged — with a full audit trail.</p>
+      </article>
+
+      <article class="group rounded-2xl border border-ink-200 bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-lift">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Instant delivery, offline tolerant</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Push notifications trigger an immediate check-in. If the phone is off or out of coverage, the command is waiting the moment it reconnects.</p>
+      </article>
+
+      <article class="group rounded-2xl border border-ink-200 bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-lift">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01"/><path d="M18 12h.01"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Mobile money that closes the loop</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">ClickPesa collections post straight to the instalment schedule. Verified webhooks mean a payment updates the loan and the device without anyone re-typing it.</p>
+      </article>
+
+      <article class="group rounded-2xl border border-ink-200 bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-lift">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Automatic SMS reminders</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Beem-powered reminders and warnings fire on schedule in the language your customers read. Most accounts settle before enforcement is ever needed.</p>
+      </article>
+
+      <article class="group rounded-2xl border border-ink-200 bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-lift">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h.01"/><path d="M9 13h.01"/><path d="M9 17h.01"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Multi-shop by design</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Run several branches or franchises from one account. Each shop's customers, devices and money stay strictly separated — enforced at the database, not just the screen.</p>
+      </article>
+
+      <article class="group rounded-2xl border border-ink-200 bg-white p-6 shadow-card transition-shadow duration-200 hover:shadow-lift">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        </span>
+        <h3 class="mt-5 text-[17.5px] font-bold tracking-tight text-ink-900">Reports you can act on</h3>
+        <p class="mt-2 text-[15px] leading-relaxed text-ink-600">Outstanding balance, collection rate, ageing buckets and staff performance — daily, monthly and annual, filtered by branch or agent.</p>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================== COLLECTIONS (DARK) ============================== -->
+<section id="collections" class="relative scroll-mt-20 overflow-hidden bg-ink-950 py-20 sm:py-24">
+  <div class="pointer-events-none absolute -right-40 -top-40 h-[560px] w-[560px] rounded-full bg-brand-700/25 blur-3xl" aria-hidden="true"></div>
+  <div class="pointer-events-none absolute -bottom-52 -left-24 h-[420px] w-[420px] rounded-full bg-brand-900/50 blur-3xl" aria-hidden="true"></div>
+
+  <div class="relative mx-auto max-w-7xl px-5 sm:px-6 lg:grid lg:grid-cols-12 lg:items-center lg:gap-14 lg:px-8">
+    <div class="lg:col-span-6">
+      <span class="inline-flex items-center gap-2 rounded-full border border-brand-400/30 bg-brand-500/10 px-3 py-1.5 text-[12.5px] font-semibold tracking-wide text-brand-200">Add-on service</span>
+      <h2 class="mt-6 text-[30px] font-extrabold leading-[1.12] tracking-[-0.025em] text-white sm:text-[40px]">Don't want to chase at all?<br />Let our call centre do it.</h2>
+      <p class="mt-5 max-w-xl text-[16.5px] leading-relaxed text-ink-300">
+        Subscribe to Managed Collections and trained platform collectors work your overdue cases for you. You keep the customer relationship, the loan and the lock controls — we supply the follow-up capacity.
+      </p>
+
+      <ul class="mt-8 space-y-4">
+        <li class="flex gap-3.5">
+          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <p class="text-[15.5px] leading-relaxed text-ink-200"><span class="font-semibold text-white">Every contact is proven.</span> Calls and SMS are started from the system and verified against the device log — no free-typed "I called them".</p>
+        </li>
+        <li class="flex gap-3.5">
+          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <p class="text-[15.5px] leading-relaxed text-ink-200"><span class="font-semibold text-white">Promise-to-pay tracking.</span> Each commitment is logged with a date and followed up automatically when it slips.</p>
+        </li>
+        <li class="flex gap-3.5">
+          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <p class="text-[15.5px] leading-relaxed text-ink-200"><span class="font-semibold text-white">Your cases stay yours.</span> Collectors see only the cases assigned to them, and never another dealer's book.</p>
+        </li>
+        <li class="flex gap-3.5">
+          <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <p class="text-[15.5px] leading-relaxed text-ink-200"><span class="font-semibold text-white">Unlock stays with you.</span> Collectors can note, promise and escalate — releasing a device remains your decision or an automatic result of payment.</p>
+        </li>
+      </ul>
+
+      <a href="#demo" class="mt-9 inline-flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-7 text-[15.5px] font-semibold text-ink-900 transition-colors duration-200 hover:bg-ink-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+        Talk to us about Managed Collections
+        <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+
+    <div class="mt-14 lg:col-span-6 lg:mt-0">
+      <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm sm:p-6">
+        <div class="flex items-center justify-between">
+          <p class="text-[14.5px] font-bold tracking-tight text-white">Collector queue</p>
+          <span class="rounded-full bg-white/10 px-2.5 py-1 text-[11.5px] font-semibold text-ink-200">Today</span>
+        </div>
+
+        <div class="mt-5 space-y-3">
+          <div class="rounded-xl border border-white/10 bg-ink-900/60 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-[14px] font-semibold text-white">Case #2841 · Neema K.</p>
+                <p class="mt-1 text-[12.5px] text-ink-400 tabular">Kariakoo Mobile Centre · 18 days overdue</p>
+              </div>
+              <span class="shrink-0 rounded-full bg-emerald-400/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-300">PTP set</span>
+            </div>
+            <div class="mt-3.5 flex items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 py-1.5 text-[12px] font-medium text-ink-200">
+                <svg class="h-3.5 w-3.5 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                Call 4m 12s
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-400/10 px-2.5 py-1.5 text-[12px] font-medium text-emerald-300">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                Verified on device log
+              </span>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-white/10 bg-ink-900/60 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-[14px] font-semibold text-white">Case #2839 · Joseph M.</p>
+                <p class="mt-1 text-[12.5px] text-ink-400 tabular">Mwanza Phone Hub · 6 days overdue</p>
+              </div>
+              <span class="shrink-0 rounded-full bg-amber-400/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-300">No answer</span>
+            </div>
+            <div class="mt-3.5 flex items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 py-1.5 text-[12px] font-medium text-ink-200">
+                <svg class="h-3.5 w-3.5 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                SMS sent
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 py-1.5 text-[12px] font-medium text-ink-200">Retry 16:00</span>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-white/10 bg-ink-900/60 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-[14px] font-semibold text-white">Case #2830 · Amina J.</p>
+                <p class="mt-1 text-[12.5px] text-ink-400 tabular">Kariakoo Mobile Centre · Settled</p>
+              </div>
+              <span class="shrink-0 rounded-full bg-brand-400/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-brand-200">Closed</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-5">
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Contacted</p>
+            <p class="mt-1 text-[18px] font-extrabold text-white tabular">37</p>
+          </div>
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-400">PTP today</p>
+            <p class="mt-1 text-[18px] font-extrabold text-white tabular">12</p>
+          </div>
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-ink-400">Avg. talk</p>
+            <p class="mt-1 text-[18px] font-extrabold text-white tabular">3m 41s</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== SECURITY ============================== -->
+<section id="security" class="scroll-mt-20 bg-white py-20 sm:py-24">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <div class="lg:flex lg:items-end lg:justify-between lg:gap-12">
+      <div class="max-w-2xl">
+        <p class="text-[12.5px] font-bold uppercase tracking-[0.14em] text-brand-700">Security &amp; trust</p>
+        <h2 class="mt-3 text-[30px] font-extrabold leading-tight tracking-[-0.025em] text-ink-900 sm:text-[38px]">You are holding customers' devices. We treat that seriously.</h2>
+      </div>
+      <p class="mt-4 max-w-md text-[15.5px] leading-relaxed text-ink-600 lg:mt-0">Locking a phone is a powerful action. Every part of the system is built so it can only happen for the right device, from the right shop, for the right reason.</p>
+    </div>
+
+    <div class="mt-12 grid gap-px overflow-hidden rounded-2xl border border-ink-200 bg-ink-200 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="bg-white p-6">
+        <h3 class="text-[16px] font-bold tracking-tight text-ink-900">Hardware-backed credentials</h3>
+        <p class="mt-2 text-[14.5px] leading-relaxed text-ink-600">Each device's token is sealed in the Android Keystore. Nothing useful sits in plain storage on the handset.</p>
+      </div>
+      <div class="bg-white p-6">
+        <h3 class="text-[16px] font-bold tracking-tight text-ink-900">Strict shop isolation</h3>
+        <p class="mt-2 text-[14.5px] leading-relaxed text-ink-600">Every record carries its shop identity and is filtered at the database layer, so one dealer can never read another's book.</p>
+      </div>
+      <div class="bg-white p-6">
+        <h3 class="text-[16px] font-bold tracking-tight text-ink-900">Roles that match your org</h3>
+        <p class="mt-2 text-[14.5px] leading-relaxed text-ink-600">Owner, manager and agent permissions are enforced server-side — an agent cannot release a device just by finding the URL.</p>
+      </div>
+      <div class="bg-white p-6">
+        <h3 class="text-[16px] font-bold tracking-tight text-ink-900">Signed payment webhooks</h3>
+        <p class="mt-2 text-[14.5px] leading-relaxed text-ink-600">Payment callbacks are checksum-verified before they can mark an instalment paid or unlock a handset. Forged notifications are rejected.</p>
+      </div>
+      <div class="bg-white p-6">
+        <h3 class="text-[16px] font-bold tracking-tight text-ink-900">Tamper-resistant agent</h3>
+        <p class="mt-2 text-[14.5px] leading-relaxed text-ink-600">Provisioned as a device owner with a verified signing checksum, the agent cannot simply be uninstalled by the customer.</p>
+      </div>
+      <div class="bg-white p-6">
+        <h3 class="text-[16px] font-bold tracking-tight text-ink-900">Complete audit trail</h3>
+        <p class="mt-2 text-[14.5px] leading-relaxed text-ink-600">Who issued a lock, when it was delivered and when the device acknowledged it — recorded for every command, permanently.</p>
+      </div>
+    </div>
+
+    <div class="mt-8 flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 p-5">
+      <svg class="mt-0.5 h-6 w-6 shrink-0 text-brand-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+      <p class="text-[14.5px] leading-relaxed text-brand-900"><span class="font-bold">A locked phone is not a dead phone.</span> Emergency calling stays available, and the lock screen shows the customer exactly what is owed and how to pay it — so recovery is a payment, not a confrontation.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== TESTIMONIALS ============================== -->
+<section class="border-y border-ink-200 bg-ink-50/60 py-20 sm:py-24">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <h2 class="max-w-2xl text-[30px] font-extrabold leading-tight tracking-[-0.025em] text-ink-900 sm:text-[38px]">What dealers say</h2>
+
+    <!-- TODO: replace the three quotes below with real, permissioned customer quotes before publishing. -->
+    <div class="mt-12 grid gap-5 lg:grid-cols-3">
+      <figure class="flex flex-col rounded-2xl border border-dashed border-ink-300 bg-white p-6">
+        <blockquote class="flex-1 text-[15.5px] leading-relaxed text-ink-500 italic">"Placeholder — add a real quote here about what changed after switching to Linda."</blockquote>
+        <figcaption class="mt-6 border-t border-ink-100 pt-4">
+          <p class="text-[14px] font-bold text-ink-700">Customer name</p>
+          <p class="mt-0.5 text-[13px] text-ink-500">Role · Shop name, City</p>
+        </figcaption>
+      </figure>
+      <figure class="flex flex-col rounded-2xl border border-dashed border-ink-300 bg-white p-6">
+        <blockquote class="flex-1 text-[15.5px] leading-relaxed text-ink-500 italic">"Placeholder — a quote about collection rate or time saved works well in this slot."</blockquote>
+        <figcaption class="mt-6 border-t border-ink-100 pt-4">
+          <p class="text-[14px] font-bold text-ink-700">Customer name</p>
+          <p class="mt-0.5 text-[13px] text-ink-500">Role · Shop name, City</p>
+        </figcaption>
+      </figure>
+      <figure class="flex flex-col rounded-2xl border border-dashed border-ink-300 bg-white p-6">
+        <blockquote class="flex-1 text-[15.5px] leading-relaxed text-ink-500 italic">"Placeholder — a quote about Managed Collections belongs here."</blockquote>
+        <figcaption class="mt-6 border-t border-ink-100 pt-4">
+          <p class="text-[14px] font-bold text-ink-700">Customer name</p>
+          <p class="mt-0.5 text-[13px] text-ink-500">Role · Shop name, City</p>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PRICING ============================== -->
+<section id="pricing" class="scroll-mt-20 bg-white py-20 sm:py-24">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="text-[12.5px] font-bold uppercase tracking-[0.14em] text-brand-700">Pricing</p>
+      <h2 class="mt-3 text-[30px] font-extrabold leading-tight tracking-[-0.025em] text-ink-900 sm:text-[38px]">Priced to the size of your book.</h2>
+      <p class="mt-4 text-[16.5px] leading-relaxed text-ink-600">Managed Collections packages, billed monthly in Tanzanian shillings. Tier is set by your active financed devices at the start of each billing period.</p>
+    </div>
+
+    <div class="mt-14 grid items-start gap-6 lg:grid-cols-3">
+
+      <div class="rounded-2xl border border-ink-200 bg-white p-7 shadow-card">
+        <h3 class="text-[18px] font-bold tracking-tight text-ink-900">Starter</h3>
+        <p class="mt-1.5 text-[14px] text-ink-500">Under 30 active devices</p>
+        <p class="mt-6 flex items-baseline gap-1.5">
+          <span class="text-[13px] font-semibold text-ink-500">TZS</span>
+          <span class="text-[40px] font-extrabold leading-none tracking-tight text-ink-900 tabular">18,000</span>
+        </p>
+        <p class="mt-1.5 text-[13.5px] text-ink-500">per device, per month</p>
+        <a href="#demo" class="mt-7 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-xl border border-ink-200 bg-white text-[15px] font-semibold text-ink-900 transition-colors duration-200 hover:border-ink-300 hover:bg-ink-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900">Get started</a>
+        <ul class="mt-7 space-y-3.5 border-t border-ink-100 pt-6">
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-600"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Full platform: devices, loans, payments</li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-600"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Remote lock, unlock and release</li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-600"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Managed collections queue</li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-600"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>SMS reminders &amp; ClickPesa collections</li>
+        </ul>
+      </div>
+
+      <div class="relative rounded-2xl border-2 border-brand-700 bg-white p-7 shadow-lift lg:-mt-4 lg:pb-9 lg:pt-9">
+        <span class="absolute -top-3.5 left-7 inline-flex items-center rounded-full bg-brand-700 px-3 py-1 text-[11.5px] font-bold uppercase tracking-wider text-white shadow-glow">Most popular</span>
+        <h3 class="text-[18px] font-bold tracking-tight text-ink-900">Growth</h3>
+        <p class="mt-1.5 text-[14px] text-ink-500">30 – 44 active devices</p>
+        <p class="mt-6 flex items-baseline gap-1.5">
+          <span class="text-[13px] font-semibold text-ink-500">TZS</span>
+          <span class="text-[40px] font-extrabold leading-none tracking-tight text-ink-900 tabular">700,000</span>
+        </p>
+        <p class="mt-1.5 text-[13.5px] text-ink-500">flat, per month</p>
+        <a href="#demo" class="mt-7 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-brand-700 text-[15px] font-semibold text-white shadow-glow transition-colors duration-200 hover:bg-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">Book a demo</a>
+        <ul class="mt-7 space-y-3.5 border-t border-ink-100 pt-6">
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-700"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span class="font-semibold">Everything in Starter</span></li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-700"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Flat monthly fee — no per-device maths</li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-700"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Dedicated platform collectors</li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-700"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Promise-to-pay worklist &amp; verified contact log</li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-700"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Collector performance reports</li>
+        </ul>
+      </div>
+
+      <div class="rounded-2xl border border-ink-200 bg-white p-7 shadow-card">
+        <h3 class="text-[18px] font-bold tracking-tight text-ink-900">Business</h3>
+        <p class="mt-1.5 text-[14px] text-ink-500">45 – 55 active devices</p>
+        <p class="mt-6 flex items-baseline gap-1.5">
+          <span class="text-[13px] font-semibold text-ink-500">TZS</span>
+          <span class="text-[40px] font-extrabold leading-none tracking-tight text-ink-900 tabular">900,000</span>
+        </p>
+        <p class="mt-1.5 text-[13.5px] text-ink-500">flat, per month</p>
+        <a href="#demo" class="mt-7 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-xl border border-ink-200 bg-white text-[15px] font-semibold text-ink-900 transition-colors duration-200 hover:border-ink-300 hover:bg-ink-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900">Talk to sales</a>
+        <ul class="mt-7 space-y-3.5 border-t border-ink-100 pt-6">
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-600"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span class="font-semibold">Everything in Growth</span></li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-600"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Multi-branch rollout support</li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-600"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Priority onboarding &amp; staff training</li>
+          <li class="flex gap-3 text-[14.5px] leading-relaxed text-ink-600"><svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Named account manager</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="mt-10 text-center text-[14px] text-ink-500">More than 55 active devices? <a href="#demo" class="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-4 transition-colors hover:text-brand-800">Contact us for enterprise pricing</a>.</p>
+  </div>
+</section>
+
+<!-- ============================== FAQ ============================== -->
+<section id="faq" class="scroll-mt-20 border-t border-ink-200 bg-ink-50/60 py-20 sm:py-24">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:grid lg:grid-cols-12 lg:gap-12 lg:px-8">
+    <div class="lg:col-span-5">
+      <h2 class="text-[30px] font-extrabold leading-tight tracking-[-0.025em] text-ink-900 sm:text-[38px]">Questions dealers ask</h2>
+      <p class="mt-4 text-[16px] leading-relaxed text-ink-600">Still unsure? <a href="#demo" class="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-4 transition-colors hover:text-brand-800">Book a demo</a> and we'll walk through your exact setup.</p>
+    </div>
+
+    <div class="mt-10 divide-y divide-ink-200 border-y border-ink-200 lg:col-span-7 lg:mt-0">
+      <details class="group py-5" open>
+        <summary class="flex cursor-pointer items-start justify-between gap-6 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-700">
+          <h3 class="text-[16.5px] font-bold tracking-tight text-ink-900">Can the customer remove the lock app?</h3>
+          <span class="faq-icon mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-700" aria-hidden="true">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </summary>
+        <p class="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-600">No. The agent is installed as an Android device owner during provisioning, which blocks uninstalling it and stops a factory reset from returning the phone to an unmanaged state.</p>
+      </details>
+
+      <details class="group py-5">
+        <summary class="flex cursor-pointer items-start justify-between gap-6 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-700">
+          <h3 class="text-[16.5px] font-bold tracking-tight text-ink-900">What if the phone is switched off or has no internet?</h3>
+          <span class="faq-icon mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-700" aria-hidden="true">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </summary>
+        <p class="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-600">Commands sit in a queue on the server. The moment the handset reconnects it checks in and applies whatever is pending — a lock issued yesterday still lands today. Devices also check in periodically on their own, so nothing depends on the customer cooperating.</p>
+      </details>
+
+      <details class="group py-5">
+        <summary class="flex cursor-pointer items-start justify-between gap-6 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-700">
+          <h3 class="text-[16.5px] font-bold tracking-tight text-ink-900">Does a locked phone still make emergency calls?</h3>
+          <span class="faq-icon mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-700" aria-hidden="true">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </summary>
+        <p class="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-600">Yes. The lock screen restricts normal use but keeps emergency dialling available, and it clearly shows the outstanding amount plus how to pay — so the customer can resolve it themselves.</p>
+      </details>
+
+      <details class="group py-5">
+        <summary class="flex cursor-pointer items-start justify-between gap-6 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-700">
+          <h3 class="text-[16.5px] font-bold tracking-tight text-ink-900">How fast does a device unlock after payment?</h3>
+          <span class="faq-icon mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-700" aria-hidden="true">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </summary>
+        <p class="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-600">A verified ClickPesa confirmation triggers the unlock immediately and a push notification wakes the device to collect it — typically under a minute on a connected handset. No staff member has to be at the shop.</p>
+      </details>
+
+      <details class="group py-5">
+        <summary class="flex cursor-pointer items-start justify-between gap-6 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-700">
+          <h3 class="text-[16.5px] font-bold tracking-tight text-ink-900">Can I run more than one shop on one account?</h3>
+          <span class="faq-icon mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-700" aria-hidden="true">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </summary>
+        <p class="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-600">Yes. Linda is multi-tenant from the ground up. Each shop has its own customers, devices, loans and staff, and owners can see across their branches while agents only see their own.</p>
+      </details>
+
+      <details class="group py-5">
+        <summary class="flex cursor-pointer items-start justify-between gap-6 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-700">
+          <h3 class="text-[16.5px] font-bold tracking-tight text-ink-900">Which handsets are supported?</h3>
+          <span class="faq-icon mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-ink-700" aria-hidden="true">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </summary>
+        <p class="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-600">Any modern Android phone that supports Android Enterprise provisioning — including the Tecno, Infinix, Samsung and Xiaomi models most commonly sold on credit. Enrollment happens from the factory-reset setup screen via QR code.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== FINAL CTA ============================== -->
+<section id="demo" class="relative scroll-mt-20 overflow-hidden bg-brand-800">
+  <div class="pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" style="background-image:radial-gradient(circle at 20% 0%, rgba(56,189,248,.45), transparent 55%), radial-gradient(circle at 85% 100%, rgba(2,132,199,.5), transparent 55%);"></div>
+
+  <div class="relative mx-auto max-w-7xl px-5 py-20 sm:px-6 sm:py-24 lg:grid lg:grid-cols-12 lg:items-center lg:gap-12 lg:px-8">
+    <div class="lg:col-span-6">
+      <h2 class="text-[32px] font-extrabold leading-[1.12] tracking-[-0.025em] text-white sm:text-[42px]">Stop writing off handsets.<br />Start collecting on time.</h2>
+      <p class="mt-5 max-w-lg text-[16.5px] leading-relaxed text-brand-100">Book a 20-minute demo. We'll enroll a real device on the call, lock it, take a test payment and unlock it — so you can see the whole loop before you decide.</p>
+      <ul class="mt-8 space-y-3">
+        <li class="flex items-center gap-3 text-[15px] text-brand-50"><svg class="h-4 w-4 shrink-0 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>No setup fee</li>
+        <li class="flex items-center gap-3 text-[15px] text-brand-50"><svg class="h-4 w-4 shrink-0 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Onboarding and staff training included</li>
+        <li class="flex items-center gap-3 text-[15px] text-brand-50"><svg class="h-4 w-4 shrink-0 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Cancel any time</li>
+      </ul>
+    </div>
+
+    <div class="mt-12 lg:col-span-6 lg:mt-0">
+      <form class="rounded-2xl bg-white p-6 shadow-lift sm:p-7" novalidate>
+        <p class="text-[18px] font-bold tracking-tight text-ink-900">Request a demo</p>
+        <p class="mt-1 text-[14px] text-ink-500">We reply within one business day.</p>
+
+        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+          <div class="sm:col-span-1">
+            <label for="name" class="block text-[13.5px] font-semibold text-ink-800">Full name <span class="text-brand-700" aria-hidden="true">*</span></label>
+            <input id="name" name="name" type="text" required autocomplete="name" class="mt-1.5 h-12 w-full rounded-xl border border-ink-200 bg-white px-3.5 text-[15px] text-ink-900 placeholder:text-ink-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/25" placeholder="Asha Mwakalinga" />
+          </div>
+          <div class="sm:col-span-1">
+            <label for="shop" class="block text-[13.5px] font-semibold text-ink-800">Shop / company <span class="text-brand-700" aria-hidden="true">*</span></label>
+            <input id="shop" name="shop" type="text" required autocomplete="organization" class="mt-1.5 h-12 w-full rounded-xl border border-ink-200 bg-white px-3.5 text-[15px] text-ink-900 placeholder:text-ink-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/25" placeholder="Kariakoo Mobile Centre" />
+          </div>
+          <div class="sm:col-span-1">
+            <label for="phone" class="block text-[13.5px] font-semibold text-ink-800">Phone <span class="text-brand-700" aria-hidden="true">*</span></label>
+            <input id="phone" name="phone" type="tel" required autocomplete="tel" inputmode="tel" class="mt-1.5 h-12 w-full rounded-xl border border-ink-200 bg-white px-3.5 text-[15px] text-ink-900 placeholder:text-ink-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/25" placeholder="+255 7XX XXX XXX" />
+          </div>
+          <div class="sm:col-span-1">
+            <label for="devices" class="block text-[13.5px] font-semibold text-ink-800">Devices financed / month</label>
+            <select id="devices" name="devices" class="mt-1.5 h-12 w-full cursor-pointer rounded-xl border border-ink-200 bg-white px-3 text-[15px] text-ink-900 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/25">
+              <option>Fewer than 30</option>
+              <option>30 – 44</option>
+              <option>45 – 55</option>
+              <option>More than 55</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label for="message" class="block text-[13.5px] font-semibold text-ink-800">Anything we should know?</label>
+            <textarea id="message" name="message" rows="3" class="mt-1.5 w-full rounded-xl border border-ink-200 bg-white px-3.5 py-3 text-[15px] leading-relaxed text-ink-900 placeholder:text-ink-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/25" placeholder="How you sell on credit today, and what goes wrong."></textarea>
+          </div>
+        </div>
+
+        <button type="submit" class="mt-6 inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-700 text-[15.5px] font-semibold text-white shadow-glow transition-colors duration-200 hover:bg-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
+          Book my demo
+          <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+        <p class="mt-3.5 text-center text-[12.5px] leading-relaxed text-ink-500">By submitting you agree to be contacted about Linda. We never share your details.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============================== FOOTER ============================== -->
+<footer class="bg-ink-950 pb-10 pt-16">
+  <div class="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+    <div class="grid gap-10 md:grid-cols-12">
+      <div class="md:col-span-5">
+        <a href="#" class="flex items-center gap-2.5" aria-label="Linda home">
+          <span class="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-700">
+            <svg class="h-[18px] w-[18px] text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <span class="text-[17px] font-extrabold tracking-tight text-white">Linda</span>
+        </a>
+        <p class="mt-4 max-w-sm text-[14.5px] leading-relaxed text-ink-400">Phone financing infrastructure for dealers who sell on credit. Built in Tanzania, for Tanzanian shops.</p>
+      </div>
+
+      <div class="md:col-span-2">
+        <h3 class="text-[13px] font-bold uppercase tracking-wider text-white">Product</h3>
+        <ul class="mt-4 space-y-2.5">
+          <li><a href="#how" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white">How it works</a></li>
+          <li><a href="#platform" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white">Platform</a></li>
+          <li><a href="#collections" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white">Collections</a></li>
+          <li><a href="#pricing" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white">Pricing</a></li>
+        </ul>
+      </div>
+
+      <div class="md:col-span-2">
+        <h3 class="text-[13px] font-bold uppercase tracking-wider text-white">Company</h3>
+        <ul class="mt-4 space-y-2.5">
+          <li><a href="#security" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white">Security</a></li>
+          <li><a href="#faq" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white">FAQ</a></li>
+          <li><a href="#demo" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white">Contact sales</a></li>
+        </ul>
+      </div>
+
+      <div class="md:col-span-3">
+        <h3 class="text-[13px] font-bold uppercase tracking-wider text-white">Get in touch</h3>
+        <ul class="mt-4 space-y-2.5">
+          <li><a href="mailto:sales@linda.co.tz" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white">sales@linda.co.tz</a></li>
+          <li><a href="tel:+255700000000" class="text-[14.5px] text-ink-400 transition-colors duration-200 hover:text-white tabular">+255 700 000 000</a></li>
+          <li class="text-[14.5px] text-ink-400">Dar es Salaam, Tanzania</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-12 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <p class="text-[13.5px] text-ink-500">© <span id="year">2026</span> Linda. All rights reserved.</p>
+      <div class="flex gap-6">
+        <a href="#" class="text-[13.5px] text-ink-500 transition-colors duration-200 hover:text-ink-300">Privacy</a>
+        <a href="#" class="text-[13.5px] text-ink-500 transition-colors duration-200 hover:text-ink-300">Terms</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var btn = document.getElementById('menu-btn');
+    var menu = document.getElementById('mobile-menu');
+    btn.addEventListener('click', function () {
+      var open = menu.hasAttribute('hidden');
+      if (open) { menu.removeAttribute('hidden'); } else { menu.setAttribute('hidden', ''); }
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    menu.addEventListener('click', function (e) {
+      if (e.target.tagName === 'A') { menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); }
+    });
+    document.getElementById('year').textContent = new Date().getFullYear();
+  })();
+</script>
+
+</body>
+</html>

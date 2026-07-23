@@ -170,71 +170,72 @@ enum CommandStatus {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id        String   @id @default(uuid())
-  name      String
-  country   String   @default("TZ")
-  timezone  String   @default("Africa/Dar_es_Salaam")
-  isActive  Boolean  @default(true)
+  id                 String   @id @default(uuid())
+  name               String
+  country            String   @default("TZ")
+  timezone           String   @default("Africa/Dar_es_Salaam")
+  isActive           Boolean  @default(true)
   // Default lock policy applied to new devices (overridable per device).
-  graceDays      Int @default(3)
-  maxOfflineDays Int @default(4)
-  lockOnSimChange Boolean @default(true)
-  billingPlan String @default("STARTER")
-  subscriptionStatus String @default("ACTIVE")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  graceDays          Int      @default(3)
+  maxOfflineDays     Int      @default(4)
+  lockOnSimChange    Boolean  @default(true)
+  billingPlan        String   @default("STARTER")
+  subscriptionStatus String   @default("ACTIVE")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  users         User[]
-  customers     Customer[]
-  devices       Device[]
-  loans         Loan[]
-  contracts     Contract[]
-  installments  Installment[]
-  payments      Payment[]
-  callFollowUps CallFollowUp[]
-  callAttempts  CallAttempt[]
-  billingInvoices BillingInvoice[]
-  commands      DeviceCommand[]
-  events        DeviceEvent[]
-  enrollTokens  EnrollmentToken[]
+  users                   User[]
+  customers               Customer[]
+  devices                 Device[]
+  loans                   Loan[]
+  contracts               Contract[]
+  installments            Installment[]
+  payments                Payment[]
+  callFollowUps           CallFollowUp[]
+  callAttempts            CallAttempt[]
+  billingInvoices         BillingInvoice[]
+  commands                DeviceCommand[]
+  events                  DeviceEvent[]
+  enrollTokens            EnrollmentToken[]
   collectionsSubscription CollectionsSubscription?
-  collectionCases CollectionCase[]
-  contactSessions ContactSession[]
-  communicationLogs CommunicationLog[]
-  promisesToPay PromiseToPay[]
-  collectionsInvoices CollectionsInvoice[]
+  collectionCases         CollectionCase[]
+  contactSessions         ContactSession[]
+  communicationLogs       CommunicationLog[]
+  promisesToPay           PromiseToPay[]
+  collectionsInvoices     CollectionsInvoice[]
 
   @@index([isActive])
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   // null for SUPER_ADMIN, COLLECTIONS_ADMIN, COLLECTOR (platform operators)
   tenantId     String?
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  email        String   @unique
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String    @unique
   passwordHash String
   fullName     String
-  role         UserRole @default(AGENT)
-  isActive     Boolean  @default(true)
+  role         UserRole  @default(AGENT)
+  isActive     Boolean   @default(true)
   // Phone the collector uses for BYOD follow-up (E.164 preferred).
   phone        String?
   lastLoginAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  issuedCommands DeviceCommand[] @relation("CommandIssuedBy")
-  assignedCallFollowUps CallFollowUp[] @relation("CallAssignedTo")
-  createdCallFollowUps CallFollowUp[] @relation("CallCreatedBy")
-  callAttempts CallAttempt[]
-  refreshTokens  RefreshToken[]
-  assignedCollectionCases CollectionCase[] @relation("CaseAssignedTo")
-  activatedSubscriptions CollectionsSubscription[] @relation("SubscriptionActivatedBy")
-  contactSessions ContactSession[] @relation("ContactCollector")
-  communicationLogs CommunicationLog[] @relation("CommCollector")
-  promisesToPay PromiseToPay[] @relation("PtpCreatedBy")
-  workSessions CollectorWorkSession[]
-  dailyStats CollectorDailyStat[]
+  issuedCommands          DeviceCommand[]           @relation("CommandIssuedBy")
+  assignedCallFollowUps   CallFollowUp[]            @relation("CallAssignedTo")
+  createdCallFollowUps    CallFollowUp[]            @relation("CallCreatedBy")
+  callAttempts            CallAttempt[]
+  refreshTokens           RefreshToken[]
+  assignedCollectionCases CollectionCase[]          @relation("CaseAssignedTo")
+  referredCollectionCases CollectionCase[]          @relation("CaseReferredBy")
+  activatedSubscriptions  CollectionsSubscription[] @relation("SubscriptionActivatedBy")
+  contactSessions         ContactSession[]          @relation("ContactCollector")
+  communicationLogs       CommunicationLog[]        @relation("CommCollector")
+  promisesToPay           PromiseToPay[]            @relation("PtpCreatedBy")
+  workSessions            CollectorWorkSession[]
+  dailyStats              CollectorDailyStat[]
 
   @@index([tenantId])
   @@index([role])
@@ -257,22 +258,22 @@ model CollectorWorkSession {
 
 /// Materialized daily rollup for collector KPIs (day / month / year reports).
 model CollectorDailyStat {
-  id              String   @id @default(uuid())
-  collectorId     String
-  collector       User     @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(uuid())
+  collectorId        String
+  collector          User     @relation(fields: [collectorId], references: [id], onDelete: Cascade)
   /// Calendar day (UTC date truncated to midnight).
-  date            DateTime @db.Date
-  callsCount      Int      @default(0)
-  talkSeconds     Int      @default(0)
-  smsCount        Int      @default(0)
-  whatsappCount   Int      @default(0)
-  followUpsCount  Int      @default(0)
-  casesWorked     Int      @default(0)
-  ptpCount        Int      @default(0)
+  date               DateTime @db.Date
+  callsCount         Int      @default(0)
+  talkSeconds        Int      @default(0)
+  smsCount           Int      @default(0)
+  whatsappCount      Int      @default(0)
+  followUpsCount     Int      @default(0)
+  casesWorked        Int      @default(0)
+  ptpCount           Int      @default(0)
   /// From work sessions that day (seconds).
-  hoursWorkedSeconds Int   @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  hoursWorkedSeconds Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@unique([collectorId, date])
   @@index([date])
@@ -280,25 +281,25 @@ model CollectorDailyStat {
 
 // Seller subscribes so platform collectors can work their overdue book.
 model CollectionsSubscription {
-  id           String                         @id @default(uuid())
-  tenantId     String                         @unique
-  tenant       Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  packageCode  CollectionsPackage
-  status       CollectionsSubscriptionStatus  @default(PENDING)
+  id            String                        @id @default(uuid())
+  tenantId      String                        @unique
+  tenant        Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  packageCode   CollectionsPackage
+  status        CollectionsSubscriptionStatus @default(PENDING)
   // Snapshot / limits at activation
   deviceBandMin Int
   deviceBandMax Int
-  priceModel   String // PER_DEVICE | FLAT
-  unitPrice    Decimal? @db.Decimal(14, 2) // per device (Starter)
-  flatPrice    Decimal? @db.Decimal(14, 2) // Growth / Business
-  currency     String   @default("TZS")
-  activatedAt  DateTime?
+  priceModel    String // PER_DEVICE | FLAT
+  unitPrice     Decimal?                      @db.Decimal(14, 2) // per device (Starter)
+  flatPrice     Decimal?                      @db.Decimal(14, 2) // Growth / Business
+  currency      String                        @default("TZS")
+  activatedAt   DateTime?
   activatedById String?
-  activatedBy  User?    @relation("SubscriptionActivatedBy", fields: [activatedById], references: [id], onDelete: SetNull)
-  endsAt       DateTime?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  activatedBy   User?                         @relation("SubscriptionActivatedBy", fields: [activatedById], references: [id], onDelete: SetNull)
+  endsAt        DateTime?
+  notes         String?
+  createdAt     DateTime                      @default(now())
+  updatedAt     DateTime                      @updatedAt
 
   invoices CollectionsInvoice[]
 
@@ -307,28 +308,28 @@ model CollectionsSubscription {
 
 /// Monthly invoice for managed collections service (separate from platform SaaS billing).
 model CollectionsInvoice {
-  id              String                    @id @default(uuid())
-  tenantId        String
-  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  subscriptionId  String
-  subscription    CollectionsSubscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  periodStart     DateTime
-  periodEnd       DateTime
-  packageCode     CollectionsPackage
-  activeDevices   Int
-  priceModel      String
-  unitPrice       Decimal?                  @db.Decimal(14, 2)
-  flatPrice       Decimal?                  @db.Decimal(14, 2)
-  currency        String                    @default("TZS")
-  subtotal        Decimal                   @db.Decimal(14, 2)
-  total           Decimal                   @db.Decimal(14, 2)
-  status          CollectionsInvoiceStatus  @default(OPEN)
-  lineItems       Json
-  dueDate         DateTime
-  paidAt          DateTime?
-  notes           String?
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  id             String                   @id @default(uuid())
+  tenantId       String
+  tenant         Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptionId String
+  subscription   CollectionsSubscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  periodStart    DateTime
+  periodEnd      DateTime
+  packageCode    CollectionsPackage
+  activeDevices  Int
+  priceModel     String
+  unitPrice      Decimal?                 @db.Decimal(14, 2)
+  flatPrice      Decimal?                 @db.Decimal(14, 2)
+  currency       String                   @default("TZS")
+  subtotal       Decimal                  @db.Decimal(14, 2)
+  total          Decimal                  @db.Decimal(14, 2)
+  status         CollectionsInvoiceStatus @default(OPEN)
+  lineItems      Json
+  dueDate        DateTime
+  paidAt         DateTime?
+  notes          String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
 
   @@unique([subscriptionId, periodStart])
   @@index([tenantId, periodStart])
@@ -337,34 +338,40 @@ model CollectionsInvoice {
 
 // One open work unit per loan (overdue collection case), always tagged with seller tenant.
 model CollectionCase {
-  id             String               @id @default(uuid())
-  tenantId       String
-  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  loanId         String               @unique
-  loan           Loan                 @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  customerId     String
-  customer       Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  deviceId       String
-  device         Device               @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  installmentId  String?
-  installment    Installment?         @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  id            String       @id @default(uuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanId        String       @unique
+  loan          Loan         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deviceId      String
+  device        Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  installmentId String?
+  installment   Installment? @relation(fields: [installmentId], references: [id], onDelete: SetNull)
 
-  status         CollectionCaseStatus @default(OPEN)
-  source         CollectionCaseSource @default(AUTO_OVERDUE)
-  daysOverdue    Int                  @default(0)
-  amountDue      Decimal              @default(0) @db.Decimal(14, 2)
-  currency       String               @default("TZS")
-  followUpCount  Int                  @default(0)
-  assignedToId   String?
-  assignedTo     User?                @relation("CaseAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
-  assignedAt     DateTime?
+  status          CollectionCaseStatus @default(OPEN)
+  source          CollectionCaseSource @default(AUTO_OVERDUE)
+  daysOverdue     Int                  @default(0)
+  amountDue       Decimal              @default(0) @db.Decimal(14, 2)
+  currency        String               @default("TZS")
+  followUpCount   Int                  @default(0)
+  assignedToId    String?
+  assignedTo      User?                @relation("CaseAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt      DateTime?
   lastContactedAt DateTime?
-  nextActionAt   DateTime?
-  closedAt       DateTime?
-  closedReason   String?
+  nextActionAt    DateTime?
+  closedAt        DateTime?
+  closedReason    String?
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  // Seller hand-off: the shop explicitly asked the platform to work this case.
+  referredById String?
+  referredBy   User?     @relation("CaseReferredBy", fields: [referredById], references: [id], onDelete: SetNull)
+  referredAt   DateTime?
+  referralNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   contactSessions   ContactSession[]
   communicationLogs CommunicationLog[]
@@ -378,33 +385,33 @@ model CollectionCase {
 
 /// System-initiated contact (must start here before Call/SMS/WhatsApp).
 model ContactSession {
-  id               String                    @id @default(uuid())
-  tenantId         String
-  tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  caseId           String
-  case             CollectionCase            @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  loanId           String
-  customerId       String
-  collectorId      String
-  collector        User                      @relation("ContactCollector", fields: [collectorId], references: [id], onDelete: Cascade)
+  id          String         @id @default(uuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseId      String
+  case        CollectionCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  loanId      String
+  customerId  String
+  collectorId String
+  collector   User           @relation("ContactCollector", fields: [collectorId], references: [id], onDelete: Cascade)
 
-  channel          ContactChannel
-  customerPhone    String
-  collectorPhone   String?
-  bodyPreview      String?
-  status           ContactSessionStatus      @default(PENDING)
+  channel            ContactChannel
+  customerPhone      String
+  collectorPhone     String?
+  bodyPreview        String?
+  status             ContactSessionStatus      @default(PENDING)
   verificationStatus ContactVerificationStatus @default(NONE)
-  provider         String?
-  providerRef      String?
-  durationSeconds  Int?
-  deviceMatchMeta  Json?
-  launchUrl        String? // tel: / sms: / wa.me deep link for client
-  initiatedAt      DateTime                  @default(now())
-  expiresAt        DateTime
-  completedAt      DateTime?
-  outcomeNote      String?
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  provider           String?
+  providerRef        String?
+  durationSeconds    Int?
+  deviceMatchMeta    Json?
+  launchUrl          String? // tel: / sms: / wa.me deep link for client
+  initiatedAt        DateTime                  @default(now())
+  expiresAt          DateTime
+  completedAt        DateTime?
+  outcomeNote        String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
 
   communicationLog CommunicationLog?
 
@@ -416,30 +423,30 @@ model ContactSession {
 
 /// Unified timeline of call / SMS / WhatsApp per client/case.
 model CommunicationLog {
-  id               String                 @id @default(uuid())
+  id               String          @id @default(uuid())
   tenantId         String
-  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   caseId           String
-  case             CollectionCase         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case             CollectionCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
   loanId           String
   customerId       String
-  contactSessionId String?                @unique
-  contactSession   ContactSession?        @relation(fields: [contactSessionId], references: [id], onDelete: SetNull)
+  contactSessionId String?         @unique
+  contactSession   ContactSession? @relation(fields: [contactSessionId], references: [id], onDelete: SetNull)
   collectorId      String?
-  collector        User?                  @relation("CommCollector", fields: [collectorId], references: [id], onDelete: SetNull)
+  collector        User?           @relation("CommCollector", fields: [collectorId], references: [id], onDelete: SetNull)
 
-  channel          ContactChannel
-  direction        CommunicationDirection @default(OUTBOUND)
-  status           CommunicationStatus    @default(PENDING_PROOF)
+  channel            ContactChannel
+  direction          CommunicationDirection    @default(OUTBOUND)
+  status             CommunicationStatus       @default(PENDING_PROOF)
   verificationStatus ContactVerificationStatus @default(NONE)
-  customerPhone    String?
-  body             String?
-  durationSeconds  Int?
-  providerRef      String?
-  metadata         Json?
-  occurredAt       DateTime               @default(now())
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  customerPhone      String?
+  body               String?
+  durationSeconds    Int?
+  providerRef        String?
+  metadata           Json?
+  occurredAt         DateTime                  @default(now())
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
 
   @@index([tenantId, occurredAt])
   @@index([caseId, occurredAt])
@@ -448,24 +455,24 @@ model CommunicationLog {
 }
 
 model PromiseToPay {
-  id               String             @id @default(uuid())
-  tenantId         String
-  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  caseId           String
-  case             CollectionCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  loanId           String
-  customerId       String
-  promisedAmount   Decimal            @db.Decimal(14, 2)
-  currency         String             @default("TZS")
-  promisedAt       DateTime           @default(now())
-  dueDate          DateTime
-  status           PromiseToPayStatus @default(OPEN)
-  notes            String?
-  createdById      String?
-  createdBy        User?              @relation("PtpCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  keptPaymentId    String?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id             String             @id @default(uuid())
+  tenantId       String
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseId         String
+  case           CollectionCase     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  loanId         String
+  customerId     String
+  promisedAmount Decimal            @db.Decimal(14, 2)
+  currency       String             @default("TZS")
+  promisedAt     DateTime           @default(now())
+  dueDate        DateTime
+  status         PromiseToPayStatus @default(OPEN)
+  notes          String?
+  createdById    String?
+  createdBy      User?              @relation("PtpCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  keptPaymentId  String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@index([tenantId, dueDate])
   @@index([caseId, status])
@@ -474,13 +481,13 @@ model PromiseToPay {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   revokedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }
@@ -490,21 +497,21 @@ model RefreshToken {
 // ---------------------------------------------------------------------------
 
 model Customer {
-  id            String   @id @default(uuid())
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  fullName      String
-  phone         String // primary mobile-money number
-  nationalId    String?
-  address       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fullName   String
+  phone      String // primary mobile-money number
+  nationalId String?
+  address    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  devices Device[]
-  loans   Loan[]
-  contracts Contract[]
-  callFollowUps CallFollowUp[]
-  callAttempts CallAttempt[]
+  devices         Device[]
+  loans           Loan[]
+  contracts       Contract[]
+  callFollowUps   CallFollowUp[]
+  callAttempts    CallAttempt[]
   collectionCases CollectionCase[]
   // ContactSession / CommunicationLog / PromiseToPay keyed via case/loan; no reverse needed on Customer for MVP
 
@@ -513,46 +520,46 @@ model Customer {
 }
 
 model Device {
-  id            String       @id @default(uuid())
-  tenantId      String
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customerId    String?
-  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  id         String    @id @default(uuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
-  imei          String
-  serialNumber  String?
-  make          String?
-  model         String?
+  imei         String
+  serialNumber String?
+  make         String?
+  model        String?
 
-  status        DeviceStatus @default(PENDING_ENROLLMENT)
+  status         DeviceStatus @default(PENDING_ENROLLMENT)
   // Per-device overrides of the tenant policy (null => inherit tenant).
   graceDays      Int?
   maxOfflineDays Int?
 
   // Agent identity / push
-  agentTokenHash String?   @unique // hash of the device's auth token
-  smsSecret      String?
-  fcmToken       String?           // for instant push commands
-  lastCheckInAt  DateTime?
-  lockedAt       DateTime?
-  simIccid       String?
-  simOperator    String?
-  simCountryIso  String?
-  simPhoneNumber String?
-  simFingerprint String?
+  agentTokenHash         String?   @unique // hash of the device's auth token
+  smsSecret              String?
+  fcmToken               String? // for instant push commands
+  lastCheckInAt          DateTime?
+  lockedAt               DateTime?
+  simIccid               String?
+  simOperator            String?
+  simCountryIso          String?
+  simPhoneNumber         String?
+  simFingerprint         String?
   approvedSimFingerprint String?
-  simLastChangedAt DateTime?
-  simChangeApprovedAt DateTime?
+  simLastChangedAt       DateTime?
+  simChangeApprovedAt    DateTime?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  loan       Loan?
-  callFollowUps CallFollowUp[]
-  callAttempts CallAttempt[]
-  commands   DeviceCommand[]
-  events     DeviceEvent[]
-  enrollToken EnrollmentToken?
+  loan            Loan?
+  callFollowUps   CallFollowUp[]
+  callAttempts    CallAttempt[]
+  commands        DeviceCommand[]
+  events          DeviceEvent[]
+  enrollToken     EnrollmentToken?
   collectionCases CollectionCase[]
 
   @@unique([tenantId, imei])
@@ -561,74 +568,74 @@ model Device {
 }
 
 model EnrollmentToken {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deviceId   String   @unique
-  device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  token      String   @unique // embedded in the provisioning QR code
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deviceId   String    @unique
+  device     Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  token      String    @unique // embedded in the provisioning QR code
   expiresAt  DateTime
   consumedAt DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([tenantId])
 }
 
 model Loan {
-  id            String     @id @default(uuid())
-  tenantId      String
-  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customerId    String
-  customer      Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  deviceId      String     @unique
-  device        Device     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deviceId   String   @unique
+  device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
-  principal     Decimal    @db.Decimal(14, 2) // device price financed
-  downPayment   Decimal    @db.Decimal(14, 2) @default(0)
-  interestRate  Decimal    @db.Decimal(5, 2)  @default(0) // % flat, simple model for MVP
-  termMonths    Int
-  currency      String     @default("TZS")
-  status        LoanStatus @default(ACTIVE)
-  startDate     DateTime   @default(now())
+  principal    Decimal    @db.Decimal(14, 2) // device price financed
+  downPayment  Decimal    @default(0) @db.Decimal(14, 2)
+  interestRate Decimal    @default(0) @db.Decimal(5, 2) // % flat, simple model for MVP
+  termMonths   Int
+  currency     String     @default("TZS")
+  status       LoanStatus @default(ACTIVE)
+  startDate    DateTime   @default(now())
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  installments Installment[]
-  payments     Payment[]
-  contract     Contract?
-  callFollowUps CallFollowUp[]
-  callAttempts CallAttempt[]
+  installments   Installment[]
+  payments       Payment[]
+  contract       Contract?
+  callFollowUps  CallFollowUp[]
+  callAttempts   CallAttempt[]
   collectionCase CollectionCase?
 
   @@index([tenantId, status])
 }
 
 model CallFollowUp {
-  id          String   @id @default(uuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  loanId      String
-  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  deviceId    String
-  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  loanId     String
+  loan       Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  deviceId   String
+  device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   assignedToId String?
   assignedTo   User?   @relation("CallAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   createdById  String?
   createdBy    User?   @relation("CallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
-  outcome      String
-  notes        String?
-  promiseToPayAt DateTime?
-  escalationStatus String @default("NONE")
-  nextFollowUpAt DateTime?
-  calledAt     DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  attempts      CallAttempt[]
+  outcome          String
+  notes            String?
+  promiseToPayAt   DateTime?
+  escalationStatus String        @default("NONE")
+  nextFollowUpAt   DateTime?
+  calledAt         DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  attempts         CallAttempt[]
 
   @@index([tenantId, calledAt])
   @@index([tenantId, escalationStatus])
@@ -636,33 +643,33 @@ model CallFollowUp {
 }
 
 model CallAttempt {
-  id          String   @id @default(uuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  followUpId  String?
-  followUp    CallFollowUp? @relation(fields: [followUpId], references: [id], onDelete: SetNull)
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  loanId      String
-  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  deviceId    String
-  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  staffId     String
-  staff       User     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  id         String        @id @default(uuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  followUpId String?
+  followUp   CallFollowUp? @relation(fields: [followUpId], references: [id], onDelete: SetNull)
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  loanId     String
+  loan       Loan          @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  deviceId   String
+  device     Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  staffId    String
+  staff      User          @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
-  staffPhone    String?
-  customerPhone String
-  provider      String?
-  providerCallId String?
-  providerStatus String?
-  verificationStatus String @default("SELF_REPORTED")
-  durationSeconds Int?
-  recordingUrl String?
-  startedAt    DateTime @default(now())
-  endedAt      DateTime?
-  rawPayload   Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  staffPhone         String?
+  customerPhone      String
+  provider           String?
+  providerCallId     String?
+  providerStatus     String?
+  verificationStatus String    @default("SELF_REPORTED")
+  durationSeconds    Int?
+  recordingUrl       String?
+  startedAt          DateTime  @default(now())
+  endedAt            DateTime?
+  rawPayload         Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([tenantId, startedAt])
   @@index([staffId, startedAt])
@@ -671,13 +678,13 @@ model CallAttempt {
 }
 
 model Contract {
-  id           String   @id @default(uuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customerId   String
-  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  loanId       String   @unique
-  loan         Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  loanId     String   @unique
+  loan       Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
 
   acceptedAt   DateTime @default(now())
   acceptedBy   String
@@ -686,28 +693,28 @@ model Contract {
   termsText    String
   metadata     Json?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId, acceptedAt])
   @@index([customerId])
 }
 
 model Installment {
-  id          String            @id @default(uuid())
-  tenantId    String
-  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  loanId      String
-  loan        Loan              @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  sequence    Int // 1..termMonths
-  dueDate     DateTime
-  amount      Decimal           @db.Decimal(14, 2)
-  amountPaid  Decimal           @db.Decimal(14, 2) @default(0)
-  status      InstallmentStatus @default(PENDING)
-  paidAt      DateTime?
+  id         String            @id @default(uuid())
+  tenantId   String
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanId     String
+  loan       Loan              @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  sequence   Int // 1..termMonths
+  dueDate    DateTime
+  amount     Decimal           @db.Decimal(14, 2)
+  amountPaid Decimal           @default(0) @db.Decimal(14, 2)
+  status     InstallmentStatus @default(PENDING)
+  paidAt     DateTime?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   collectionCases CollectionCase[]
 
@@ -716,46 +723,46 @@ model Installment {
 }
 
 model Payment {
-  id            String        @id @default(uuid())
-  tenantId      String
-  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  loanId        String
-  loan          Loan          @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  amount        Decimal       @db.Decimal(14, 2)
-  method        PaymentMethod
-  status        PaymentStatus @default(PENDING)
+  id             String        @id @default(uuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loanId         String
+  loan           Loan          @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  amount         Decimal       @db.Decimal(14, 2)
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
   // Our unique reference sent to ClickPesa; matched back on the webhook.
-  orderReference String?      @unique
-  phoneNumber   String? // payer mobile-money number (mobile money only)
-  providerRef   String?       @unique // ClickPesa transaction id (idempotency)
-  rawPayload    Json? // original webhook body for audit/reconciliation
-  receivedAt    DateTime      @default(now())
+  orderReference String?       @unique
+  phoneNumber    String? // payer mobile-money number (mobile money only)
+  providerRef    String?       @unique // ClickPesa transaction id (idempotency)
+  rawPayload     Json? // original webhook body for audit/reconciliation
+  receivedAt     DateTime      @default(now())
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([tenantId, status])
 }
 
 model BillingInvoice {
-  id          String   @id @default(uuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  periodStart DateTime
-  periodEnd   DateTime
-  planName    String
-  status      String   @default("OPEN")
-  currency    String   @default("TZS")
-  activeDevices Int    @default(0)
-  smsCount      Int    @default(0)
-  voiceCount    Int    @default(0)
-  callCentreCount Int  @default(0)
-  subtotal    Decimal  @db.Decimal(14, 2)
-  tax         Decimal  @db.Decimal(14, 2) @default(0)
-  total       Decimal  @db.Decimal(14, 2)
-  paidAt      DateTime?
-  lineItems   Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  periodStart     DateTime
+  periodEnd       DateTime
+  planName        String
+  status          String    @default("OPEN")
+  currency        String    @default("TZS")
+  activeDevices   Int       @default(0)
+  smsCount        Int       @default(0)
+  voiceCount      Int       @default(0)
+  callCentreCount Int       @default(0)
+  subtotal        Decimal   @db.Decimal(14, 2)
+  tax             Decimal   @default(0) @db.Decimal(14, 2)
+  total           Decimal   @db.Decimal(14, 2)
+  paidAt          DateTime?
+  lineItems       Json
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([tenantId, periodStart])
   @@index([tenantId, status])
@@ -766,21 +773,21 @@ model BillingInvoice {
 // ---------------------------------------------------------------------------
 
 model DeviceCommand {
-  id          String        @id @default(uuid())
-  tenantId    String
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deviceId    String
-  device      Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  type        CommandType
-  status      CommandStatus @default(QUEUED)
-  reason      String? // e.g. "installment #3 overdue"
-  issuedById  String?
-  issuedBy    User?         @relation("CommandIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
-  sentAt      DateTime?
-  ackedAt     DateTime?
-  expiresAt   DateTime?
+  id         String        @id @default(uuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deviceId   String
+  device     Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  type       CommandType
+  status     CommandStatus @default(QUEUED)
+  reason     String? // e.g. "installment #3 overdue"
+  issuedById String?
+  issuedBy   User?         @relation("CommandIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+  sentAt     DateTime?
+  ackedAt    DateTime?
+  expiresAt  DateTime?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([tenantId, deviceId, status])
 }

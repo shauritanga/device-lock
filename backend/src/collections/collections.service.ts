@@ -27,6 +27,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuthUser } from '../auth/auth.types';
+import { ReferCaseDto } from './dto/collections.dto';
 import { CallProviderService } from '../call-centre/call-provider.service';
 import {
   COLLECTIONS_PACKAGES,
@@ -360,6 +361,153 @@ export class CollectionsService {
       take: 200,
     });
     return rows.map(mapCase);
+  }
+
+  /**
+   * Loans the seller could hand to the platform, with whether a case already
+   * exists. Drives the "refer a customer" picker in the seller console.
+   */
+  async listReferableLoans(actor: AuthUser) {
+    const tenantId = actor.tenantId;
+    if (!tenantId) throw new ForbiddenException('Seller account required');
+
+    const loans = await this.prisma.loan.findMany({
+      where: { tenantId, status: LoanStatus.ACTIVE },
+      include: {
+        customer: { select: { id: true, fullName: true, phone: true } },
+        device: { select: { id: true, imei: true, make: true, model: true } },
+        installments: {
+          where: { status: { in: [InstallmentStatus.OVERDUE, InstallmentStatus.PENDING] } },
+          orderBy: { dueDate: 'asc' },
+          take: 1,
+        },
+        collectionCase: {
+          select: { id: true, status: true, source: true, referredAt: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+    });
+
+    const now = Date.now();
+    return loans.map((loan) => {
+      const inst = loan.installments[0] ?? null;
+      return {
+        loanId: loan.id,
+        customerId: loan.customer?.id ?? null,
+        customerName: loan.customer?.fullName ?? null,
+        customerPhone: loan.customer?.phone ?? null,
+        deviceImei: loan.device?.imei ?? null,
+        deviceModel:
+          [loan.device?.make, loan.device?.model].filter(Boolean).join(' ') || null,
+        currency: loan.currency,
+        nextDueDate: inst?.dueDate ?? null,
+        amountDue: inst ? Math.max(Number(inst.amount) - Number(inst.amountPaid), 0) : 0,
+        isOverdue: inst?.status === InstallmentStatus.OVERDUE,
+        daysOverdue:
+          inst && inst.status === InstallmentStatus.OVERDUE
+            ? Math.max(0, Math.floor((now - inst.dueDate.getTime()) / 86_400_000))
+            : 0,
+        caseId: loan.collectionCase?.id ?? null,
+        caseStatus: loan.collectionCase?.status ?? null,
+        caseSource: loan.collectionCase?.source ?? null,
+        referredAt: loan.collectionCase?.referredAt ?? null,
+      };
+    });
+  }
+
+  /**
+   * Seller hand-off. A subscribed shop asks the platform to follow up one of
+   * its loans, instead of waiting for the nightly overdue sweep. If the sweep
+   * already created the case, this re-tags it so collectors can see the seller
+   * asked for it directly, and reopens it if it had been closed.
+   *
+   * Gated on an ACTIVE subscription: handing work to the call centre is the
+   * thing the seller is paying for.
+   */
+  async referCase(dto: ReferCaseDto, actor: AuthUser) {
+    const tenantId = actor.tenantId;
+    if (!tenantId) throw new ForbiddenException('Seller account required');
+
+    const sub = await this.prisma.collectionsSubscription.findUnique({
+      where: { tenantId },
+    });
+    if (!sub || sub.status !== CollectionsSubscriptionStatus.ACTIVE) {
+      throw new BadRequestException(
+        'An active managed collections subscription is required to hand cases to the platform.',
+      );
+    }
+
+    const loan = await this.prisma.loan.findFirst({
+      where: { id: dto.loanId, tenantId },
+      include: {
+        installments: {
+          where: {
+            status: { in: [InstallmentStatus.OVERDUE, InstallmentStatus.PENDING] },
+          },
+          orderBy: { dueDate: 'asc' },
+          take: 1,
+        },
+      },
+    });
+    if (!loan) throw new NotFoundException('Loan not found');
+    if (loan.status !== LoanStatus.ACTIVE) {
+      throw new BadRequestException('Only active loans can be handed over');
+    }
+
+    const existing = await this.prisma.collectionCase.findUnique({
+      where: { loanId: loan.id },
+      select: { id: true, status: true },
+    });
+
+    const inst = loan.installments[0] ?? null;
+    const now = new Date();
+    const amountDue = inst
+      ? Math.max(Number(inst.amount) - Number(inst.amountPaid), 0)
+      : 0;
+    const daysOverdue =
+      inst && inst.status === InstallmentStatus.OVERDUE
+        ? Math.max(0, Math.floor((now.getTime() - inst.dueDate.getTime()) / 86_400_000))
+        : 0;
+
+    const handoff = {
+      source: CollectionCaseSource.SELLER_HANDOFF,
+      referredById: actor.userId,
+      referredAt: now,
+      referralNote: dto.note ?? null,
+    };
+
+    const reopen =
+      existing && !OPEN_STATUSES.includes(existing.status)
+        ? { status: CollectionCaseStatus.OPEN, closedAt: null, closedReason: null }
+        : {};
+
+    const row = await this.prisma.collectionCase.upsert({
+      where: { loanId: loan.id },
+      create: {
+        tenantId,
+        loanId: loan.id,
+        customerId: loan.customerId,
+        deviceId: loan.deviceId,
+        installmentId: inst?.id ?? null,
+        status: CollectionCaseStatus.OPEN,
+        amountDue,
+        daysOverdue,
+        currency: loan.currency,
+        ...handoff,
+      },
+      update: {
+        ...handoff,
+        ...reopen,
+        ...(inst ? { installmentId: inst.id, amountDue, daysOverdue } : {}),
+      },
+      include: caseInclude,
+    });
+
+    this.logger.log(
+      `Seller hand-off: tenant=${tenantId} loan=${loan.id} case=${row.id} by=${actor.userId}`,
+    );
+    return mapCase(row);
   }
 
   async unassignedQueue(actor: AuthUser) {
@@ -2268,6 +2416,7 @@ const caseInclude = {
   assignedTo: {
     select: { id: true, fullName: true, email: true, phone: true, role: true },
   },
+  referredBy: { select: { id: true, fullName: true, role: true } },
 } as const;
 
 function mapCase(row: any) {
@@ -2290,6 +2439,10 @@ function mapCase(row: any) {
     dueDate: row.installment?.dueDate ?? null,
     status: row.status,
     source: row.source,
+    referredById: row.referredById ?? null,
+    referredBy: row.referredBy ?? null,
+    referredAt: row.referredAt ?? null,
+    referralNote: row.referralNote ?? null,
     daysOverdue: row.daysOverdue,
     amountDue: row.amountDue,
     currency: row.currency,

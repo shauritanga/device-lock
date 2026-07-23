@@ -9,6 +9,7 @@ Device Lock is a multi-tenant phone-financing platform for businesses that sell 
 | `backend/` | NestJS API, Prisma schema/migrations, tenant isolation, auth, device control, payments, webhooks, jobs, and provisioning endpoints. |
 | `dashboard/` | Vite + React + Tailwind staff dashboard for managing customers, devices, loans, payments, and staff. |
 | `android-dpc/` | Kotlin Android DPC/agent app that enrolls devices, stores an agent token, checks in with the backend, receives FCM sync triggers, and enforces lock state. |
+| `android-collector/` | Separate staff companion app for collectors: my queue, system-initiated Call/SMS, device log verification (`DEVICE_LOG_MATCHED`). |
 | `docs/` | Product and implementation plans (e.g. managed collections / call centre). |
 
 ### Product plans
@@ -133,6 +134,14 @@ The API listens on `http://localhost:3000` by default. The health endpoint is av
 
 ## Dashboard Setup
 
+`dashboard/` builds **two consoles** from one codebase — see `dashboard/README.md`
+for the full layout.
+
+| Console | Dev port | Production origin | Roles |
+| --- | --- | --- | --- |
+| Seller | 5173 | `client.linda.co.tz` | `OWNER`, `MANAGER`, `AGENT` |
+| Admin | 5174 | `admin.linda.co.tz` | `SUPER_ADMIN`, `COLLECTIONS_ADMIN`, `COLLECTOR` |
+
 ```bash
 cd dashboard
 npm install
@@ -144,46 +153,50 @@ Create `dashboard/.env.local` if the API is not running at the default URL:
 VITE_API_URL=http://localhost:3000/v1
 ```
 
-Run the dashboard:
+Run either console:
 
 ```bash
-npm run dev
+npm run dev:client   # http://localhost:5173
+npm run dev:admin    # http://localhost:5174
 ```
 
-Open the Vite URL, usually `http://localhost:5173`, and log in with one of the seeded users.
+Log in with a seeded user whose role matches the console — signing in at the wrong
+one shows a link across rather than an error.
 
-Build for production:
+Build for production (typechecks, then emits `dist/client` and `dist/admin`):
 
 ```bash
 npm run build
 ```
 
+Deploy each `dist` directory to its own origin with SPA fallback.
+
 ## Android DPC Setup
 
 The Android agent is in `android-dpc/` and builds as package `com.devicelock.agent`.
 
-Debug builds currently bake this backend URL into the app:
+Both **debug and release** bake the production API into the app (no on-device override, HTTPS only):
 
 ```kotlin
-AGENT_BASE_URL = "http://192.168.1.194:3001/v1"
+AGENT_BASE_URL = "https://api.linda.co.tz/v1"
 ```
 
-Update `android-dpc/app/build.gradle.kts` for your LAN or deployed backend before installing on a device. Release builds use:
-
-```kotlin
-AGENT_BASE_URL = "https://REPLACE-WITH-PROD-DOMAIN/v1"
-```
+The collector companion (`android-collector/`) uses the same URL as `API_BASE_URL`.  
+Edit `android-dpc/app/build.gradle.kts` or `android-collector/app/build.gradle.kts` only if the production host changes.
 
 Build from the Android project:
 
 ```bash
 cd android-dpc
 ./gradlew assembleDebug
+
+cd ../android-collector
+./gradlew assembleDebug
 ```
 
 FCM is optional. If `android-dpc/app/google-services.json` exists, the Google Services plugin is applied and Firebase Messaging can receive instant sync triggers. Without it, the app still builds and relies on periodic/on-demand check-ins.
 
-For a real deployment, replace the default `STAFF_PIN`, production backend URL, signing configuration, and provisioning checksum before release.
+For a hardened release later: HTTPS domain, cert pins, replace `STAFF_PIN`, signing config, and provisioning checksum.
 
 ## Main API Areas
 

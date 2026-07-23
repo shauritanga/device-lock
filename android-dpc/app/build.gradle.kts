@@ -20,10 +20,14 @@ android {
         versionCode = 1
         versionName = "0.1-poc"
 
-        // Backend URL is baked into the build, NOT entered on-device, so a
-        // customer can't repoint the agent at a rogue server that would just
-        // reply "UNLOCK". Debug uses the local LAN backend for testing.
-        buildConfigField("String", "AGENT_BASE_URL", "\"http://192.168.1.196:3000/v1\"")
+        // Always point at production so debug APKs and enrolled devices share
+        // one backend (easy fleet management while still developing). Not
+        // overridable on-device. HTTPS only — no cleartext fallback.
+        buildConfigField(
+            "String",
+            "AGENT_BASE_URL",
+            "\"https://api.linda.co.tz/v1\"",
+        )
         // Staff gate for the one-time enrollment screen. Override per-release;
         // a real deployment should inject this from a secret, not ship a default.
         buildConfigField("String", "STAFF_PIN", "\"2468\"")
@@ -36,11 +40,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Production backend must be HTTPS (see network_security_config).
+            // Same production API as debug.
             buildConfigField(
                 "String",
                 "AGENT_BASE_URL",
-                "\"https://REPLACE-WITH-PROD-DOMAIN/v1\"",
+                "\"https://api.linda.co.tz/v1\"",
             )
         }
     }

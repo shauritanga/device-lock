@@ -25,6 +25,7 @@ import {
   CollectorPerformanceQuery,
   GenerateCollectionsInvoiceDto,
   MarkInvoicePaidDto,
+  ReferCaseDto,
   ReportRangeQuery,
   StartContactDto,
   SubmitContactProofDto,
@@ -89,6 +90,19 @@ export class CollectionsController {
   )
   listCases(@Query() query: ListCasesQuery, @CurrentUser() actor: AuthUser) {
     return this.collections.listCases(query, actor);
+  }
+
+  @Get('cases/referable')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
+  listReferableLoans(@CurrentUser() user: AuthUser) {
+    return this.collections.listReferableLoans(user);
+  }
+
+  /** Seller hands a loan to the platform call centre (subscription required). */
+  @Post('cases/refer')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
+  referCase(@Body() dto: ReferCaseDto, @CurrentUser() user: AuthUser) {
+    return this.collections.referCase(dto, user);
   }
 
   @Get('cases/unassigned')

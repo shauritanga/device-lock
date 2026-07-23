@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="86dp"
+    android:background="@drawable/bg_table_row"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="18dp"
+    android:paddingEnd="10dp">
+
+    <TextView
+        android:id="@+id/txtCaseNo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1.05"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/brand_blue"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtStatus"
+        android:layout_width="0dp"
+        android:layout_height="36dp"
+        android:layout_weight="1.4"
+        android:background="@drawable/bg_status_pill"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textColor="@color/brand"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtLevel"
+        android:layout_width="0dp"
+        android:layout_height="30dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="10dp"
+        android:layout_weight="0.62"
+        android:background="@drawable/bg_level_pill"
+        android:gravity="center"
+        android:textColor="@color/muted"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtProduct"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1.35"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/muted"
+        android:textSize="16sp" />
+</LinearLayout>

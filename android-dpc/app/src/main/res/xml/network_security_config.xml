@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Release policy: HTTPS only. Cleartext is forbidden so an on-network attacker
-  can't sniff the device token or inject a forged UNLOCK.
-
-  Before shipping, pin the production backend's certificate: uncomment the
-  domain-config, set the domain, and add the primary + backup SPKI SHA-256 pins
-  (get them with:  openssl s_client -connect host:443 | openssl x509 -pubkey \
-    | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64 ).
+  HTTPS only. The API is served from api.linda.co.tz with a public CA
+  certificate, so no cleartext exemption and no custom trust anchors are
+  needed. Add <pin-set> here if you later want certificate pinning.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
@@ -14,14 +10,4 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-
-    <!--
-    <domain-config>
-        <domain includeSubdomains="true">REPLACE-WITH-PROD-DOMAIN</domain>
-        <pin-set expiration="2027-01-01">
-            <pin digest="SHA-256">PRIMARY_SPKI_PIN_BASE64=</pin>
-            <pin digest="SHA-256">BACKUP_SPKI_PIN_BASE64=</pin>
-        </pin-set>
-    </domain-config>
-    -->
 </network-security-config>
