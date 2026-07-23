@@ -19,3 +19,4 @@ google-services.json
 # Build output
 dist/
 build/
+collector_home_screenshot.png
