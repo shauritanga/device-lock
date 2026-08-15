@@ -32,6 +32,8 @@ export function statusTone(status: string): Tone {
     case 'PAID':
     case 'COMPLETED':
     case 'ACKED':
+    case 'CONVERTED':
+    case 'QUALIFIED':
       return 'green';
     case 'LOCKED':
     case 'FAILED':
@@ -41,13 +43,17 @@ export function statusTone(status: string): Tone {
     case 'PENDING_ENROLLMENT':
     case 'PENDING':
     case 'QUEUED':
+    case 'NEW':
       return 'amber';
     case 'SENT':
+    case 'CONTACTED':
       return 'blue';
     case 'RELEASED':
     case 'CANCELLED':
     case 'WAIVED':
     case 'EXPIRED':
+    case 'CLOSED':
+    case 'INACTIVE':
       return 'gray';
     default:
       return 'brand';

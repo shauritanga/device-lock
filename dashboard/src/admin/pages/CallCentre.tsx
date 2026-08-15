@@ -1,264 +1,416 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PhoneCall, CalendarClock, ShieldCheck } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Clock,
+  Headphones,
+  Phone,
+  Search,
+  Target,
+  UserCheck,
+  X,
+} from 'lucide-react';
 import { api } from '@/shared/api/client';
-import type { CallAttempt, CallFollowUp, CallPerformanceRow, CallQueueItem, StaffUser } from '@/shared/api/types';
-import { Card, CardHeader } from '@/shared/components/ui/Card';
+import { StatCard } from '@/shared/components/StatCard';
+import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
-import { Pill, StatusPill } from '@/shared/components/ui/Pill';
-import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
+import { Table, Row } from '@/shared/components/ui/Table';
+import { EmptyState, Center, Spinner } from '@/shared/components/ui/misc';
+import { Modal } from '@/shared/components/ui/Modal';
+import { Input, Select } from '@/shared/components/ui/Field';
 import { shortDate } from '@/shared/lib/format';
 
-const outcomes = ['NO_ANSWER', 'PROMISE_TO_PAY', 'DISPUTE', 'PAID_ALREADY', 'WRONG_NUMBER', 'ESCALATED', 'GENERAL_NOTE'];
-const escalations = ['NONE', 'WATCH', 'MANAGER_REVIEW', 'FIELD_VISIT', 'REPOSSESSION_REVIEW'];
-const inputClass = 'w-full rounded-xl border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100';
+type PerfRow = {
+  collectorId: string;
+  collectorName: string;
+  email: string;
+  followUpsCount: number;
+  callsCount: number;
+  smsCount: number;
+  whatsappCount: number;
+  talkSeconds: number;
+  hoursWorked: number;
+  avgCallSeconds: number | null;
+  ptpCount: number;
+  casesWorked: number;
+  daysActive: number;
+};
 
+type PerfResponse = {
+  period: { kind: string; from: string; to: string };
+  byCollector: PerfRow[];
+  totals: {
+    followUpsCount: number;
+    callsCount: number;
+    talkSeconds: number;
+    hoursWorkedSeconds: number;
+    ptpCount: number;
+  };
+};
+
+type CollectorStaff = {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  phone?: string | null;
+  _count?: { assignedCollectionCases: number };
+};
+
+function formatDuration(seconds: number) {
+  if (!seconds || seconds < 0) return '0m';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function formatAvgCall(seconds: number | null) {
+  if (seconds == null || seconds <= 0) return '—';
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+/**
+ * Admin view of collector task performance — same inbox pattern as Demo requests.
+ */
 export default function CallCentre() {
-  const qc = useQueryClient();
-  const [selected, setSelected] = useState<CallQueueItem | null>(null);
-  const [outcome, setOutcome] = useState('PROMISE_TO_PAY');
-  const [notes, setNotes] = useState('');
-  const [promiseToPayAt, setPromiseToPayAt] = useState('');
-  const [nextFollowUpAt, setNextFollowUpAt] = useState('');
-  const [escalationStatus, setEscalationStatus] = useState('NONE');
-  const [staffPhone, setStaffPhone] = useState('');
-  const [activeAttempt, setActiveAttempt] = useState<CallAttempt | null>(null);
-  const [assignedToId, setAssignedToId] = useState('');
-  const [assignmentDate, setAssignmentDate] = useState('');
-  const [assignmentNotes, setAssignmentNotes] = useState('');
+  const [search, setSearch] = useState('');
+  const [activityFilter, setActivityFilter] = useState<
+    '' | 'active' | 'idle'
+  >('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const queue = useQuery({
-    queryKey: ['call-centre', 'queue'],
-    queryFn: async () => (await api.get<CallQueueItem[]>('/call-centre/queue')).data,
-  });
-  const followUps = useQuery({
-    queryKey: ['call-centre', 'follow-ups'],
-    queryFn: async () => (await api.get<CallFollowUp[]>('/call-centre/follow-ups')).data,
-  });
-  const performance = useQuery({
-    queryKey: ['call-centre', 'performance'],
-    queryFn: async () => (await api.get<CallPerformanceRow[]>('/call-centre/performance')).data,
-  });
-  const attempts = useQuery({
-    queryKey: ['call-centre', 'attempts'],
-    queryFn: async () => (await api.get<CallAttempt[]>('/call-centre/attempts')).data,
-  });
-  const staff = useQuery({
-    queryKey: ['users', 'call-centre-staff'],
-    queryFn: async () => (await api.get<StaffUser[]>('/users')).data.filter((u) => u.isActive),
+  const perf = useQuery({
+    queryKey: ['call-centre', 'collector-performance', 'day'],
+    queryFn: async () =>
+      (
+        await api.get<PerfResponse>('/collections/reports/collector-performance', {
+          params: { period: 'day' },
+        })
+      ).data,
   });
 
-  const assign = useMutation({
-    mutationFn: async () => {
-      if (!selected) throw new Error('Select a customer first');
-      if (!assignedToId) throw new Error('Select a staff member');
-      return api.post('/call-centre/assignments', {
-        loanId: selected.loanId,
-        assignedToId,
-        nextFollowUpAt: assignmentDate ? new Date(assignmentDate).toISOString() : undefined,
-        notes: assignmentNotes || undefined,
+  const collectors = useQuery({
+    queryKey: ['collections', 'collectors'],
+    queryFn: async () =>
+      (await api.get<CollectorStaff[]>('/collections/collectors')).data,
+  });
+
+  const openCasesById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of collectors.data ?? []) {
+      map.set(c.id, c._count?.assignedCollectionCases ?? 0);
+    }
+    return map;
+  }, [collectors.data]);
+
+  const phoneById = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const c of collectors.data ?? []) {
+      map.set(c.id, c.phone ?? null);
+    }
+    return map;
+  }, [collectors.data]);
+
+  const rows = useMemo(() => {
+    const byPerf = new Map((perf.data?.byCollector ?? []).map((r) => [r.collectorId, r]));
+    const staff = (collectors.data ?? []).filter(
+      (c) => c.role === 'COLLECTOR' || c.role === 'MASTER_COLLECTOR',
+    );
+
+    // Prefer staff directory so idle collectors still appear.
+    if (staff.length) {
+      return staff.map((c) => {
+        const p = byPerf.get(c.id);
+        return (
+          p ?? {
+            collectorId: c.id,
+            collectorName: c.fullName,
+            email: c.email,
+            followUpsCount: 0,
+            callsCount: 0,
+            smsCount: 0,
+            whatsappCount: 0,
+            talkSeconds: 0,
+            hoursWorked: 0,
+            avgCallSeconds: null,
+            ptpCount: 0,
+            casesWorked: 0,
+            daysActive: 0,
+          }
+        );
       });
-    },
-    onSuccess: () => {
-      setAssignmentNotes('');
-      setAssignmentDate('');
-      qc.invalidateQueries({ queryKey: ['call-centre'] });
-    },
-  });
+    }
+    return perf.data?.byCollector ?? [];
+  }, [collectors.data, perf.data]);
 
-  const startCall = useMutation({
-    mutationFn: async () => {
-      if (!selected) throw new Error('Select a customer first');
-      return (await api.post<CallAttempt>('/call-centre/calls/start', {
-        loanId: selected.loanId,
-        staffPhone: staffPhone || undefined,
-      })).data;
-    },
-    onSuccess: (attempt) => {
-      setActiveAttempt(attempt);
-      qc.invalidateQueries({ queryKey: ['call-centre'] });
-    },
-  });
+  const stats = useMemo(() => {
+    const t = perf.data?.totals;
+    const active = rows.filter(
+      (r) => r.followUpsCount > 0 || r.callsCount > 0 || r.hoursWorked > 0,
+    ).length;
+    const openCases = rows.reduce(
+      (sum, r) => sum + (openCasesById.get(r.collectorId) ?? 0),
+      0,
+    );
+    return {
+      collectors: rows.length,
+      active,
+      followUps: t?.followUpsCount ?? 0,
+      calls: t?.callsCount ?? 0,
+      ptps: t?.ptpCount ?? 0,
+      hours: Number(((t?.hoursWorkedSeconds ?? 0) / 3600).toFixed(1)),
+      openCases,
+    };
+  }, [perf.data, rows, openCasesById]);
 
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!selected) throw new Error('Select a customer first');
-      const url = activeAttempt ? '/call-centre/calls/complete' : '/call-centre/follow-ups';
-      return api.post(url, {
-        loanId: selected.loanId,
-        attemptId: activeAttempt?.id,
-        outcome,
-        notes: notes || undefined,
-        promiseToPayAt: promiseToPayAt ? new Date(promiseToPayAt).toISOString() : undefined,
-        nextFollowUpAt: nextFollowUpAt ? new Date(nextFollowUpAt).toISOString() : undefined,
-        escalationStatus,
-      });
-    },
-    onSuccess: () => {
-      setNotes('');
-      setPromiseToPayAt('');
-      setNextFollowUpAt('');
-      setActiveAttempt(null);
-      qc.invalidateQueries({ queryKey: ['call-centre'] });
-    },
-  });
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows
+      .filter((r) => {
+        const busy = r.followUpsCount > 0 || r.callsCount > 0 || r.hoursWorked > 0;
+        if (activityFilter === 'active' && !busy) return false;
+        if (activityFilter === 'idle' && busy) return false;
+        if (!q) return true;
+        return `${r.collectorName} ${r.email}`.toLowerCase().includes(q);
+      })
+      .sort((a, b) => b.followUpsCount - a.followUpsCount || b.callsCount - a.callsCount);
+  }, [rows, search, activityFilter]);
 
-  if (queue.isLoading) return <Center><Spinner /></Center>;
+  const selected = useMemo(
+    () => rows.find((r) => r.collectorId === selectedId) ?? null,
+    [rows, selectedId],
+  );
+
+  const hasFilters = search.trim() !== '' || activityFilter !== '';
+
+  function clearFilters() {
+    setSearch('');
+    setActivityFilter('');
+  }
+
+  if (perf.isLoading || collectors.isLoading) {
+    return (
+      <Center>
+        <Spinner />
+      </Center>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.9fr]">
-      <Card>
-        <CardHeader title="Overdue call queue" subtitle="Customers needing human follow-up today" />
-        <div className="space-y-3 p-5">
-          {!queue.data?.length ? <EmptyState title="No overdue customers" /> : queue.data.map((item) => (
-            <button
-              key={item.loanId}
-              onClick={() => setSelected(item)}
-              className={`w-full rounded-xl border p-4 text-left transition ${selected?.loanId === item.loanId ? 'border-brand-300 bg-brand-50' : 'border-line bg-white hover:bg-canvas'}`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold">{item.customerName}</p>
-                  <p className="text-sm text-muted">{item.customerPhone} · {item.deviceModel ?? item.deviceImei}</p>
-                </div>
-                <StatusPill status={item.deviceStatus} />
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                <Pill tone="red">{item.daysOverdue} day(s) overdue</Pill>
-                <Pill tone="amber">{item.currency} {item.amountDue.toLocaleString()}</Pill>
-                {item.lastFollowUp ? <Pill tone="blue">Last: {item.lastFollowUp.outcome.replace(/_/g, ' ')}</Pill> : null}
-                {item.lastFollowUp?.assignedTo ? <Pill tone="brand">Assigned: {item.lastFollowUp.assignedTo.fullName}</Pill> : null}
-                {item.lastFollowUp?.attempts?.[0] ? <Pill tone="green">{item.lastFollowUp.attempts[0].verificationStatus.replace(/_/g, ' ')}</Pill> : null}
-              </div>
-            </button>
-          ))}
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-ink">Call Centre</h1>
+          <p className="mt-0.5 text-sm text-muted">
+            Daily collector performance — follow-ups, calls, promises, and time on task.
+          </p>
         </div>
-      </Card>
-
-      <div className="space-y-6">
-        <Card>
-          <CardHeader title="Assign follow-up" subtitle={selected ? selected.customerName : 'Select a queue item'} />
-          <div className="space-y-4 p-5">
-            <Field label="Staff member">
-              <select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} className={inputClass}>
-                <option value="">Select staff</option>
-                {staff.data?.map((u) => <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>)}
-              </select>
-            </Field>
-            <Field label="Due date for follow-up">
-              <input type="date" value={assignmentDate} onChange={(e) => setAssignmentDate(e.target.value)} className={inputClass} />
-            </Field>
-            <Field label="Assignment notes">
-              <textarea value={assignmentNotes} onChange={(e) => setAssignmentNotes(e.target.value)} className={`${inputClass} min-h-20`} placeholder="What should staff ask or confirm?" />
-            </Field>
-            <Button onClick={() => assign.mutate()} disabled={!selected || !assignedToId || assign.isPending} className="w-full">
-              Assign customer follow-up
-            </Button>
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="System call" subtitle={selected ? selected.customerName : 'Select a queue item'} />
-          <div className="space-y-4 p-5">
-            <Field label="Staff phone for provider bridge call">
-              <input value={staffPhone} onChange={(e) => setStaffPhone(e.target.value)} className={inputClass} placeholder="e.g. 2557XXXXXXXX" />
-            </Field>
-            <Button onClick={() => startCall.mutate()} disabled={!selected || startCall.isPending} className="w-full">
-              <PhoneCall className="h-4 w-4" /> Start verified call
-            </Button>
-            {activeAttempt ? (
-              <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800">
-                <div className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-4 w-4" /> Attempt created</div>
-                <p className="mt-1">Status: {activeAttempt.verificationStatus.replace(/_/g, ' ')} · Provider: {activeAttempt.providerStatus ?? 'pending'}</p>
-              </div>
-            ) : (
-              <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-                Calls saved without pressing Start verified call are marked SELF REPORTED.
-              </p>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="Complete call note" subtitle={activeAttempt ? 'Linked to tracked attempt' : 'Manual/self-reported fallback'} />
-          <div className="space-y-4 p-5">
-            <Field label="Outcome">
-              <select value={outcome} onChange={(e) => setOutcome(e.target.value)} className={inputClass}>
-                {outcomes.map((o) => <option key={o} value={o}>{o.replace(/_/g, ' ')}</option>)}
-              </select>
-            </Field>
-            <Field label="Escalation">
-              <select value={escalationStatus} onChange={(e) => setEscalationStatus(e.target.value)} className={inputClass}>
-                {escalations.map((e) => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
-              </select>
-            </Field>
-            <Field label="Promise-to-pay date">
-              <input type="date" value={promiseToPayAt} onChange={(e) => setPromiseToPayAt(e.target.value)} className={inputClass} />
-            </Field>
-            <Field label="Next follow-up">
-              <input type="date" value={nextFollowUpAt} onChange={(e) => setNextFollowUpAt(e.target.value)} className={inputClass} />
-            </Field>
-            <Field label="Notes">
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className={`${inputClass} min-h-24`} placeholder="What did the customer say?" />
-            </Field>
-            <Button onClick={() => save.mutate()} disabled={!selected || save.isPending} className="w-full">
-              <PhoneCall className="h-4 w-4" /> Save call note
-            </Button>
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="Performance" subtitle="Call outcomes recorded" />
-          <div className="space-y-2 p-5">
-            {!performance.data?.length ? <EmptyState title="No calls yet" /> : performance.data.map((row) => (
-              <div key={`${row.staffId}-${row.outcome}`} className="flex items-center justify-between rounded-xl bg-canvas px-4 py-2 text-sm">
-                <span>{row.outcome.replace(/_/g, ' ')}</span>
-                <span className="font-semibold">{row.count}{row.avgDurationSeconds ? ` · ${row.avgDurationSeconds}s avg` : ''}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
       </div>
 
-      <Card className="xl:col-span-2">
-        <CardHeader title="Verified call attempts" />
-        <div className="divide-y divide-line p-5">
-          {!attempts.data?.length ? <EmptyState title="No system calls started" /> : attempts.data.slice(0, 10).map((a) => (
-            <div key={a.id} className="flex items-start justify-between gap-4 py-3 text-sm">
-              <div>
-                <p className="font-medium">{a.customer?.fullName ?? a.customerPhone} · {a.verificationStatus.replace(/_/g, ' ')}</p>
-                <p className="text-muted">Provider: {a.provider ?? 'none'} · Status: {a.providerStatus ?? 'pending'} · Duration: {a.durationSeconds ?? 0}s</p>
-                {a.recordingUrl ? <a className="text-brand-700 underline" href={a.recordingUrl} target="_blank" rel="noreferrer">Recording</a> : null}
-              </div>
-              <p className="text-xs text-muted">{shortDate(a.startedAt)}</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          icon={UserCheck}
+          label="Collectors"
+          value={stats.collectors}
+          hint={`${stats.active} active in period`}
+          tone="brand"
+        />
+        <StatCard
+          icon={Headphones}
+          label="Follow-ups"
+          value={stats.followUps}
+          hint={`${stats.calls} calls · ${stats.ptps} PTPs`}
+          tone="amber"
+        />
+        <StatCard
+          icon={Clock}
+          label="Hours worked"
+          value={stats.hours}
+          hint={formatDuration(perf.data?.totals.talkSeconds ?? 0) + ' talk time'}
+          tone="brand"
+        />
+        <StatCard
+          icon={Target}
+          label="Open cases"
+          value={stats.openCases}
+          hint="Currently assigned"
+          tone="green"
+        />
+      </div>
+
+      <Card>
+        <div className="border-b border-line px-5 py-4">
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-[1.6]">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
+                aria-hidden
+              />
+              <Input
+                className="w-full min-w-0 pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search collectors…"
+                aria-label="Search collectors"
+              />
             </div>
-          ))}
+            <Select
+              className="min-w-0 flex-1"
+              value={activityFilter}
+              onChange={(e) =>
+                setActivityFilter(e.target.value as '' | 'active' | 'idle')
+              }
+              aria-label="Filter by activity"
+            >
+              <option value="">All activity</option>
+              <option value="active">Active in period</option>
+              <option value="idle">No activity yet</option>
+            </Select>
+            {hasFilters ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={clearFilters}
+                className="shrink-0 gap-1.5 px-2.5"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+            ) : null}
+          </div>
+          {perf.data?.period ? (
+            <p className="mt-2 text-xs text-muted">
+              Today · {shortDate(perf.data.period.from)}
+            </p>
+          ) : null}
         </div>
+
+        {filtered.length === 0 ? (
+          <EmptyState
+            title={rows.length === 0 ? 'No collectors yet' : 'No matching collectors'}
+            hint={
+              rows.length === 0
+                ? 'Add collectors under Collectors, then assign cases.'
+                : 'Try clearing search or filters.'
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table
+              columns={[
+                'Collector',
+                'Open cases',
+                'Follow-ups',
+                'Calls',
+                'SMS',
+                'WhatsApp',
+                'PTPs',
+                'Talk',
+                'Hours',
+                'Avg call',
+              ]}
+            >
+              {filtered.map((row) => {
+                const open = openCasesById.get(row.collectorId) ?? 0;
+                const busy =
+                  row.followUpsCount > 0 || row.callsCount > 0 || row.hoursWorked > 0;
+                return (
+                  <Row key={row.collectorId} onClick={() => setSelectedId(row.collectorId)}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-canvas text-muted">
+                          <Phone className="h-3.5 w-3.5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-ink">{row.collectorName}</p>
+                          <p className="mt-0.5 truncate text-xs text-faint">{row.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-ink">{open}</td>
+                    <td className="px-4 py-3 tabular-nums font-medium text-ink">
+                      {row.followUpsCount}
+                      {!busy ? (
+                        <span className="ml-1.5 text-xs font-normal text-amber-700">idle</span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-muted">{row.callsCount}</td>
+                    <td className="px-4 py-3 tabular-nums text-muted">{row.smsCount}</td>
+                    <td className="px-4 py-3 tabular-nums text-muted">{row.whatsappCount}</td>
+                    <td className="px-4 py-3 tabular-nums text-ink">{row.ptpCount}</td>
+                    <td className="px-4 py-3 tabular-nums text-muted">
+                      {formatDuration(row.talkSeconds)}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-muted">
+                      {row.hoursWorked.toFixed(1)}h
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted">
+                      {formatAvgCall(row.avgCallSeconds)}
+                    </td>
+                  </Row>
+                );
+              })}
+            </Table>
+          </div>
+        )}
       </Card>
 
-      <Card className="xl:col-span-2">
-        <CardHeader title="Recent follow-ups" />
-        <div className="divide-y divide-line p-5">
-          {!followUps.data?.length ? <EmptyState title="No follow-ups recorded" /> : followUps.data.slice(0, 12).map((f) => (
-            <div key={f.id} className="flex items-start justify-between gap-4 py-3 text-sm">
-              <div>
-                <p className="font-medium">{f.customer?.fullName ?? 'Customer'} · {f.outcome.replace(/_/g, ' ')}</p>
-                <p className="text-muted">{f.notes || 'No notes'}</p>
-                {f.attempts?.[0] ? <p className="text-xs text-muted">Evidence: {f.attempts[0].verificationStatus.replace(/_/g, ' ')} · {f.attempts[0].durationSeconds ?? 0}s</p> : <p className="text-xs text-amber-700">Evidence: SELF REPORTED</p>}
-                {f.promiseToPayAt ? <p className="mt-1 inline-flex items-center gap-1 text-xs text-brand-700"><CalendarClock className="h-3 w-3" /> Promise: {shortDate(f.promiseToPayAt)}</p> : null}
-              </div>
-              <div className="text-right">
-                <StatusPill status={f.escalationStatus} />
-                <p className="mt-1 text-xs text-muted">{shortDate(f.calledAt)}</p>
-              </div>
+      <Modal
+        open={!!selected}
+        onClose={() => setSelectedId(null)}
+        title={selected?.collectorName ?? 'Collector'}
+        className="max-w-lg"
+      >
+        {selected ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted">
+              {selected.email}
+              {phoneById.get(selected.collectorId)
+                ? ` · ${phoneById.get(selected.collectorId)}`
+                : ''}
+            </p>
+
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <Metric label="Open cases" value={String(openCasesById.get(selected.collectorId) ?? 0)} />
+              <Metric label="Cases worked" value={String(selected.casesWorked)} />
+              <Metric label="Follow-ups" value={String(selected.followUpsCount)} />
+              <Metric label="Calls" value={String(selected.callsCount)} />
+              <Metric label="SMS" value={String(selected.smsCount)} />
+              <Metric label="WhatsApp" value={String(selected.whatsappCount)} />
+              <Metric label="Promises (PTP)" value={String(selected.ptpCount)} />
+              <Metric label="Days active" value={String(selected.daysActive)} />
+              <Metric label="Talk time" value={formatDuration(selected.talkSeconds)} />
+              <Metric label="Hours worked" value={`${selected.hoursWorked.toFixed(2)}h`} />
+              <Metric
+                label="Avg call"
+                value={formatAvgCall(selected.avgCallSeconds)}
+              />
+            </dl>
+
+            <p className="text-xs text-muted">
+              Metrics are for today. Case work happens on the Cases page; this view
+              tracks how each collector executes that work.
+            </p>
+
+            <div className="flex justify-end border-t border-line pt-4">
+              <Button type="button" variant="ghost" onClick={() => setSelectedId(null)}>
+                Close
+              </Button>
             </div>
-          ))}
-        </div>
-      </Card>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted">{label}</span>{children}</label>;
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-line px-3 py-2.5">
+      <dt className="text-2xs font-semibold uppercase tracking-wider text-muted">{label}</dt>
+      <dd className="mt-0.5 font-medium tabular-nums text-ink">{value}</dd>
+    </div>
+  );
 }

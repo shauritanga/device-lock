@@ -33,7 +33,10 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<TokenPair> {
     // No tenant context here (public route) -> lookup is cross-tenant by email.
-    const user = await this.prisma.scoped.user.findUnique({ where: { email } });
+    const normalized = email.trim().toLowerCase();
+    const user = await this.prisma.scoped.user.findUnique({
+      where: { email: normalized },
+    });
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -46,6 +49,33 @@ export class AuthService {
     });
 
     return this.issueTokens(user);
+  }
+
+  /** Full profile for the signed-in user (shell avatar / account menu). */
+  async profile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        tenantId: true,
+        phone: true,
+        isActive: true,
+      },
+    });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Invalid session');
+    }
+    return {
+      userId: user.id,
+      tenantId: user.tenantId,
+      role: user.role,
+      email: user.email,
+      fullName: user.fullName,
+      phone: user.phone,
+    };
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {

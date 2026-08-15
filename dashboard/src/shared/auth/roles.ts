@@ -2,13 +2,25 @@ import type { Role } from '../api/types';
 import type { AppId } from '../config';
 
 /** Platform staff. These accounts have no tenant and work across companies. */
-export const ADMIN_ROLES: readonly Role[] = ['SUPER_ADMIN', 'COLLECTIONS_ADMIN', 'COLLECTOR'];
+export const ADMIN_ROLES: readonly Role[] = [
+  'SUPER_ADMIN',
+  'COLLECTIONS_ADMIN',
+  'MASTER_COLLECTOR',
+  'COLLECTOR',
+];
 
 /** Seller staff. Always scoped to one tenant (shop). */
 export const CLIENT_ROLES: readonly Role[] = ['OWNER', 'MANAGER', 'AGENT'];
 
 /** Admin roles that may run commercial operations (subscriptions, invoices, staffing). */
 export const PLATFORM_ADMIN_ROLES: readonly Role[] = ['SUPER_ADMIN', 'COLLECTIONS_ADMIN'];
+
+/** Roles that can manage collector staffing (create / assign masters). */
+export const STAFFING_ADMIN_ROLES: readonly Role[] = [
+  'SUPER_ADMIN',
+  'COLLECTIONS_ADMIN',
+  'MASTER_COLLECTOR',
+];
 
 /** Seller roles that may see commercial screens (billing, staff, subscription). */
 export const SELLER_ADMIN_ROLES: readonly Role[] = ['OWNER'];

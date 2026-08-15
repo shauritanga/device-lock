@@ -148,18 +148,18 @@ class ApiClient(
         durationSeconds: Int?,
         matchedPhone: String,
         direction: String = "OUTGOING",
+        dialDurationSeconds: Int? = null,
     ): JSONObject {
         val payload = JSONObject()
             .put("logAt", logAtIso)
             .put("matchedPhone", matchedPhone)
             .put("direction", direction)
         if (durationSeconds != null) payload.put("durationSeconds", durationSeconds)
-        payload.put(
-            "deviceMatchMeta",
-            JSONObject()
-                .put("source", "android-collector")
-                .put("matchedPhone", matchedPhone),
-        )
+        val meta = JSONObject()
+            .put("source", "android-collector")
+            .put("matchedPhone", matchedPhone)
+        if (dialDurationSeconds != null) meta.put("dialDurationSeconds", dialDurationSeconds)
+        payload.put("deviceMatchMeta", meta)
         return request("POST", "/collections/contact-sessions/$sessionId/proof", payload, auth = true)
     }
 

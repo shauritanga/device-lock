@@ -9,7 +9,8 @@
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 <meta name="author" content="Linda" />
 <meta name="theme-color" content="#0369A1" />
-
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="shortcut icon" href="/favicon.svg" />
 <!-- Open Graph / Facebook / WhatsApp -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Linda" />
@@ -934,10 +935,16 @@
     </div>
 
     <div class="mt-12 lg:col-span-6 lg:mt-0">
-      <form class="rounded-2xl bg-white p-6 shadow-lift sm:p-7" novalidate>
+      <form id="demo-form" class="rounded-2xl bg-white p-6 shadow-lift sm:p-7" novalidate>
         <p class="text-[18px] font-bold tracking-tight text-ink-900">Request a demo</p>
         <p class="mt-1 text-[14px] text-ink-500">We reply within one business day.</p>
 
+        <div id="demo-success" class="mt-6 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4" role="status">
+          <p class="text-[15px] font-semibold text-emerald-800">Demo request received</p>
+          <p class="mt-1 text-[14px] leading-relaxed text-emerald-700">Thanks — check your email for a confirmation. Our team will reply soon, usually within one business day.</p>
+        </div>
+
+        <div id="demo-fields">
         <div class="mt-6 grid gap-4 sm:grid-cols-2">
           <div class="sm:col-span-1">
             <label for="name" class="block text-[13.5px] font-semibold text-ink-800">Full name <span class="text-brand-700" aria-hidden="true">*</span></label>
@@ -952,6 +959,10 @@
             <input id="phone" name="phone" type="tel" required autocomplete="tel" inputmode="tel" class="mt-1.5 h-12 w-full rounded-xl border border-ink-200 bg-white px-3.5 text-[15px] text-ink-900 placeholder:text-ink-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/25" placeholder="+255 7XX XXX XXX" />
           </div>
           <div class="sm:col-span-1">
+            <label for="email" class="block text-[13.5px] font-semibold text-ink-800">Work email <span class="text-brand-700" aria-hidden="true">*</span></label>
+            <input id="email" name="email" type="email" required autocomplete="email" class="mt-1.5 h-12 w-full rounded-xl border border-ink-200 bg-white px-3.5 text-[15px] text-ink-900 placeholder:text-ink-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/25" placeholder="asha@kariakoo.tz" />
+          </div>
+          <div class="sm:col-span-2">
             <label for="devices" class="block text-[13.5px] font-semibold text-ink-800">Devices financed / month</label>
             <select id="devices" name="devices" class="mt-1.5 h-12 w-full cursor-pointer rounded-xl border border-ink-200 bg-white px-3 text-[15px] text-ink-900 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/25">
               <option>Fewer than 30</option>
@@ -966,11 +977,14 @@
           </div>
         </div>
 
-        <button type="submit" class="mt-6 inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-700 text-[15.5px] font-semibold text-white shadow-glow transition-colors duration-200 hover:bg-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
+        <p id="demo-error" class="mt-4 hidden text-[13.5px] font-medium text-rose-600" role="alert"></p>
+
+        <button id="demo-submit" type="submit" class="mt-6 inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-700 text-[15.5px] font-semibold text-white shadow-glow transition-colors duration-200 hover:bg-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-not-allowed disabled:opacity-60">
           Book my demo
           <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </button>
         <p class="mt-3.5 text-center text-[12.5px] leading-relaxed text-ink-500">By submitting you agree to be contacted about Linda. We never share your details.</p>
+        </div>
       </form>
     </div>
   </div>
@@ -1044,6 +1058,80 @@
       if (e.target.tagName === 'A') { menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); }
     });
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Demo form -> backend /v1/demo-requests (public). Override with window.LINDA_API_BASE if needed.
+    var form = document.getElementById('demo-form');
+    if (!form) return;
+
+    function apiBase() {
+      if (window.LINDA_API_BASE) return String(window.LINDA_API_BASE).replace(/\/$/, '');
+      var host = location.hostname;
+      if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:3000/v1';
+      return 'https://api.linda.co.tz/v1';
+    }
+
+    var submitBtn = document.getElementById('demo-submit');
+    var errorEl = document.getElementById('demo-error');
+    var successEl = document.getElementById('demo-success');
+    var fieldsEl = document.getElementById('demo-fields');
+    var submitLabel = submitBtn.innerHTML;
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errorEl.classList.add('hidden');
+      errorEl.textContent = '';
+
+      var fullName = (document.getElementById('name').value || '').trim();
+      var companyName = (document.getElementById('shop').value || '').trim();
+      var phone = (document.getElementById('phone').value || '').trim();
+      var email = (document.getElementById('email').value || '').trim();
+      var devicesPerMonth = document.getElementById('devices').value || '';
+      var message = (document.getElementById('message').value || '').trim();
+
+      if (!fullName || !companyName || !phone || !email) {
+        errorEl.textContent = 'Please fill in your name, shop, phone, and work email.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending…';
+
+      fetch(apiBase() + '/demo-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          fullName: fullName,
+          companyName: companyName,
+          phone: phone,
+          email: email,
+          devicesPerMonth: devicesPerMonth || undefined,
+          message: message || undefined,
+        }),
+      })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (body) {
+            if (!res.ok) {
+              var msg =
+                (body && body.message && (Array.isArray(body.message) ? body.message.join(' ') : body.message)) ||
+                'Could not send your request. Please try again or call us.';
+              throw new Error(msg);
+            }
+            return body;
+          });
+        })
+        .then(function () {
+          fieldsEl.classList.add('hidden');
+          successEl.classList.remove('hidden');
+          form.reset();
+        })
+        .catch(function (err) {
+          errorEl.textContent = err.message || 'Could not send your request. Please try again.';
+          errorEl.classList.remove('hidden');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = submitLabel;
+        });
+    });
   })();
 </script>
 

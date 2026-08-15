@@ -1,6 +1,15 @@
-import { BarChart3, Building2, Headphones, PhoneCall, ShieldCheck, UserCog } from 'lucide-react';
+import {
+  BarChart3,
+  Building2,
+  Headphones,
+  Inbox,
+  LayoutDashboard,
+  PhoneCall,
+  ShieldCheck,
+  UserCog,
+} from 'lucide-react';
 import type { NavGroup, ShellBrand } from '@/shared/layout/AppShell';
-import { PLATFORM_ADMIN_ROLES } from '@/shared/auth/roles';
+import { PLATFORM_ADMIN_ROLES, STAFFING_ADMIN_ROLES } from '@/shared/auth/roles';
 import { BRAND_NAME } from '@/shared/config';
 
 export const ADMIN_BRAND: ShellBrand = {
@@ -15,17 +24,23 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       {
         to: '/',
-        label: 'Work queue',
-        icon: Headphones,
+        label: 'Dashboard',
+        icon: LayoutDashboard,
         end: true,
-        subtitle: 'Managed collections cases, always tagged with the seller company',
+        subtitle: 'Network KPIs — companies, cases, collectors, and leads',
+      },
+      {
+        to: '/cases',
+        label: 'Cases',
+        icon: Headphones,
+        subtitle: 'Managed collections cases — auto-assigned up to 55 per collector per day',
       },
       {
         to: '/call-centre',
         label: 'Call Centre',
         icon: PhoneCall,
-        subtitle: 'Overdue call queue, promises to pay, and escalation tracking',
-        roles: PLATFORM_ADMIN_ROLES,
+        subtitle: 'Collector performance — follow-ups, calls, PTPs, and time on task',
+        roles: STAFFING_ADMIN_ROLES,
       },
       {
         to: '/reports',
@@ -40,10 +55,16 @@ export const ADMIN_NAV: NavGroup[] = [
     roles: PLATFORM_ADMIN_ROLES,
     items: [
       {
+        to: '/demo-requests',
+        label: 'Demo requests',
+        icon: Inbox,
+        subtitle: 'Inbound leads from the linda.co.tz demo form',
+      },
+      {
         to: '/companies',
         label: 'Companies',
         icon: Building2,
-        subtitle: 'Subscriptions, packages, and collections invoices',
+        subtitle: 'Seller companies — open one for subscription and invoices',
       },
       {
         to: '/collectors',

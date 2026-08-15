@@ -6,9 +6,24 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Allow the dashboard SPA (separate dev origin) to call the API.
+  // Allow dashboard consoles + local marketing site (localhost and 127.0.0.1).
+  const corsOrigins = (
+    process.env.CORS_ORIGINS ??
+    [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:5500',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+      'http://127.0.0.1:5500',
+    ].join(',')
+  )
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
+    origin: corsOrigins,
     credentials: true,
   });
 

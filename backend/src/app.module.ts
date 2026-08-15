@@ -1,7 +1,9 @@
+import { join } from 'path';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { ClsModule } from 'nestjs-cls';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './common/prisma/prisma.module';
@@ -27,12 +29,18 @@ import { ProvisioningModule } from './provisioning/provisioning.module';
 import { CallCentreModule } from './call-centre/call-centre.module';
 import { BillingModule } from './billing/billing.module';
 import { CollectionsModule } from './collections/collections.module';
+import { DemoRequestsModule } from './demo-requests/demo-requests.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ScheduleModule.forRoot(),
+    // Serves locally-stored KYC photo uploads at /uploads/... (outside the /v1 API prefix).
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
     PrismaModule,
     AuthModule,
     TenantsModule,
@@ -53,6 +61,7 @@ import { CollectionsModule } from './collections/collections.module';
     CallCentreModule,
     BillingModule,
     CollectionsModule,
+    DemoRequestsModule,
   ],
   controllers: [HealthController],
   providers: [

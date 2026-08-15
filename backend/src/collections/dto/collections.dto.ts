@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -8,6 +9,7 @@ import {
   IsUUID,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import {
   CollectionCaseStatus,
@@ -20,6 +22,7 @@ import {
 
 enum PlatformStaffRole {
   COLLECTIONS_ADMIN = 'COLLECTIONS_ADMIN',
+  MASTER_COLLECTOR = 'MASTER_COLLECTOR',
   COLLECTOR = 'COLLECTOR',
 }
 
@@ -77,6 +80,18 @@ export class CreatePlatformStaffDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  /** Optional: assign a new COLLECTOR under this MASTER_COLLECTOR. */
+  @IsOptional()
+  @IsUUID()
+  managedById?: string;
+}
+
+export class AssignCollectorMasterDto {
+  /** MASTER_COLLECTOR user id, or null/omit to unassign. */
+  @IsOptional()
+  @IsUUID()
+  masterCollectorId?: string | null;
 }
 
 export class UpdateCollectorPhoneDto {
@@ -139,7 +154,7 @@ export class SubmitContactProofDto {
 }
 
 export class AutoAssignDto {
-  /** Max cases to assign in this run (default 50) */
+  /** Max cases to assign in this run (default 2000; daily cap is 55/collector) */
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -220,6 +235,46 @@ export class MarkInvoicePaidDto {
   @IsOptional()
   @IsString()
   notes?: string;
+}
+
+export class UpdateCustomerKycDto {
+  @IsOptional()
+  @IsString()
+  occupation?: string;
+
+  @IsOptional()
+  @IsString()
+  employerName?: string;
+
+  @IsOptional()
+  @IsString()
+  employerPhone?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  monthlyIncome?: number;
+}
+
+export class SetCaseWaiverDto {
+  @IsOptional()
+  @IsBoolean()
+  extensionApplied?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  penaltyInterestReductionEnabled?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  penaltyInterestAmount?: number;
+
+  /** ISO date string, or null to clear. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsDateString()
+  waiverValidUntil?: string | null;
 }
 
 export {

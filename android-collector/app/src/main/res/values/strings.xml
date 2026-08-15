@@ -12,7 +12,7 @@
     <string name="case_list">Case List</string>
     <string name="outstanding_loan">Outstanding Loan</string>
     <string name="pending_processing">Pending Processing</string>
-    <string name="promise_list">Promise List</string>
+    <string name="promise_list">Loan Extension List</string>
     <string name="settlement_list">Loan Settlement List</string>
     <string name="cases_label">cases</string>
     <string name="completed_label">completed</string>

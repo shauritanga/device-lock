@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -18,8 +18,10 @@ import { money, shortDate } from '@/shared/lib/format';
 type CaseDetail = {
   id: string;
   companyName: string | null;
+  customerId: string;
   customerName: string | null;
   customerPhone: string | null;
+  isRepeatCustomer: boolean;
   deviceImei: string | null;
   deviceModel: string | null;
   deviceStatus: string | null;
@@ -30,6 +32,25 @@ type CaseDetail = {
   followUpCount: number;
   dueDate?: string | null;
   assignedTo?: { fullName: string; phone?: string | null } | null;
+  idCardPhotoUrl: string | null;
+  selfiePhotoUrl: string | null;
+  occupation: string | null;
+  employerName: string | null;
+  employerPhone: string | null;
+  monthlyIncome: string | number | null;
+  extensionApplied: boolean;
+  penaltyInterestReductionEnabled: boolean;
+  penaltyInterestAmount: string | number;
+  waiverValidUntil: string | null;
+  originalOverdueAmount: string | number | null;
+  repayments: Array<{
+    id: string;
+    orderReference: string;
+    receivedAt: string;
+    amount: string | number;
+    classification: 'FULL' | 'PARTIAL';
+    daysEarly: number | null;
+  }>;
   timeline: Array<{
     id: string;
     channel: string;
@@ -128,6 +149,80 @@ export default function CollectionCaseDetail() {
     },
   });
 
+  const updateKyc = useMutation({
+    mutationFn: async (payload: {
+      occupation?: string;
+      employerName?: string;
+      employerPhone?: string;
+      monthlyIncome?: number;
+    }) =>
+      (await api.patch(`/collections/customers/${data!.customerId}`, payload))
+        .data,
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['collections', 'case', id] }),
+  });
+
+  const uploadKycPhoto = useMutation({
+    mutationFn: async (formData: FormData) =>
+      (
+        await api.post(
+          `/collections/customers/${data!.customerId}/kyc-photos`,
+          formData,
+        )
+      ).data,
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['collections', 'case', id] }),
+  });
+
+  const setWaiver = useMutation({
+    mutationFn: async (payload: {
+      extensionApplied?: boolean;
+      penaltyInterestReductionEnabled?: boolean;
+      penaltyInterestAmount?: number;
+      waiverValidUntil?: string | null;
+    }) => (await api.patch(`/collections/cases/${id}/waiver`, payload)).data,
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['collections', 'case', id] }),
+  });
+
+  function submitKyc(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const income = fd.get('monthlyIncome');
+    updateKyc.mutate({
+      occupation: (fd.get('occupation') as string) || undefined,
+      employerName: (fd.get('employerName') as string) || undefined,
+      employerPhone: (fd.get('employerPhone') as string) || undefined,
+      monthlyIncome: income ? Number(income) : undefined,
+    });
+  }
+
+  function pickKycPhoto(field: 'idCard' | 'selfie') {
+    return (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append(field, file);
+      uploadKycPhoto.mutate(fd);
+      e.target.value = '';
+    };
+  }
+
+  function submitWaiver(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const validUntil = fd.get('waiverValidUntil') as string;
+    setWaiver.mutate({
+      extensionApplied: fd.get('extensionApplied') === 'on',
+      penaltyInterestReductionEnabled:
+        fd.get('penaltyInterestReductionEnabled') === 'on',
+      penaltyInterestAmount: fd.get('penaltyInterestAmount')
+        ? Number(fd.get('penaltyInterestAmount'))
+        : undefined,
+      waiverValidUntil: validUntil ? new Date(validUntil).toISOString() : null,
+    });
+  }
+
   const createPtp = useMutation({
     mutationFn: async () =>
       (
@@ -167,7 +262,12 @@ export default function CollectionCaseDetail() {
               <p className="mt-3 text-xl font-semibold">{data.customerName}</p>
               <p className="text-sm text-muted">{data.customerPhone}</p>
             </div>
-            <StatusPill status={data.status} />
+            <div className="flex flex-col items-end gap-2">
+              <StatusPill status={data.status} />
+              <StatusPill
+                status={data.isRepeatCustomer ? 'Old customer' : 'New customer'}
+              />
+            </div>
           </div>
           <dl className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
             <div>
@@ -381,6 +481,146 @@ export default function CollectionCaseDetail() {
                     </p>
                   </div>
                   <StatusPill status={p.status} />
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader
+            title="Customer KYC"
+            subtitle="Shown on the collector app's Customer Information tab"
+          />
+          <form key={data.customerId} className="space-y-3 p-5" onSubmit={submitKyc}>
+            <Field label="Job / occupation">
+              <Input name="occupation" defaultValue={data.occupation ?? ''} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Company name">
+                <Input name="employerName" defaultValue={data.employerName ?? ''} />
+              </Field>
+              <Field label="Company phone">
+                <Input name="employerPhone" defaultValue={data.employerPhone ?? ''} />
+              </Field>
+            </div>
+            <Field label="Monthly income">
+              <Input
+                name="monthlyIncome"
+                type="number"
+                min={0}
+                defaultValue={data.monthlyIncome ?? ''}
+              />
+            </Field>
+            <Button type="submit" disabled={updateKyc.isPending}>
+              {updateKyc.isPending ? 'Saving…' : 'Save employment info'}
+            </Button>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-line pt-3">
+              <div>
+                <p className="mb-1.5 text-sm font-medium text-ink">ID card photo</p>
+                {data.idCardPhotoUrl ? (
+                  <img
+                    src={data.idCardPhotoUrl}
+                    alt="ID card"
+                    className="mb-2 h-24 w-full rounded-lg object-cover"
+                  />
+                ) : null}
+                <input type="file" accept="image/*" onChange={pickKycPhoto('idCard')} />
+              </div>
+              <div>
+                <p className="mb-1.5 text-sm font-medium text-ink">Selfie</p>
+                {data.selfiePhotoUrl ? (
+                  <img
+                    src={data.selfiePhotoUrl}
+                    alt="Selfie"
+                    className="mb-2 h-24 w-full rounded-lg object-cover"
+                  />
+                ) : null}
+                <input type="file" accept="image/*" onChange={pickKycPhoto('selfie')} />
+              </div>
+            </div>
+          </form>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Waiver / extension"
+            subtitle="Admin-granted — shown read-only on the collector app"
+          />
+          <form key={data.id} className="space-y-3 p-5" onSubmit={submitWaiver}>
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                name="extensionApplied"
+                defaultChecked={data.extensionApplied}
+              />
+              Extension applied
+            </label>
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                name="penaltyInterestReductionEnabled"
+                defaultChecked={data.penaltyInterestReductionEnabled}
+              />
+              Penalty interest reduction enabled
+            </label>
+            <Field label="Penalty interest amount">
+              <Input
+                name="penaltyInterestAmount"
+                type="number"
+                min={0}
+                defaultValue={data.penaltyInterestAmount ?? 0}
+              />
+            </Field>
+            <Field label="Waiver valid until">
+              <Input
+                name="waiverValidUntil"
+                type="datetime-local"
+                defaultValue={
+                  data.waiverValidUntil
+                    ? data.waiverValidUntil.slice(0, 16)
+                    : ''
+                }
+              />
+            </Field>
+            <Button type="submit" disabled={setWaiver.isPending}>
+              {setWaiver.isPending ? 'Saving…' : 'Save waiver'}
+            </Button>
+            {data.originalOverdueAmount != null ? (
+              <p className="text-2xs text-muted">
+                Original overdue amount: {money(data.originalOverdueAmount)} —
+                restored if unpaid after the waiver expires.
+              </p>
+            ) : null}
+          </form>
+        </Card>
+
+        <Card>
+          <CardHeader title="Repayment history" subtitle="Confirmed payments on this loan" />
+          <div className="max-h-96 space-y-2 overflow-y-auto p-5">
+            {data.repayments.length === 0 ? (
+              <EmptyState title="No repayments yet" />
+            ) : (
+              data.repayments.map((r) => (
+                <div
+                  key={r.id}
+                  className="rounded-xl border border-line bg-canvas/50 px-4 py-3 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">{r.orderReference}</span>
+                    <StatusPill
+                      status={r.classification === 'FULL' ? 'Full payment' : 'Partial'}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    {shortDate(r.receivedAt)} · {money(r.amount)}
+                    {r.daysEarly != null
+                      ? ` · ${Math.abs(r.daysEarly)} days ${r.daysEarly >= 0 ? 'early' : 'late'}`
+                      : ''}
+                  </p>
                 </div>
               ))
             )}

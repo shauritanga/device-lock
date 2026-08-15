@@ -21,6 +21,7 @@ datasource db {
 enum UserRole {
   SUPER_ADMIN // platform operator (you) — not bound to a tenant
   COLLECTIONS_ADMIN // platform: manage collectors, assign cases across sellers
+  MASTER_COLLECTOR // platform: manages a team of COLLECTORs assigned to them
   COLLECTOR // platform: follow up assigned collection cases only
   OWNER // owner of a credit shop
   MANAGER
@@ -109,6 +110,15 @@ enum CollectionsInvoiceStatus {
   PAST_DUE
 }
 
+/// Marketing-site "Request a demo" leads (platform-scoped, not tenant-owned).
+enum DemoRequestStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  CLOSED
+}
+
 enum DeviceStatus {
   PENDING_ENROLLMENT // token issued, agent not yet provisioned
   ACTIVE // enrolled, in good standing
@@ -123,6 +133,12 @@ enum LoanStatus {
   COMPLETED
   DEFAULTED
   CANCELLED
+}
+
+enum IdDocumentType {
+  NATIONAL_ID
+  VOTER_ID
+  DRIVING_LICENSE
 }
 
 enum InstallmentStatus {
@@ -203,13 +219,41 @@ model Tenant {
   communicationLogs       CommunicationLog[]
   promisesToPay           PromiseToPay[]
   collectionsInvoices     CollectionsInvoice[]
+  demoRequests            DemoRequest[]
 
   @@index([isActive])
 }
 
+/// Inbound sales lead from the public marketing site demo form.
+model DemoRequest {
+  id              String            @id @default(uuid())
+  fullName        String
+  companyName     String
+  phone           String
+  email           String?
+  /// Raw band from the form, e.g. "Fewer than 30" / "30 – 44".
+  devicesPerMonth String?
+  /// Suggested package from the band (STARTER | GROWTH | BUSINESS | ENTERPRISE).
+  suggestedPackage String?
+  message         String?
+  status          DemoRequestStatus @default(NEW)
+  adminNotes      String?
+  /// Set when sales converts the lead into a seller tenant.
+  convertedTenantId String?
+  convertedTenant   Tenant?         @relation(fields: [convertedTenantId], references: [id], onDelete: SetNull)
+  source          String            @default("website")
+  userAgent       String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  contactedAt     DateTime?
+
+  @@index([status, createdAt])
+  @@index([phone])
+}
+
 model User {
   id           String    @id @default(uuid())
-  // null for SUPER_ADMIN, COLLECTIONS_ADMIN, COLLECTOR (platform operators)
+  // null for SUPER_ADMIN, COLLECTIONS_ADMIN, MASTER_COLLECTOR, COLLECTOR (platform operators)
   tenantId     String?
   tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email        String    @unique
@@ -219,6 +263,10 @@ model User {
   isActive     Boolean   @default(true)
   // Phone the collector uses for BYOD follow-up (E.164 preferred).
   phone        String?
+  /// COLLECTOR → MASTER_COLLECTOR who manages them (null = unassigned).
+  managedById  String?
+  managedBy    User?     @relation("CollectorTeam", fields: [managedById], references: [id], onDelete: SetNull)
+  managedCollectors User[] @relation("CollectorTeam")
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -239,6 +287,7 @@ model User {
 
   @@index([tenantId])
   @@index([role])
+  @@index([managedById])
 }
 
 /// Clock-in / clock-out (primary source for "hours worked").
@@ -369,6 +418,13 @@ model CollectionCase {
   referredBy   User?     @relation("CaseReferredBy", fields: [referredById], references: [id], onDelete: SetNull)
   referredAt   DateTime?
   referralNote String?
+
+  // Admin-granted extension / penalty waiver (set from the dashboard).
+  extensionApplied                Boolean   @default(false)
+  penaltyInterestReductionEnabled Boolean   @default(false)
+  penaltyInterestAmount           Decimal   @default(0) @db.Decimal(14, 2)
+  waiverValidUntil                DateTime?
+  originalOverdueAmount           Decimal?  @db.Decimal(14, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -502,10 +558,22 @@ model Customer {
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   fullName   String
   phone      String // primary mobile-money number
+  /// National ID, voter ID, or driving licence number (value).
   nationalId String?
+  /// Which document `nationalId` refers to.
+  idDocumentType IdDocumentType?
   address    String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+
+  // KYC / employment info (collections staff app)
+  idCardPhotoUrl String?
+  selfiePhotoUrl String?
+  occupation     String?
+  employerName   String?
+  employerPhone  String?
+  monthlyIncome  Decimal? @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   devices         Device[]
   loans           Loan[]

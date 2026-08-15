@@ -15,6 +15,8 @@ import Payments from './pages/Payments';
 import Staff from './pages/Staff';
 import Billing from './pages/Billing';
 import CollectionsService from './pages/CollectionsService';
+import Profile from '@/shared/pages/Profile';
+import Settings from '@/shared/pages/Settings';
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -72,6 +74,8 @@ export default function ClientApp() {
           </Shell>
         }
       />
+      <Route path="/profile" element={<Shell><Profile /></Shell>} />
+      <Route path="/settings" element={<Shell><Settings /></Shell>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

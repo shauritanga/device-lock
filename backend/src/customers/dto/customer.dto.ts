@@ -1,4 +1,5 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IdDocumentType } from '@prisma/client';
 
 export class CreateCustomerDto {
   @IsString()
@@ -9,9 +10,12 @@ export class CreateCustomerDto {
   @MinLength(7)
   phone!: string;
 
-  @IsOptional()
   @IsString()
-  nationalId?: string;
+  @MinLength(4)
+  nationalId!: string;
+
+  @IsEnum(IdDocumentType)
+  idDocumentType!: IdDocumentType;
 
   @IsOptional()
   @IsString()
@@ -31,7 +35,12 @@ export class UpdateCustomerDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(4)
   nationalId?: string;
+
+  @IsOptional()
+  @IsEnum(IdDocumentType)
+  idDocumentType?: IdDocumentType;
 
   @IsOptional()
   @IsString()

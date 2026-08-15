@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   BadRequestException,
   ForbiddenException,
@@ -5,6 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CollectionCaseSource,
@@ -39,17 +42,21 @@ import {
   AssignCaseDto,
   CompleteContactDto,
   CreatePlatformStaffDto,
+  AssignCollectorMasterDto,
   CreatePromiseDto,
   ListCasesQuery,
   CollectorPerformanceQuery,
   GenerateCollectionsInvoiceDto,
   MarkInvoicePaidDto,
   ReportRangeQuery,
+  SetCaseWaiverDto,
   StartContactDto,
   UpdateCollectorPhoneDto,
+  UpdateCustomerKycDto,
   UpdatePromiseDto,
 } from './dto/collections.dto';
 import { hashPassword } from '../auth/auth.service';
+import type { Env } from '../config/env.validation';
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const INVOICE_DUE_DAYS = 14;
@@ -64,17 +71,29 @@ const OPEN_STATUSES: CollectionCaseStatus[] = [
 const PLATFORM_ROLES = new Set<UserRole>([
   UserRole.SUPER_ADMIN,
   UserRole.COLLECTIONS_ADMIN,
+  UserRole.MASTER_COLLECTOR,
   UserRole.COLLECTOR,
 ]);
 
 @Injectable()
 export class CollectionsService {
   private readonly logger = new Logger(CollectionsService.name);
+  private readonly publicBaseUrl: string;
+  private readonly uploadsRoot: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly callProvider: CallProviderService,
-  ) {}
+    config: ConfigService<Env, true>,
+  ) {
+    this.publicBaseUrl = (
+      config.get('PUBLIC_BASE_URL', { infer: true }) ?? 'http://localhost:3000'
+    ).replace(/\/$/, '');
+    // Mirrors app.module.ts's ServeStaticModule rootPath (backend/uploads),
+    // resolved relative to this file so it's correct in both dev (src) and
+    // built (dist) layouts regardless of the process's cwd.
+    this.uploadsRoot = path.join(__dirname, '..', '..', 'uploads');
+  }
 
   /** Nightly: past-due invoices + break PTPs + roll collector stats + sync cases. */
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
@@ -83,9 +102,19 @@ export class CollectionsService {
     const broken = await this.breakOverduePromises();
     const rolled = await this.rollAllCollectorsDaily();
     const synced = await this.syncAllActiveSubscriptions();
+    let autoAssigned = 0;
+    try {
+      const result = await this.autoAssignUnassigned(null, 2000);
+      autoAssigned = result.assigned;
+    } catch (e) {
+      this.logger.warn(
+        `Nightly auto-assign skipped: ${e instanceof Error ? e.message : e}`,
+      );
+    }
     this.logger.log(
       `Collections nightly: pastDue=${pastDue.markedPastDue}, ` +
-        `brokenPtps=${broken.broken}, rolled=${rolled.rolled}, casesSynced=${synced.cases}`,
+        `brokenPtps=${broken.broken}, rolled=${rolled.rolled}, casesSynced=${synced.cases}, ` +
+        `autoAssigned=${autoAssigned}`,
     );
   }
 
@@ -331,11 +360,40 @@ export class CollectionsService {
     return { tenants: subs.length, cases: total };
   }
 
+  /** Sync overdue cases, then auto-assign with the daily per-collector cap. */
+  async syncAndAutoAssign(actor: AuthUser) {
+    const synced = await this.syncAllActiveSubscriptions();
+    let assigned = {
+      assigned: 0,
+      assignments: [] as Array<{ caseId: string; collectorId: string }>,
+      dailyCap: 55,
+    };
+    try {
+      assigned = await this.autoAssignUnassigned(actor, 2000);
+    } catch (e) {
+      // No collectors yet — sync still succeeded.
+      this.logger.warn(
+        `Auto-assign after sync skipped: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+    return { ...synced, autoAssigned: assigned.assigned, dailyCap: assigned.dailyCap };
+  }
+
   async listCases(query: ListCasesQuery, actor: AuthUser) {
     const where: Record<string, unknown> = {};
 
     if (actor.role === UserRole.COLLECTOR) {
       where.assignedToId = actor.userId;
+    } else if (actor.role === UserRole.MASTER_COLLECTOR) {
+      const team = await this.prisma.user.findMany({
+        where: { managedById: actor.userId, role: UserRole.COLLECTOR },
+        select: { id: true },
+      });
+      where.OR = [
+        { assignedToId: actor.userId },
+        { assignedToId: { in: team.map((t) => t.id) } },
+        { assignedToId: null },
+      ];
     } else if (actor.tenantId) {
       // Seller staff: only their company
       where.tenantId = actor.tenantId;
@@ -507,7 +565,21 @@ export class CollectionsService {
     this.logger.log(
       `Seller hand-off: tenant=${tenantId} loan=${loan.id} case=${row.id} by=${actor.userId}`,
     );
-    return mapCase(row);
+
+    // Auto-assign newly arrived cases under the daily collector cap.
+    try {
+      await this.autoAssignUnassigned(null, 2000);
+    } catch (e) {
+      this.logger.warn(
+        `Auto-assign after referral skipped: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+
+    const fresh = await this.prisma.collectionCase.findUnique({
+      where: { id: row.id },
+      include: caseInclude,
+    });
+    return mapCase(fresh ?? row);
   }
 
   async unassignedQueue(actor: AuthUser) {
@@ -527,6 +599,7 @@ export class CollectionsService {
   async myQueue(actor: AuthUser) {
     if (
       actor.role !== UserRole.COLLECTOR &&
+      actor.role !== UserRole.MASTER_COLLECTOR &&
       actor.role !== UserRole.COLLECTIONS_ADMIN &&
       actor.role !== UserRole.SUPER_ADMIN
     ) {
@@ -552,34 +625,46 @@ export class CollectionsService {
     if (!row) throw new NotFoundException('Case not found');
     this.assertCanViewCase(row, actor);
 
-    const [timeline, promises, sessions] = await Promise.all([
-      this.prisma.communicationLog.findMany({
-        where: { caseId: id },
-        orderBy: { occurredAt: 'desc' },
-        take: 50,
-        include: {
-          collector: { select: { id: true, fullName: true } },
-        },
-      }),
-      this.prisma.promiseToPay.findMany({
-        where: { caseId: id },
-        orderBy: { dueDate: 'asc' },
-        include: {
-          createdBy: { select: { id: true, fullName: true } },
-        },
-      }),
-      this.prisma.contactSession.findMany({
-        where: { caseId: id },
-        orderBy: { initiatedAt: 'desc' },
-        take: 20,
-      }),
-    ]);
+    const [timeline, promises, sessions, loanCount, installments, payments] =
+      await Promise.all([
+        this.prisma.communicationLog.findMany({
+          where: { caseId: id },
+          orderBy: { occurredAt: 'desc' },
+          take: 50,
+          include: {
+            collector: { select: { id: true, fullName: true } },
+          },
+        }),
+        this.prisma.promiseToPay.findMany({
+          where: { caseId: id },
+          orderBy: { dueDate: 'asc' },
+          include: {
+            createdBy: { select: { id: true, fullName: true } },
+          },
+        }),
+        this.prisma.contactSession.findMany({
+          where: { caseId: id },
+          orderBy: { initiatedAt: 'desc' },
+          take: 20,
+        }),
+        this.prisma.loan.count({ where: { customerId: row.customerId } }),
+        this.prisma.installment.findMany({
+          where: { loanId: row.loanId },
+          orderBy: { sequence: 'asc' },
+        }),
+        this.prisma.payment.findMany({
+          where: { loanId: row.loanId, status: PaymentStatus.CONFIRMED },
+          orderBy: { receivedAt: 'asc' },
+        }),
+      ]);
 
     return {
       ...mapCase(row),
+      isRepeatCustomer: loanCount > 1,
       timeline,
       promises,
       sessions,
+      repayments: buildRepaymentHistory(installments, payments),
     };
   }
 
@@ -774,6 +859,7 @@ export class CollectionsService {
         status: CommunicationStatus.COMPLETED,
         verificationStatus: ContactVerificationStatus.DEVICE_LOG_MATCHED,
         durationSeconds: dto.durationSeconds ?? undefined,
+        metadata: meta as Prisma.InputJsonValue,
       },
     });
 
@@ -782,13 +868,16 @@ export class CollectionsService {
   }
 
   /**
-   * Round-robin assign unassigned OPEN cases to active COLLECTOR users.
+   * Round-robin assign unassigned OPEN cases to active COLLECTORs.
+   * Each collector may receive at most DAILY_ASSIGN_CAP new assignments per day
+   * (counted by assignedAt since start of UTC day).
    */
-  async autoAssignUnassigned(
-    actor: AuthUser,
-    limit = 50,
-  ) {
-    this.assertPlatformAdmin(actor);
+  async autoAssignUnassigned(actor: AuthUser | null, limit = 2000) {
+    if (actor) this.assertPlatformAdmin(actor);
+
+    const DAILY_ASSIGN_CAP = 55;
+    const dayStart = startOfUtcDay(new Date());
+
     const collectors = await this.prisma.user.findMany({
       where: {
         role: UserRole.COLLECTOR,
@@ -812,11 +901,50 @@ export class CollectionsService {
       throw new BadRequestException('No active collectors to assign to');
     }
 
-    // Prefer least-loaded collectors
-    collectors.sort(
-      (a, b) =>
-        a._count.assignedCollectionCases - b._count.assignedCollectionCases,
+    const todayAssigned = await this.prisma.collectionCase.groupBy({
+      by: ['assignedToId'],
+      where: {
+        assignedToId: { in: collectors.map((c) => c.id) },
+        assignedAt: { gte: dayStart },
+      },
+      _count: { _all: true },
+    });
+    const todayByCollector = new Map(
+      todayAssigned.map((r) => [r.assignedToId as string, r._count._all]),
     );
+
+    type Slot = {
+      id: string;
+      fullName: string;
+      openLoad: number;
+      todayCount: number;
+      remaining: number;
+    };
+
+    const slots: Slot[] = collectors
+      .map((c) => {
+        const todayCount = todayByCollector.get(c.id) ?? 0;
+        return {
+          id: c.id,
+          fullName: c.fullName,
+          openLoad: c._count.assignedCollectionCases,
+          todayCount,
+          remaining: Math.max(0, DAILY_ASSIGN_CAP - todayCount),
+        };
+      })
+      .filter((s) => s.remaining > 0);
+
+    if (slots.length === 0) {
+      return {
+        assigned: 0,
+        assignments: [] as Array<{ caseId: string; collectorId: string }>,
+        dailyCap: DAILY_ASSIGN_CAP,
+        skippedReason: 'All collectors have reached the daily assignment cap of 55',
+      };
+    }
+
+    const totalCapacity = slots.reduce((sum, s) => sum + s.remaining, 0);
+    const take = Math.min(limit, totalCapacity, 2000);
 
     const unassigned = await this.prisma.collectionCase.findMany({
       where: {
@@ -824,13 +952,23 @@ export class CollectionsService {
         status: { in: OPEN_STATUSES },
       },
       orderBy: [{ daysOverdue: 'desc' }, { createdAt: 'asc' }],
-      take: Math.min(limit, 200),
+      take,
     });
 
+    const sortSlots = () =>
+      slots.sort((a, b) => {
+        if (a.remaining !== b.remaining) return b.remaining - a.remaining;
+        return a.openLoad - b.openLoad;
+      });
+
+    sortSlots();
+
     const assigned: Array<{ caseId: string; collectorId: string }> = [];
-    let i = 0;
     for (const c of unassigned) {
-      const collector = collectors[i % collectors.length];
+      sortSlots();
+      const collector = slots.find((s) => s.remaining > 0);
+      if (!collector) break;
+
       await this.prisma.collectionCase.update({
         where: { id: c.id },
         data: {
@@ -843,16 +981,22 @@ export class CollectionsService {
         },
       });
       assigned.push({ caseId: c.id, collectorId: collector.id });
-      // keep load counts roughly balanced
-      collector._count.assignedCollectionCases += 1;
-      collectors.sort(
-        (a, b) =>
-          a._count.assignedCollectionCases - b._count.assignedCollectionCases,
-      );
-      i = 0; // always pick current least-loaded after re-sort
+      collector.remaining -= 1;
+      collector.todayCount += 1;
+      collector.openLoad += 1;
     }
 
-    return { assigned: assigned.length, assignments: assigned };
+    return {
+      assigned: assigned.length,
+      assignments: assigned,
+      dailyCap: DAILY_ASSIGN_CAP,
+      collectorCapacity: slots.map((s) => ({
+        collectorId: s.id,
+        fullName: s.fullName,
+        assignedToday: s.todayCount,
+        remainingToday: s.remaining,
+      })),
+    };
   }
 
   /**
@@ -1145,6 +1289,114 @@ export class CollectionsService {
       data: {
         status: dto.status,
         notes: dto.notes,
+      },
+    });
+  }
+
+  private assertAdmin(actor: AuthUser) {
+    if (
+      actor.role === UserRole.SUPER_ADMIN ||
+      actor.role === UserRole.COLLECTIONS_ADMIN
+    ) {
+      return;
+    }
+    throw new ForbiddenException();
+  }
+
+  /** Admin-entered employment info shown on the collector app's Customer Information tab. */
+  async updateCustomerKyc(
+    customerId: string,
+    dto: UpdateCustomerKycDto,
+    actor: AuthUser,
+  ) {
+    this.assertAdmin(actor);
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+    });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    return this.prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        occupation: dto.occupation,
+        employerName: dto.employerName,
+        employerPhone: dto.employerPhone,
+        monthlyIncome: dto.monthlyIncome,
+      },
+    });
+  }
+
+  /**
+   * Saves ID-card / selfie photos already written to disk by the multer
+   * interceptor (see CollectionsController) and records their served URLs.
+   */
+  async saveCustomerKycPhotos(
+    customerId: string,
+    files: { idCard?: Express.Multer.File[]; selfie?: Express.Multer.File[] },
+    actor: AuthUser,
+  ) {
+    this.assertAdmin(actor);
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+    });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const idCardFile = files.idCard?.[0];
+    const selfieFile = files.selfie?.[0];
+    if (!idCardFile && !selfieFile) {
+      throw new BadRequestException('No files uploaded');
+    }
+
+    const dir = this.kycUploadDir(customerId);
+    const write = (field: 'idCard' | 'selfie', file: Express.Multer.File) => {
+      const name = `${field}-${Date.now()}${path.extname(file.originalname)}`;
+      fs.writeFileSync(path.join(dir, name), file.buffer);
+      return `${this.publicBaseUrl}/uploads/kyc/${customerId}/${name}`;
+    };
+
+    return this.prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        ...(idCardFile ? { idCardPhotoUrl: write('idCard', idCardFile) } : {}),
+        ...(selfieFile ? { selfiePhotoUrl: write('selfie', selfieFile) } : {}),
+      },
+    });
+  }
+
+  /** Where a customer's KYC uploads live on disk (creates the dir if missing). */
+  private kycUploadDir(customerId: string): string {
+    const dir = path.join(this.uploadsRoot, 'kyc', customerId);
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  }
+
+  /** Admin-granted extension / penalty-interest waiver on a case (dashboard-only control). */
+  async setCaseWaiver(id: string, dto: SetCaseWaiverDto, actor: AuthUser) {
+    this.assertAdmin(actor);
+    const row = await this.prisma.collectionCase.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Case not found');
+
+    const enablingNewWaiver =
+      dto.penaltyInterestReductionEnabled &&
+      !row.penaltyInterestReductionEnabled;
+
+    return this.prisma.collectionCase.update({
+      where: { id },
+      data: {
+        extensionApplied: dto.extensionApplied,
+        penaltyInterestReductionEnabled: dto.penaltyInterestReductionEnabled,
+        penaltyInterestAmount: dto.penaltyInterestAmount,
+        waiverValidUntil:
+          dto.waiverValidUntil === undefined
+            ? undefined
+            : dto.waiverValidUntil === null
+              ? null
+              : new Date(dto.waiverValidUntil),
+        // Snapshot the pre-waiver amount once, the first time a waiver is granted,
+        // so the client can show "restored if unpaid" against the original figure.
+        originalOverdueAmount: enablingNewWaiver
+          ? row.amountDue
+          : undefined,
       },
     });
   }
@@ -1664,7 +1916,8 @@ export class CollectionsService {
       actor.role === UserRole.OWNER ||
       actor.role === UserRole.MANAGER ||
       actor.role === UserRole.AGENT ||
-      actor.role === UserRole.COLLECTOR
+      actor.role === UserRole.COLLECTOR ||
+      actor.role === UserRole.MASTER_COLLECTOR
     ) {
       return;
     }
@@ -2082,7 +2335,8 @@ export class CollectionsService {
     if (
       actor.role !== UserRole.SUPER_ADMIN &&
       actor.role !== UserRole.COLLECTIONS_ADMIN &&
-      actor.role !== UserRole.COLLECTOR
+      actor.role !== UserRole.COLLECTOR &&
+      actor.role !== UserRole.MASTER_COLLECTOR
     ) {
       throw new ForbiddenException();
     }
@@ -2093,13 +2347,39 @@ export class CollectionsService {
     let collectorIds: string[];
     if (actor.role === UserRole.COLLECTOR) {
       collectorIds = [actor.userId];
+    } else if (actor.role === UserRole.MASTER_COLLECTOR) {
+      const team = await this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { id: actor.userId },
+            { managedById: actor.userId, role: UserRole.COLLECTOR },
+          ],
+        },
+        select: { id: true },
+      });
+      collectorIds = query.collectorId
+        ? team.some((t) => t.id === query.collectorId)
+          ? [query.collectorId]
+          : []
+        : team.map((u) => u.id);
+      if (query.collectorId && collectorIds.length === 0) {
+        throw new ForbiddenException('Collector is not on your team');
+      }
     } else if (query.collectorId) {
       collectorIds = [query.collectorId];
     } else {
       const list = await this.prisma.user.findMany({
         where: {
-          role: { in: [UserRole.COLLECTOR, UserRole.COLLECTIONS_ADMIN] },
+          role: {
+            in: [
+              UserRole.COLLECTOR,
+              UserRole.MASTER_COLLECTOR,
+              UserRole.COLLECTIONS_ADMIN,
+            ],
+          },
           isActive: true,
+          tenantId: null,
         },
         select: { id: true },
       });
@@ -2229,6 +2509,7 @@ export class CollectionsService {
   private assertCanWorkCase(actor: AuthUser) {
     if (
       actor.role !== UserRole.COLLECTOR &&
+      actor.role !== UserRole.MASTER_COLLECTOR &&
       actor.role !== UserRole.COLLECTIONS_ADMIN &&
       actor.role !== UserRole.SUPER_ADMIN
     ) {
@@ -2237,7 +2518,9 @@ export class CollectionsService {
   }
 
   async assign(id: string, dto: AssignCaseDto, actor: AuthUser) {
-    this.assertPlatformAdmin(actor);
+    const isMaster = actor.role === UserRole.MASTER_COLLECTOR;
+    if (!isMaster) this.assertPlatformAdmin(actor);
+
     const c = await this.prisma.collectionCase.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('Case not found');
 
@@ -2245,13 +2528,29 @@ export class CollectionsService {
       where: {
         id: dto.assignedToId,
         isActive: true,
-        role: { in: [UserRole.COLLECTOR, UserRole.COLLECTIONS_ADMIN] },
+        role: {
+          in: [
+            UserRole.COLLECTOR,
+            UserRole.MASTER_COLLECTOR,
+            UserRole.COLLECTIONS_ADMIN,
+          ],
+        },
         tenantId: null,
+        ...(isMaster
+          ? {
+              OR: [
+                { id: actor.userId },
+                { managedById: actor.userId, role: UserRole.COLLECTOR },
+              ],
+            }
+          : {}),
       },
     });
     if (!collector) {
       throw new BadRequestException(
-        'assignedToId must be an active platform COLLECTOR or COLLECTIONS_ADMIN',
+        isMaster
+          ? 'assignedToId must be you or a collector on your team'
+          : 'assignedToId must be an active platform collector',
       );
     }
 
@@ -2290,39 +2589,91 @@ export class CollectionsService {
   }
 
   async listCollectors(actor: AuthUser) {
+    const staffSelect = {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+      phone: true,
+      isActive: true,
+      lastLoginAt: true,
+      createdAt: true,
+      managedById: true,
+      managedBy: { select: { id: true, fullName: true, email: true } },
+      _count: {
+        select: {
+          assignedCollectionCases: {
+            where: { status: { in: OPEN_STATUSES } },
+          },
+          managedCollectors: true,
+        },
+      },
+    } as const;
+
+    if (actor.role === UserRole.MASTER_COLLECTOR) {
+      return this.prisma.user.findMany({
+        where: {
+          tenantId: null,
+          OR: [
+            { id: actor.userId },
+            { managedById: actor.userId, role: UserRole.COLLECTOR },
+          ],
+        },
+        select: staffSelect,
+        orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
+      });
+    }
+
     this.assertPlatformAdmin(actor);
     return this.prisma.user.findMany({
       where: {
         tenantId: null,
-        role: { in: [UserRole.COLLECTOR, UserRole.COLLECTIONS_ADMIN] },
-      },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        phone: true,
-        isActive: true,
-        lastLoginAt: true,
-        createdAt: true,
-        _count: {
-          select: {
-            assignedCollectionCases: {
-              where: { status: { in: OPEN_STATUSES } },
-            },
-          },
+        role: {
+          in: [
+            UserRole.COLLECTOR,
+            UserRole.MASTER_COLLECTOR,
+            UserRole.COLLECTIONS_ADMIN,
+          ],
         },
       },
-      orderBy: { fullName: 'asc' },
+      select: staffSelect,
+      orderBy: [{ role: 'asc' }, { fullName: 'asc' }],
     });
   }
 
   async createPlatformStaff(dto: CreatePlatformStaffDto, actor: AuthUser) {
-    this.assertPlatformAdmin(actor);
+    const isMaster = actor.role === UserRole.MASTER_COLLECTOR;
+    if (!isMaster) this.assertPlatformAdmin(actor);
+
     if (actor.role === UserRole.COLLECTIONS_ADMIN && dto.role === 'COLLECTIONS_ADMIN') {
-      // Collections admins may hire collectors only
       throw new ForbiddenException('Only SUPER_ADMIN can create COLLECTIONS_ADMIN');
     }
+    if (isMaster && dto.role !== 'COLLECTOR') {
+      throw new ForbiddenException('Master collectors may only create COLLECTOR accounts');
+    }
+
+    let managedById: string | null = null;
+    if (dto.role === 'COLLECTOR') {
+      if (isMaster) {
+        managedById = actor.userId;
+      } else if (dto.managedById) {
+        const master = await this.prisma.user.findFirst({
+          where: {
+            id: dto.managedById,
+            role: UserRole.MASTER_COLLECTOR,
+            isActive: true,
+            tenantId: null,
+          },
+        });
+        if (!master) {
+          throw new BadRequestException('managedById must be an active MASTER_COLLECTOR');
+        }
+        managedById = master.id;
+      }
+    } else if (dto.managedById) {
+      throw new BadRequestException('Only COLLECTOR accounts can be assigned to a master');
+    }
+
     const passwordHash = await hashPassword(dto.password);
     try {
       return await this.prisma.user.create({
@@ -2333,6 +2684,7 @@ export class CollectionsService {
           role: dto.role as UserRole,
           tenantId: null,
           phone: dto.phone?.trim() || null,
+          managedById,
         },
         select: {
           id: true,
@@ -2341,12 +2693,63 @@ export class CollectionsService {
           role: true,
           phone: true,
           isActive: true,
+          managedById: true,
           createdAt: true,
         },
       });
     } catch {
       throw new BadRequestException('Could not create user (email may exist)');
     }
+  }
+
+  async assignCollectorMaster(
+    collectorId: string,
+    dto: AssignCollectorMasterDto,
+    actor: AuthUser,
+  ) {
+    this.assertPlatformAdmin(actor);
+
+    const collector = await this.prisma.user.findFirst({
+      where: {
+        id: collectorId,
+        role: UserRole.COLLECTOR,
+        tenantId: null,
+      },
+    });
+    if (!collector) {
+      throw new NotFoundException('Collector not found');
+    }
+
+    let managedById: string | null = null;
+    if (dto.masterCollectorId) {
+      const master = await this.prisma.user.findFirst({
+        where: {
+          id: dto.masterCollectorId,
+          role: UserRole.MASTER_COLLECTOR,
+          isActive: true,
+          tenantId: null,
+        },
+      });
+      if (!master) {
+        throw new BadRequestException('masterCollectorId must be an active MASTER_COLLECTOR');
+      }
+      managedById = master.id;
+    }
+
+    return this.prisma.user.update({
+      where: { id: collectorId },
+      data: { managedById },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        phone: true,
+        isActive: true,
+        managedById: true,
+        managedBy: { select: { id: true, fullName: true, email: true } },
+      },
+    });
   }
 
   async updateMyPhone(dto: UpdateCollectorPhoneDto, actor: AuthUser) {
@@ -2398,7 +2801,20 @@ export class CollectionsService {
 
 const caseInclude = {
   tenant: { select: { id: true, name: true } },
-  customer: { select: { id: true, fullName: true, phone: true } },
+  customer: {
+    select: {
+      id: true,
+      fullName: true,
+      phone: true,
+      nationalId: true,
+      idCardPhotoUrl: true,
+      selfiePhotoUrl: true,
+      occupation: true,
+      employerName: true,
+      employerPhone: true,
+      monthlyIncome: true,
+    },
+  },
   device: {
     select: { id: true, imei: true, make: true, model: true, status: true },
   },
@@ -2429,6 +2845,13 @@ function mapCase(row: any) {
     customerId: row.customerId,
     customerName: row.customer?.fullName ?? null,
     customerPhone: row.customer?.phone ?? null,
+    customerNationalId: row.customer?.nationalId ?? null,
+    idCardPhotoUrl: row.customer?.idCardPhotoUrl ?? null,
+    selfiePhotoUrl: row.customer?.selfiePhotoUrl ?? null,
+    occupation: row.customer?.occupation ?? null,
+    employerName: row.customer?.employerName ?? null,
+    employerPhone: row.customer?.employerPhone ?? null,
+    monthlyIncome: row.customer?.monthlyIncome ?? null,
     deviceId: row.deviceId,
     deviceImei: row.device?.imei ?? null,
     deviceModel:
@@ -2454,9 +2877,80 @@ function mapCase(row: any) {
     nextActionAt: row.nextActionAt,
     closedAt: row.closedAt,
     closedReason: row.closedReason,
+    extensionApplied: row.extensionApplied ?? false,
+    penaltyInterestReductionEnabled: row.penaltyInterestReductionEnabled ?? false,
+    penaltyInterestAmount: row.penaltyInterestAmount ?? 0,
+    waiverValidUntil: row.waiverValidUntil ?? null,
+    originalOverdueAmount: row.originalOverdueAmount ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+function daysBetween(from: Date, to: Date) {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  return Math.round((to.getTime() - from.getTime()) / DAY_MS);
+}
+
+const toCents = (d: Prisma.Decimal | number | string) =>
+  Math.round(Number(d) * 100);
+
+/**
+ * Re-derives, per CONFIRMED payment, which installment(s) it landed on and
+ * whether it was FULL/PARTIAL — by replaying the same FIFO waterfall that
+ * PaymentsService.recompute() uses to settle installments, but incrementally
+ * per payment (in receivedAt order) instead of as one pooled sum. Payment
+ * rows have no direct installment FK, so this is the only way to attribute
+ * a payment to a due date for the "days early/late" display.
+ */
+function buildRepaymentHistory(
+  installments: {
+    sequence: number;
+    dueDate: Date;
+    amount: Prisma.Decimal;
+  }[],
+  payments: {
+    id: string;
+    orderReference: string | null;
+    providerRef: string | null;
+    amount: Prisma.Decimal;
+    method: string;
+    receivedAt: Date;
+  }[],
+) {
+  const remainingCents = installments.map((inst) => toCents(inst.amount));
+  let cursor = 0;
+
+  return payments.map((payment) => {
+    let paymentCents = toCents(payment.amount);
+    let coveredInstallment = installments[cursor] ?? null;
+    let fullyCoveredFirstHit = false;
+
+    while (paymentCents > 0 && cursor < installments.length) {
+      const need = remainingCents[cursor];
+      const applied = Math.min(paymentCents, need);
+      remainingCents[cursor] -= applied;
+      paymentCents -= applied;
+      if (coveredInstallment === installments[cursor]) {
+        fullyCoveredFirstHit = remainingCents[cursor] === 0;
+      }
+      if (remainingCents[cursor] === 0) cursor += 1;
+    }
+
+    return {
+      id: payment.id,
+      orderReference: payment.orderReference ?? payment.providerRef ?? payment.id,
+      receivedAt: payment.receivedAt,
+      amount: payment.amount,
+      method: payment.method,
+      classification: fullyCoveredFirstHit ? 'FULL' : 'PARTIAL',
+      installmentSequence: coveredInstallment?.sequence ?? null,
+      dueDate: coveredInstallment?.dueDate ?? null,
+      daysEarly: coveredInstallment
+        ? daysBetween(payment.receivedAt, coveredInstallment.dueDate)
+        : null,
+    };
+  });
 }
 
 function packageCodeForCount(count: number): CollectionsPackage | null {

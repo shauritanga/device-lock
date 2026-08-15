@@ -103,7 +103,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:columnCount="2"
-                        android:rowCount="4">
+                        android:rowCount="5">
 
                         <LinearLayout
                             style="@style/Collector.DetailCell">
@@ -152,7 +152,31 @@
                             <TextView style="@style/Collector.DetailLabel" android:text="Device Status" />
                             <TextView android:id="@+id/txtDeviceStatus" style="@style/Collector.DetailValue" />
                         </LinearLayout>
+
+                        <LinearLayout
+                            style="@style/Collector.DetailCell">
+                            <TextView style="@style/Collector.DetailLabel" android:text="Extension Applied" />
+                            <TextView android:id="@+id/txtExtensionApplied" style="@style/Collector.DetailValue" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            style="@style/Collector.DetailCell">
+                            <TextView style="@style/Collector.DetailLabel" android:text="Penalty interest" />
+                            <TextView android:id="@+id/txtPenaltyInterest" style="@style/Collector.DetailValueDanger" />
+                        </LinearLayout>
                     </GridLayout>
+
+                    <TextView
+                        android:id="@+id/txtWaiverNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_pending_pill"
+                        android:padding="10dp"
+                        android:textColor="@color/warning"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -216,13 +240,13 @@
                             android:textStyle="bold" />
 
                         <TextView
+                            android:id="@+id/txtCustomerBadge"
                             android:layout_width="wrap_content"
                             android:layout_height="32dp"
                             android:background="@drawable/bg_status_pill"
                             android:gravity="center"
                             android:paddingStart="10dp"
                             android:paddingEnd="10dp"
-                            android:text="Open case"
                             android:textColor="@color/warning"
                             android:textSize="12sp"
                             android:textStyle="bold" />

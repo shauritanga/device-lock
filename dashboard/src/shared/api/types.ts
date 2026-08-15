@@ -1,6 +1,7 @@
 export type Role =
   | 'SUPER_ADMIN'
   | 'COLLECTIONS_ADMIN'
+  | 'MASTER_COLLECTOR'
   | 'COLLECTOR'
   | 'OWNER'
   | 'MANAGER'
@@ -10,6 +11,9 @@ export interface AuthUser {
   userId: string;
   tenantId: string | null;
   role: Role;
+  email?: string;
+  fullName?: string;
+  phone?: string | null;
 }
 
 export interface TokenPair {
@@ -22,6 +26,7 @@ export interface Customer {
   fullName: string;
   phone: string;
   nationalId?: string | null;
+  idDocumentType?: 'NATIONAL_ID' | 'VOTER_ID' | 'DRIVING_LICENSE' | null;
   address?: string | null;
   createdAt: string;
 }

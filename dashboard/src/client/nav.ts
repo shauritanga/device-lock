@@ -35,13 +35,13 @@ export const CLIENT_NAV: NavGroup[] = [
         to: '/sales',
         label: 'Sales',
         icon: ReceiptText,
-        subtitle: 'Credit sales from customer assignment to repayment',
+        subtitle: 'Start a credit sale — customer, phone, loan, and contract',
       },
       {
         to: '/devices',
         label: 'Devices',
         icon: Smartphone,
-        subtitle: 'Enrolled devices and their lock status',
+        subtitle: 'Enrolled phones — status, lock/unlock, and enrollment QR',
       },
       {
         to: '/customers',
@@ -53,7 +53,7 @@ export const CLIENT_NAV: NavGroup[] = [
         to: '/loans',
         label: 'Loans',
         icon: FileText,
-        subtitle: 'Financing agreements and repayment schedules',
+        subtitle: 'Installment schedules and repayment status',
       },
       {
         to: '/payments',

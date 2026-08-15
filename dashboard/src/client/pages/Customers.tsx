@@ -8,13 +8,28 @@ import { Button } from '@/shared/components/ui/Button';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { Avatar, Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Modal } from '@/shared/components/ui/Modal';
-import { Field, Input } from '@/shared/components/ui/Field';
+import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { shortDate } from '@/shared/lib/format';
+
+const ID_TYPES = [
+  { value: 'NATIONAL_ID', label: 'National ID' },
+  { value: 'VOTER_ID', label: 'Voter ID' },
+  { value: 'DRIVING_LICENSE', label: 'Driving licence' },
+] as const;
+
+function idTypeLabel(type?: string | null) {
+  return ID_TYPES.find((t) => t.value === type)?.label ?? 'ID';
+}
 
 export default function Customers() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ fullName: '', phone: '', nationalId: '' });
+  const [form, setForm] = useState({
+    fullName: '',
+    phone: '',
+    nationalId: '',
+    idDocumentType: 'NATIONAL_ID' as (typeof ID_TYPES)[number]['value'],
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['customers'],
@@ -26,11 +41,22 @@ export default function Customers() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['customers'] });
       setOpen(false);
-      setForm({ fullName: '', phone: '', nationalId: '' });
+      setForm({
+        fullName: '',
+        phone: '',
+        nationalId: '',
+        idDocumentType: 'NATIONAL_ID',
+      });
     },
   });
 
-  if (isLoading) return <Center><Spinner /></Center>;
+  if (isLoading) {
+    return (
+      <Center>
+        <Spinner />
+      </Center>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -44,7 +70,7 @@ export default function Customers() {
         {!data || data.length === 0 ? (
           <EmptyState title="No customers yet" hint="Add your first customer to begin." />
         ) : (
-          <Table columns={['Customer', 'Phone', 'National ID', 'Joined']}>
+          <Table columns={['Customer', 'Phone', 'Person ID', 'Joined']}>
             {data.map((c) => (
               <Row key={c.id}>
                 <td className="px-4 py-3">
@@ -54,8 +80,14 @@ export default function Customers() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-muted">{c.phone}</td>
-                <td className="px-4 py-3 text-muted">{c.nationalId || '—'}</td>
-                <td className="px-4 py-3 text-right text-muted">{shortDate(c.createdAt)}</td>
+                <td className="px-4 py-3 text-muted">
+                  {c.nationalId
+                    ? `${idTypeLabel(c.idDocumentType)} · ${c.nationalId}`
+                    : '—'}
+                </td>
+                <td className="px-4 py-3 text-right text-muted">
+                  {shortDate(c.createdAt)}
+                </td>
               </Row>
             ))}
           </Table>
@@ -85,13 +117,36 @@ export default function Customers() {
               required
             />
           </Field>
-          <Field label="National ID (optional)">
+          <Field label="ID type">
+            <Select
+              value={form.idDocumentType}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  idDocumentType: e.target
+                    .value as (typeof ID_TYPES)[number]['value'],
+                })
+              }
+              required
+            >
+              {ID_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="ID number">
             <Input
               value={form.nationalId}
               onChange={(e) => setForm({ ...form, nationalId: e.target.value })}
+              required
+              minLength={4}
             />
           </Field>
-          {create.isError && <p className="text-sm text-rose-600">Could not create customer.</p>}
+          {create.isError ? (
+            <p className="text-sm text-rose-600">Could not create customer.</p>
+          ) : null}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               Cancel

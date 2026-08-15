@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --canvas: #f6f7f9;
+  --surface: #ffffff;
+  --line: #e9edf3;
+  --ink: #0f172a;
+  --ink-soft: #475569;
+  --muted: #64748b;
+  --faint: #94a3b8;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-pop: 0 4px 12px rgba(15, 23, 42, 0.08), 0 16px 40px rgba(15, 23, 42, 0.12);
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #0b0f14;
+  --surface: #121820;
+  --line: #1e2936;
+  --ink: #f1f5f9;
+  --ink-soft: #94a3b8;
+  --muted: #94a3b8;
+  --faint: #64748b;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 3px rgba(0, 0, 0, 0.28);
+  --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.35), 0 16px 40px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -31,19 +57,35 @@ body {
   color: #312e81; /* brand-900 */
 }
 
+.dark ::selection {
+  background: #3730a3;
+  color: #e0e7ff;
+}
+
+@keyframes loginIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Thin, subtle scrollbars to match the clean aesthetic */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent; /* slate-300 */
+  scrollbar-color: var(--faint) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--faint);
   border-radius: 9999px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8; /* slate-400 */
+  background: var(--muted);
 }

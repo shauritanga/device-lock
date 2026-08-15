@@ -31,13 +31,20 @@ PORT=3200
 DATABASE_URL=postgresql://device_lock:<password>@127.0.0.1:5432/device_lock_db?schema=public
 JWT_ACCESS_SECRET=<secret>
 JWT_REFRESH_SECRET=<secret>
-CORS_ORIGINS=https://client.linda.co.tz,https://admin.linda.co.tz
+CORS_ORIGINS=https://client.linda.co.tz,https://admin.linda.co.tz,https://linda.co.tz,https://www.linda.co.tz
 PUBLIC_BASE_URL=https://api.linda.co.tz
+CLIENT_APP_URL=https://client.linda.co.tz
+RESEND_API_KEY=<resend-api-key>
+EMAIL_FROM=Linda <noreply@linda.co.tz>
 ```
 
 `CORS_ORIGINS` is the one that fails quietly: the consoles load fine and every
-API call is then blocked by the browser. Both origins must be listed, with no
-trailing slash.
+API call is then blocked by the browser. Marketing + both console origins must
+be listed (no trailing slash) so the website demo form can POST to the API.
+
+`RESEND_API_KEY` powers demo-request acknowledgment emails and the welcome
+email (with temporary OWNER credentials) when a lead is converted to a company.
+The sending domain on `EMAIL_FROM` must be verified in Resend.
 
 `dashboard/.env.production` is committed and needs no per-server edit.
 

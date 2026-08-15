@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,7 +8,10 @@ import {
   Post,
   Query,
   Res,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { UserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -17,6 +21,7 @@ import { CollectionsService } from './collections.service';
 import {
   ActivateSubscriptionDto,
   AssignCaseDto,
+  AssignCollectorMasterDto,
   AutoAssignDto,
   CompleteContactDto,
   CreatePlatformStaffDto,
@@ -27,12 +32,17 @@ import {
   MarkInvoicePaidDto,
   ReferCaseDto,
   ReportRangeQuery,
+  SetCaseWaiverDto,
   StartContactDto,
   SubmitContactProofDto,
   UpdateCollectorPhoneDto,
+  UpdateCustomerKycDto,
   UpdatePromiseDto,
 } from './dto/collections.dto';
 import { PromiseToPayStatus } from '@prisma/client';
+
+const KYC_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
+const KYC_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 @Controller('collections')
 export class CollectionsController {
@@ -75,8 +85,8 @@ export class CollectionsController {
 
   @Post('sync')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
-  syncAll() {
-    return this.collections.syncAllActiveSubscriptions();
+  syncAll(@CurrentUser() actor: AuthUser) {
+    return this.collections.syncAndAutoAssign(actor);
   }
 
   @Get('cases')
@@ -84,6 +94,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
     UserRole.OWNER,
     UserRole.MANAGER,
     UserRole.AGENT,
@@ -116,6 +127,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   mine(@CurrentUser() actor: AuthUser) {
     return this.collections.myQueue(actor);
@@ -126,6 +138,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
     UserRole.OWNER,
     UserRole.MANAGER,
     UserRole.AGENT,
@@ -135,7 +148,11 @@ export class CollectionsController {
   }
 
   @Post('cases/:id/assign')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  @Roles(
+    UserRole.SUPER_ADMIN,
+    UserRole.COLLECTIONS_ADMIN,
+    UserRole.MASTER_COLLECTOR,
+  )
   assign(
     @Param('id') id: string,
     @Body() dto: AssignCaseDto,
@@ -151,13 +168,21 @@ export class CollectionsController {
   }
 
   @Get('collectors')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  @Roles(
+    UserRole.SUPER_ADMIN,
+    UserRole.COLLECTIONS_ADMIN,
+    UserRole.MASTER_COLLECTOR,
+  )
   collectors(@CurrentUser() actor: AuthUser) {
     return this.collections.listCollectors(actor);
   }
 
   @Post('collectors')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  @Roles(
+    UserRole.SUPER_ADMIN,
+    UserRole.COLLECTIONS_ADMIN,
+    UserRole.MASTER_COLLECTOR,
+  )
   createCollector(
     @Body() dto: CreatePlatformStaffDto,
     @CurrentUser() actor: AuthUser,
@@ -165,10 +190,21 @@ export class CollectionsController {
     return this.collections.createPlatformStaff(dto, actor);
   }
 
+  @Patch('collectors/:id/master')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  assignMaster(
+    @Param('id') id: string,
+    @Body() dto: AssignCollectorMasterDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.collections.assignCollectorMaster(id, dto, actor);
+  }
+
   @Patch('me/phone')
   @Roles(
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
+    UserRole.MASTER_COLLECTOR,
     UserRole.COLLECTOR,
   )
   updatePhone(
@@ -183,6 +219,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   startContact(
     @Param('id') id: string,
@@ -197,6 +234,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   completeContact(
     @Param('id') id: string,
@@ -211,6 +249,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   submitProof(
     @Param('id') id: string,
@@ -226,7 +265,7 @@ export class CollectionsController {
     @Body() dto: AutoAssignDto,
     @CurrentUser() actor: AuthUser,
   ) {
-    return this.collections.autoAssignUnassigned(actor, dto.limit ?? 50);
+    return this.collections.autoAssignUnassigned(actor, dto.limit ?? 2000);
   }
 
   @Get('activity/me')
@@ -246,6 +285,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   createPromise(
     @Param('id') id: string,
@@ -260,6 +300,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
     UserRole.OWNER,
     UserRole.MANAGER,
   )
@@ -275,6 +316,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   updatePromise(
     @Param('id') id: string,
@@ -282,6 +324,60 @@ export class CollectionsController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.collections.updatePromise(id, dto, actor);
+  }
+
+  @Patch('cases/:id/waiver')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  setCaseWaiver(
+    @Param('id') id: string,
+    @Body() dto: SetCaseWaiverDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.collections.setCaseWaiver(id, dto, actor);
+  }
+
+  @Patch('customers/:id')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  updateCustomerKyc(
+    @Param('id') id: string,
+    @Body() dto: UpdateCustomerKycDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.collections.updateCustomerKyc(id, dto, actor);
+  }
+
+  @Post('customers/:id/kyc-photos')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'idCard', maxCount: 1 },
+        { name: 'selfie', maxCount: 1 },
+      ],
+      {
+        // No `storage` option => multer buffers files in memory; the
+        // service writes them to disk itself (see kycUploadDir /
+        // saveCustomerKycPhotos), since the on-disk destination depends on
+        // the injected CollectionsService which multer's config can't see.
+        limits: { fileSize: KYC_PHOTO_MAX_BYTES },
+        fileFilter: (_req, file, cb) => {
+          cb(null, KYC_PHOTO_TYPES.has(file.mimetype));
+        },
+      },
+    ),
+  )
+  uploadCustomerKycPhotos(
+    @Param('id') id: string,
+    @UploadedFiles()
+    files: { idCard?: Express.Multer.File[]; selfie?: Express.Multer.File[] },
+    @CurrentUser() actor: AuthUser,
+  ) {
+    if (!files?.idCard?.length && !files?.selfie?.length) {
+      throw new BadRequestException(
+        'Attach at least one file: idCard and/or selfie',
+      );
+    }
+    return this.collections.saveCustomerKycPhotos(id, files, actor);
   }
 
   @Get('reports/paid-cases')
@@ -324,6 +420,7 @@ export class CollectionsController {
     UserRole.OWNER,
     UserRole.MANAGER,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   paymentStats(
     @Query() query: ReportRangeQuery,
@@ -337,6 +434,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
     UserRole.OWNER,
     UserRole.MANAGER,
   )
@@ -353,6 +451,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   clockIn(@CurrentUser() actor: AuthUser) {
     return this.collections.clockIn(actor);
@@ -363,6 +462,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   clockOut(@CurrentUser() actor: AuthUser) {
     return this.collections.clockOut(actor);
@@ -373,6 +473,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   myWorkSession(@CurrentUser() actor: AuthUser) {
     return this.collections.myWorkSession(actor);
@@ -383,6 +484,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   collectorPerformance(
     @Query() query: CollectorPerformanceQuery,
@@ -396,6 +498,7 @@ export class CollectionsController {
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
     UserRole.COLLECTOR,
+    UserRole.MASTER_COLLECTOR,
   )
   async collectorPerformanceCsv(
     @Query() query: CollectorPerformanceQuery,

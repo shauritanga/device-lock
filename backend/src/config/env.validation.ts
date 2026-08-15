@@ -46,6 +46,12 @@ export const envSchema = z.object({
   CALL_PROVIDER_API_KEY: z.string().optional(),
   CALL_PROVIDER_NAME: z.string().default('GENERIC'),
 
+  // Transactional email (Resend). Unset => stub / log only.
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  // Seller (client) console URL used in welcome emails.
+  CLIENT_APP_URL: z.string().url().optional(),
+
   // Zero-touch / QR provisioning of the DPC agent.
   // Public base URL of THIS backend, used to build the APK download link the
   // setup wizard fetches (must be reachable by a factory-fresh device).

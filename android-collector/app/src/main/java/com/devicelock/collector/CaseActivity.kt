@@ -9,12 +9,14 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import com.devicelock.collector.databinding.ActivityCaseBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -114,6 +116,27 @@ class CaseActivity : AppCompatActivity() {
         binding.txtWalletNo.text = customerPhone.ifBlank { "--" }
         binding.txtWhatsappNo.text = customerPhone.ifBlank { "--" }
         binding.txtWalletOperator.text = json.optString("companyName", "--")
+        binding.txtCustomerBadge.text =
+            if (json.optBoolean("isRepeatCustomer", false)) "Old customer" else "New customer"
+
+        binding.txtExtensionApplied.text =
+            if (json.optBoolean("extensionApplied", false)) "Yes" else "No"
+        val penaltyAmount = json.opt("penaltyInterestAmount")?.toString() ?: "0"
+        binding.txtPenaltyInterest.text = formatMoney(currency, penaltyAmount)
+
+        val waiverValidUntil = json.optString("waiverValidUntil", null).nullIfBlank()
+        if (waiverValidUntil != null) {
+            val original = json.opt("originalOverdueAmount")?.toString()
+            binding.txtWaiverNote.text = buildString {
+                append("Waiver valid until ${waiverValidUntil.shortDateTime()}.")
+                if (!original.isNullOrBlank() && original != "null") {
+                    append(" Original overdue amount (${formatMoney(currency, original)}) restored if unpaid.")
+                }
+            }
+            binding.txtWaiverNote.visibility = View.VISIBLE
+        } else {
+            binding.txtWaiverNote.visibility = View.GONE
+        }
     }
 
     private fun renderPanels(json: JSONObject) {
@@ -146,6 +169,11 @@ class CaseActivity : AppCompatActivity() {
                 append(row.optString("body", "No remark").ifBlank { "No remark" })
                 val phone = row.optString("customerPhone", "")
                 if (phone.isNotBlank()) append("\nNumber: ").append(phone)
+                val occurredAt = row.optString("occurredAt", null).nullIfBlank()
+                if (occurredAt != null) append(" Time: ").append(occurredAt.shortDateTime())
+                val dialDuration = row.optJSONObject("metadata")
+                    ?.opt("dialDurationSeconds")?.toString().nullIfBlank()
+                if (dialDuration != null) append(" Dial duration: ").append(dialDuration).append(" s")
                 val duration = row.opt("durationSeconds")?.toString()
                 if (!duration.isNullOrBlank() && duration != "null") append(" Call duration: ").append(duration).append(" s")
                 append(" Type: ").append(row.optString("direction", "Outgoing").prettyStatus())
@@ -166,6 +194,29 @@ class CaseActivity : AppCompatActivity() {
 
     private fun renderCustomerInfo(json: JSONObject) {
         binding.panelCustomer.removeAllViews()
+
+        val idCardUrl = json.optString("idCardPhotoUrl", null).nullIfBlank()
+        val selfieUrl = json.optString("selfiePhotoUrl", null).nullIfBlank()
+        if (idCardUrl != null) {
+            binding.panelCustomer.addView(sectionTitle("ID card photo"))
+            binding.panelCustomer.addView(kycPhoto(idCardUrl))
+        }
+        if (selfieUrl != null) {
+            binding.panelCustomer.addView(sectionTitle("Selfie"))
+            binding.panelCustomer.addView(kycPhoto(selfieUrl))
+        }
+        if (idCardUrl != null || selfieUrl != null) binding.panelCustomer.addView(separator())
+
+        binding.panelCustomer.addView(sectionTitle("Work information"))
+        binding.panelCustomer.addView(infoRow("Job / occupation", json.optString("occupation", null).nullIfBlank() ?: "--"))
+        binding.panelCustomer.addView(infoRow("Company name", json.optString("employerName", null).nullIfBlank() ?: "--"))
+        binding.panelCustomer.addView(infoRow("Company phone", json.optString("employerPhone", null).nullIfBlank() ?: "--"))
+        val income = json.opt("monthlyIncome")?.toString().nullIfBlank()
+        binding.panelCustomer.addView(
+            infoRow("Monthly income", if (income != null) formatMoney(json.optString("currency", "TZS"), income) else "--"),
+        )
+        binding.panelCustomer.addView(separator())
+
         binding.panelCustomer.addView(sectionTitle("Customer details"))
         binding.panelCustomer.addView(infoRow("Customer ID", json.optString("customerId", "--")))
         binding.panelCustomer.addView(infoRow("Customer phone", json.optString("customerPhone", "--")))
@@ -178,36 +229,71 @@ class CaseActivity : AppCompatActivity() {
         binding.panelCustomer.addView(infoRow("Loan ID", json.optString("loanId", "--")))
     }
 
+    private fun kycPhoto(url: String): ImageView =
+        ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                160.dp(),
+            ).apply { bottomMargin = 12.dp() }
+            Glide.with(this@CaseActivity).load(url).into(this)
+        }
+
     private fun renderContacts(json: JSONObject) {
         binding.panelContacts.removeAllViews()
         val sessions = json.optJSONArray("sessions") ?: JSONArray()
+        val timeline = json.optJSONArray("timeline") ?: JSONArray()
         val primary = json.optString("customerPhone", "").ifBlank { "--" }
+
+        fun lastContactFor(phone: String): String? {
+            for (i in 0 until timeline.length()) {
+                val row = timeline.optJSONObject(i) ?: continue
+                if (row.optString("customerPhone", "") == phone) {
+                    return row.optString("occurredAt", null).nullIfBlank()
+                }
+            }
+            return null
+        }
+
         binding.panelContacts.addView(sectionHeader("${sessions.length().coerceAtLeast(1)} contacts", "Send All SMS"))
-        binding.panelContacts.addView(contactRow(primary, "Primary customer"))
+        binding.panelContacts.addView(
+            contactRow(primary, "Primary customer", lastContactFor(primary)),
+        )
         for (i in 0 until sessions.length()) {
             val row = sessions.optJSONObject(i) ?: continue
             val phone = row.optString("customerPhone", "")
             if (phone.isBlank()) continue
             if (phone != primary) {
-                binding.panelContacts.addView(contactRow(phone, row.optString("channel", "Contact").prettyStatus()))
+                binding.panelContacts.addView(
+                    contactRow(phone, row.optString("channel", "Contact").prettyStatus(), lastContactFor(phone)),
+                )
             }
         }
     }
 
     private fun renderRepayments(json: JSONObject) {
         binding.panelRepayments.removeAllViews()
-        val promises = json.optJSONArray("promises") ?: JSONArray()
-        if (promises.length() == 0) {
-            binding.panelRepayments.addView(emptyText("No repayment or promise records yet"))
+        val repayments = json.optJSONArray("repayments") ?: JSONArray()
+        if (repayments.length() == 0) {
+            binding.panelRepayments.addView(emptyText("No repayment records yet"))
             return
         }
-        for (i in 0 until promises.length()) {
-            val row = promises.optJSONObject(i) ?: continue
-            val title = "Order No.: ${json.optString("loanId", "--")}"
-            val time = "Promise due: ${row.optString("dueDate", "").shortDateTime()}"
-            val amount = formatMoney(row.optString("currency", json.optString("currency", "TZS")), row.opt("promisedAmount")?.toString() ?: "0")
-            val body = "$time\nPromise status: ${row.optString("status", "--").prettyStatus()}\nPromise amount: $amount"
-            binding.panelRepayments.addView(recordCard(title, row.optString("status", "").prettyStatus(), body))
+        val currency = json.optString("currency", "TZS")
+        for (i in 0 until repayments.length()) {
+            val row = repayments.optJSONObject(i) ?: continue
+            val title = "Order No.: ${row.optString("orderReference", "--")}"
+            val classification = row.optString("classification", "PARTIAL")
+            val badge = if (classification == "FULL") "Full payment" else "Partial"
+            val time = "Repayment time: ${row.optString("receivedAt", "").shortDateTime()}"
+            val amount = formatMoney(currency, row.opt("amount")?.toString() ?: "0")
+            val daysEarly = row.opt("daysEarly")?.toString()?.toIntOrNull()
+            val statusLine = when {
+                daysEarly == null -> ""
+                daysEarly >= 0 -> "\nRepayment status: $daysEarly days early"
+                else -> "\nRepayment status: ${-daysEarly} days late"
+            }
+            val body = "$time$statusLine\nRepayment amount: $amount"
+            binding.panelRepayments.addView(recordCard(title, badge, body))
         }
     }
 
@@ -307,8 +393,17 @@ class CaseActivity : AppCompatActivity() {
                     toast("No matching outgoing $channel log found yet")
                     return@launch
                 }
+                val dialDurationSeconds =
+                    ((match.logAtMillis - sessionStartedAt) / 1000).coerceAtLeast(0).toInt()
                 withContext(Dispatchers.IO) {
-                    api.submitProof(sessionId, match.logAtIso, match.durationSeconds, match.matchedPhone, match.direction)
+                    api.submitProof(
+                        sessionId,
+                        match.logAtIso,
+                        match.durationSeconds,
+                        match.matchedPhone,
+                        match.direction,
+                        dialDurationSeconds,
+                    )
                 }
                 pendingSessionId = null
                 toast("Contact verified from device logs")
@@ -424,14 +519,15 @@ class CaseActivity : AppCompatActivity() {
             setPadding(0, 8.dp(), 0, 12.dp())
         }
 
-    private fun contactRow(phone: String, relation: String): View {
+    private fun contactRow(phone: String, relation: String, lastContactedAt: String? = null): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 12.dp(), 0, 12.dp())
         }
+        val status = if (lastContactedAt != null) "Last contact: ${lastContactedAt.shortDateTime()}" else "Never contacted"
         row.addView(TextView(this).apply {
-            text = "$phone\n$relation"
+            text = "$phone  $relation\n$status"
             setTextColor(Color.parseColor("#1F2937"))
             textSize = 15f
             setLineSpacing(4f, 1f)
@@ -522,6 +618,9 @@ private fun formatMoney(currency: String, raw: String): String {
     val formatted = NumberFormat.getNumberInstance(Locale.US).format(value)
     return "$currency $formatted"
 }
+
+private fun String?.nullIfBlank(): String? =
+    if (this.isNullOrBlank() || this == "null") null else this
 
 private fun Int.dp(): Int =
     (this * android.content.res.Resources.getSystem().displayMetrics.density).toInt()
