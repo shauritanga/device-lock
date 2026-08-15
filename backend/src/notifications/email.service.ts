@@ -22,12 +22,14 @@ export class EmailService {
 
   constructor(config: ConfigService<Env, true>) {
     const apiKey = config.get('RESEND_API_KEY', { infer: true });
-    this.from =
-      config.get('EMAIL_FROM', { infer: true }) ??
-      'Linda <noreply@linda.co.tz>';
+    this.from = (
+      config.get('EMAIL_FROM', { infer: true }) ?? 'Linda <noreply@linda.co.tz>'
+    ).replace(/^["']|["']$/g, '');
     this.resend = apiKey ? new Resend(apiKey) : null;
     if (!this.resend) {
       this.logger.warn('RESEND_API_KEY unset — emails will be stubbed');
+    } else {
+      this.logger.log(`Email delivery enabled (from=${this.from})`);
     }
   }
 
@@ -39,7 +41,7 @@ export class EmailService {
       return false;
     }
     try {
-      const { error } = await this.resend.emails.send({
+      const { data, error } = await this.resend.emails.send({
         from: this.from,
         to: input.to,
         subject: input.subject,
@@ -50,6 +52,9 @@ export class EmailService {
         this.logger.warn(`Resend failed for ${input.to}: ${error.message}`);
         return false;
       }
+      this.logger.log(
+        `Email sent to ${input.to} subject="${input.subject}" id=${data?.id ?? 'n/a'}`,
+      );
       return true;
     } catch (e) {
       this.logger.warn(
