@@ -1,10 +1,11 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Bell,
   Moon,
   PanelLeft,
   Sun,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import type { Role } from '../api/types';
@@ -45,16 +46,18 @@ function NavItemLink({
   icon: Icon,
   end,
   collapsed,
-}: NavItem & { collapsed: boolean }) {
+  onNavigate,
+}: NavItem & { collapsed: boolean; onNavigate?: () => void }) {
   return (
     <NavLink
       to={to}
       end={end}
       title={collapsed ? label : undefined}
+      onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition',
-          collapsed && 'justify-center px-2.5',
+          'flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition',
+          collapsed && 'md:justify-center md:px-2.5',
           isActive
             ? 'bg-surface text-brand-700 shadow-card'
             : 'text-muted hover:bg-surface/60 hover:text-ink',
@@ -62,7 +65,7 @@ function NavItemLink({
       }
     >
       <Icon className="h-[18px] w-[18px] shrink-0" />
-      {!collapsed ? label : null}
+      <span className={cn(collapsed && 'md:hidden')}>{label}</span>
     </NavLink>
   );
 }
@@ -70,6 +73,8 @@ function NavItemLink({
 /**
  * One shell, two consoles. Each app supplies its own brand line and nav groups;
  * items are filtered by the signed-in role so nobody sees a link they can't open.
+ *
+ * Mobile: off-canvas drawer. Desktop: collapsible sidebar.
  */
 export function AppShell({
   brand,
@@ -85,6 +90,7 @@ export function AppShell({
   const location = useLocation();
   const BrandIcon = brand.icon;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const displayName = user?.fullName?.trim() || user?.email || 'User';
   const roleLabel = formatRole(user?.role);
@@ -107,89 +113,149 @@ export function AppShell({
         ? 'Settings'
         : active?.label ?? brand.name;
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileNavOpen]);
+
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-0">
+      {mobileNavOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm md:hidden"
+          aria-label="Close navigation"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
+
       <aside
+        id="app-sidebar"
         className={cn(
-          'flex shrink-0 flex-col bg-canvas py-6 transition-[width] duration-200',
-          sidebarCollapsed ? 'w-[72px] px-2' : 'w-64 px-4',
+          'flex shrink-0 flex-col bg-canvas py-5 transition-[width,transform] duration-200',
+          'fixed inset-y-0 left-0 z-50 w-[min(18rem,88vw)] px-4',
+          'md:static md:z-auto md:translate-x-0',
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full',
+          sidebarCollapsed ? 'md:w-[72px] md:px-2' : 'md:w-64 md:px-4 md:py-6',
         )}
       >
         <div
           className={cn(
             'flex items-center gap-2.5',
-            sidebarCollapsed ? 'justify-center px-0' : 'px-2',
+            sidebarCollapsed ? 'md:justify-center md:px-0' : 'px-2',
           )}
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">
             <BrandIcon className="h-5 w-5" />
           </div>
-          {!sidebarCollapsed ? (
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold leading-tight tracking-tight">
-                {brand.name}
-              </p>
-              <p className="truncate text-2xs text-muted">{brand.tag}</p>
-            </div>
-          ) : null}
+          <div className={cn('min-w-0 flex-1', sidebarCollapsed && 'md:hidden')}>
+            <p className="truncate text-lg font-bold leading-tight tracking-tight">
+              {brand.name}
+            </p>
+            <p className="truncate text-2xs text-muted">{brand.tag}</p>
+          </div>
+          <button
+            type="button"
+            className="rounded-lg p-2 text-muted transition hover:text-ink md:hidden"
+            aria-label="Close navigation"
+            onClick={() => setMobileNavOpen(false)}
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <div className="mt-8 flex-1 space-y-1 overflow-y-auto">
+        <nav className="mt-6 flex-1 space-y-1 overflow-y-auto md:mt-8" aria-label="Main">
           {visibleGroups.flatMap((group) =>
             group.items.map((item) => (
               <NavItemLink
                 key={item.to}
                 {...item}
                 collapsed={sidebarCollapsed}
+                onNavigate={() => setMobileNavOpen(false)}
               />
             )),
           )}
-        </div>
+        </nav>
 
-        <div className={cn('mt-4', sidebarCollapsed ? 'flex justify-center' : '')}>
+        <div
+          className={cn(
+            'mt-4',
+            sidebarCollapsed && 'md:flex md:justify-center',
+          )}
+        >
           <AccountMenu
             align="left"
             placement="top"
             trigger={
               <span
                 className={cn(
-                  'flex w-full items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-surface/70',
-                  sidebarCollapsed && 'justify-center px-0',
+                  'flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-surface/70',
+                  sidebarCollapsed && 'md:justify-center md:px-0',
                 )}
               >
                 <Avatar name={displayName} />
-                {!sidebarCollapsed ? (
-                  <span className="min-w-0 text-left">
-                    <span className="block truncate text-sm font-semibold text-ink">
-                      {displayName}
-                    </span>
-                    <span className="block truncate text-xs text-muted">{roleLabel}</span>
+                <span
+                  className={cn(
+                    'min-w-0 text-left',
+                    sidebarCollapsed && 'md:hidden',
+                  )}
+                >
+                  <span className="block truncate text-sm font-semibold text-ink">
+                    {displayName}
                   </span>
-                ) : null}
+                  <span className="block truncate text-xs text-muted">{roleLabel}</span>
+                </span>
               </span>
             }
           />
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col overflow-hidden p-3 pl-0">
-        <div className="flex flex-1 flex-col overflow-hidden rounded-xl2 border border-line bg-surface shadow-card">
-          <header className="flex items-center justify-between border-b border-line px-8 py-5">
-            <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden md:p-3 md:pl-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface md:rounded-xl2 md:border md:border-line md:shadow-card">
+          <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3.5 sm:px-6 sm:py-4 md:px-8 md:py-5">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                className="rounded-lg p-2 text-muted transition hover:text-ink md:hidden"
+                aria-label="Open navigation"
+                aria-controls="app-sidebar"
+                aria-expanded={mobileNavOpen}
+              >
+                <PanelLeft className="h-5 w-5" />
+              </button>
               <button
                 type="button"
                 onClick={() => setSidebarCollapsed((v) => !v)}
-                className="rounded-lg p-1.5 text-muted transition hover:text-ink"
+                className="hidden rounded-lg p-1.5 text-muted transition hover:text-ink md:inline-flex"
                 aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 aria-expanded={!sidebarCollapsed}
               >
                 <PanelLeft className="h-5 w-5" />
               </button>
-              <h1 className="text-2xl font-bold tracking-tight">
+              <h1 className="truncate text-lg font-bold tracking-tight sm:text-xl md:text-2xl">
                 {pageTitle}
               </h1>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
               <button
                 type="button"
                 className="rounded-lg p-2 text-muted transition hover:text-ink"
@@ -217,7 +283,9 @@ export function AppShell({
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto bg-canvas/40 p-8">{children}</main>
+          <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-canvas/40 p-4 sm:p-6 md:p-8">
+            {children}
+          </main>
         </div>
       </div>
     </div>

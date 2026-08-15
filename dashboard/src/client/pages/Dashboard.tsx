@@ -114,7 +114,7 @@ export default function Dashboard() {
             title="Collections trend"
             subtitle="Confirmed payments over the last 6 months"
           />
-          <div className="h-72 px-3 pb-4 pt-6">
+          <div className="h-52 px-3 pb-4 pt-6 sm:h-72">
             {data.series.every((s) => s.amount === 0) ? (
               <EmptyState
                 title="No collections yet"
@@ -225,33 +225,33 @@ export default function Dashboard() {
           title="Recent payments"
           subtitle="Latest confirmed collections"
         />
-        <div className="px-3 pb-3 pt-2">
+        <div className="overflow-x-auto px-3 pb-3 pt-2">
           {!payments || payments.length === 0 ? (
             <EmptyState
               title="No payments yet"
               hint="Record a payment from the Payments page."
             />
           ) : (
-            <table className="w-full">
+            <table className="w-full min-w-[28rem]">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-4 py-2 font-medium">Method</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Date</th>
-                  <th className="px-4 py-2 text-right font-medium">Amount</th>
+                  <th className="px-3 py-2 font-medium sm:px-4">Method</th>
+                  <th className="px-3 py-2 font-medium sm:px-4">Status</th>
+                  <th className="px-3 py-2 font-medium sm:px-4">Date</th>
+                  <th className="px-3 py-2 text-right font-medium sm:px-4">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {payments.slice(0, 6).map((p) => (
                   <tr key={p.id} className="border-t border-line text-sm">
-                    <td className="px-4 py-3 font-medium">{p.method}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 font-medium sm:px-4">{p.method}</td>
+                    <td className="px-3 py-3 sm:px-4">
                       <StatusPill status={p.status} />
                     </td>
-                    <td className="px-4 py-3 tabular-nums text-muted">
+                    <td className="px-3 py-3 tabular-nums text-muted sm:px-4">
                       {shortDate(p.receivedAt)}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums sm:px-4">
                       {money(p.amount)}
                     </td>
                   </tr>

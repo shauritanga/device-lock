@@ -37,6 +37,7 @@ body,
 body {
   @apply bg-canvas text-ink antialiased;
   font-feature-settings: 'cv11', 'ss01';
+  overflow-x: hidden;
 }
 
 /* Numbers in data contexts should align in columns. */

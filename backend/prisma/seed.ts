@@ -1,7 +1,7 @@
 /**
  * Clean local app data and create the platform admin user.
  *
- *   athanas@devicelock.test / Athanas@2015 -> SUPER_ADMIN
+ *   admin@linda.co.tz / Linda@2026 -> SUPER_ADMIN
  */
 import { PrismaClient, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
@@ -33,48 +33,26 @@ async function main() {
       "Loan",
       "Device",
       "Customer",
+      "DemoRequest",
       "User",
       "Tenant"
     RESTART IDENTITY CASCADE
   `);
 
-  const pw = await hash('Athanas@2015');
+  const pw = await hash('Linda@2026');
   await prisma.user.create({
     data: {
-      email: 'athanas@devicelock.test',
-      fullName: 'Athanas Shauritanga',
+      email: 'admin@linda.co.tz',
+      fullName: 'Abdulmalik Hashim',
       role: UserRole.SUPER_ADMIN,
       passwordHash: pw,
       tenantId: null,
+      phone: '+255692251043',
     },
   });
 
-  const collectorPw = await hash('Collector@2026');
-  await prisma.user.create({
-    data: {
-      email: 'collector@devicelock.test',
-      fullName: 'Demo Collector',
-      role: UserRole.COLLECTOR,
-      passwordHash: collectorPw,
-      tenantId: null,
-      phone: '+255700000001',
-    },
-  });
-  await prisma.user.create({
-    data: {
-      email: 'collections.admin@devicelock.test',
-      fullName: 'Collections Admin',
-      role: UserRole.COLLECTIONS_ADMIN,
-      passwordHash: collectorPw,
-      tenantId: null,
-      phone: '+255700000002',
-    },
-  });
-
-  console.log('Cleaned app data and created platform admin + collections staff.');
-  console.log('  athanas@devicelock.test / Athanas@2015 (SUPER_ADMIN)');
-  console.log('  collections.admin@devicelock.test / Collector@2026 (COLLECTIONS_ADMIN)');
-  console.log('  collector@devicelock.test / Collector@2026 (COLLECTOR)');
+  console.log('Cleaned app data and created platform admin.');
+  console.log('  admin@linda.co.tz / Linda@2026 (SUPER_ADMIN)');
 }
 
 main()

@@ -30,12 +30,12 @@ export function CardHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-6 pt-5">
-      <div>
-        <h3 className="text-[17px] font-semibold tracking-tight">{title}</h3>
+    <div className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:pt-5">
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold tracking-tight sm:text-[17px]">{title}</h3>
         {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
       </div>
-      {action}
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }

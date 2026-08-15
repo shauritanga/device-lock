@@ -209,7 +209,7 @@ export default function Collectors() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-ink">Collectors</h1>
+          <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Collectors</h1>
           <p className="mt-0.5 text-sm text-muted">
             {isMaster
               ? 'Your team of collectors and their follow-up phones.'
@@ -283,9 +283,9 @@ export default function Collectors() {
           </div>
 
           <Card>
-            <div className="border-b border-line px-5 py-4">
-              <div className="flex items-center gap-2">
-                <div className="relative min-w-0 flex-[1.6]">
+            <div className="border-b border-line px-4 py-4 sm:px-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <div className="relative w-full min-w-0 sm:min-w-[12rem] sm:flex-[1.6]">
                   <Search
                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
                     aria-hidden
@@ -299,7 +299,7 @@ export default function Collectors() {
                   />
                 </div>
                 <Select
-                  className="min-w-0 flex-1"
+                  className="w-full min-w-0 sm:w-auto sm:min-w-[9rem] sm:flex-1"
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
                   aria-label="Filter by role"
@@ -312,7 +312,7 @@ export default function Collectors() {
                   ) : null}
                 </Select>
                 <Select
-                  className="min-w-0 flex-1"
+                  className="w-full min-w-0 sm:w-auto sm:min-w-[9rem] sm:flex-1"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   aria-label="Filter by status"
@@ -323,7 +323,7 @@ export default function Collectors() {
                 </Select>
                 {isPlatformAdmin ? (
                   <Select
-                    className="min-w-0 flex-1"
+                    className="w-full min-w-0 sm:w-auto sm:min-w-[9rem] sm:flex-1"
                     value={masterFilter}
                     onChange={(e) => setMasterFilter(e.target.value)}
                     aria-label="Filter by master"
@@ -347,7 +347,7 @@ export default function Collectors() {
                       setStatusFilter('');
                       setMasterFilter('');
                     }}
-                    className="shrink-0 gap-1.5 px-2.5"
+                    className="w-full shrink-0 gap-1.5 px-2.5 sm:w-auto"
                   >
                     <X className="h-3.5 w-3.5" />
                     Clear

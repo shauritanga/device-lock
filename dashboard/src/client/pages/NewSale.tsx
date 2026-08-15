@@ -219,7 +219,7 @@ export default function Sales() {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Sales</h2>
+          <h2 className="hidden text-xl font-bold tracking-tight md:block">Sales</h2>
           <p className="text-sm text-muted">
             Start a credit sale here — customer, phone, loan, and contract in one
             step. Use Devices afterward for enrollment QR, lock, and status.

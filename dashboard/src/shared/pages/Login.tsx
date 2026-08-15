@@ -8,7 +8,7 @@ import { APP_URLS, type AppId } from '../config';
 import { cn } from '../lib/cn';
 
 // Dev-only convenience. Never rendered in a production build.
-const DEV_CREDENTIALS = { email: 'athanas@devicelock.test', password: 'Athanas@2015' };
+const DEV_CREDENTIALS = { email: 'admin@linda.co.tz', password: 'Linda@2026' };
 
 /** Full-bleed atmosphere for the admin console — phone retail / handset context. */
 const ADMIN_HERO =

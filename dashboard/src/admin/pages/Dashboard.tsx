@@ -100,7 +100,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-ink">Dashboard</h1>
+        <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Dashboard</h1>
         <p className="mt-0.5 text-sm text-muted">
           Network health across companies, cases, collectors, and inbound leads.
         </p>
@@ -142,7 +142,7 @@ export default function AdminDashboard() {
             title="Collections"
             subtitle="Confirmed repayments across all companies, last 6 months"
           />
-          <div className="h-64 px-3 pb-4 pt-4">
+          <div className="h-48 px-3 pb-4 pt-4 sm:h-64">
             {data.series.length === 0 || data.series.every((s) => s.amount === 0) ? (
               <EmptyState title="No collections yet" hint="Payments will appear here once sellers start collecting." />
             ) : (
@@ -278,7 +278,7 @@ function MasterDashboard({ data }: { data: PlatformDashboard }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-ink">Dashboard</h1>
+        <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Dashboard</h1>
         <p className="mt-0.5 text-sm text-muted">Your team’s queue and today’s performance.</p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -327,7 +327,7 @@ function CollectorDashboard({ data }: { data: PlatformDashboard }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-ink">Dashboard</h1>
+        <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Dashboard</h1>
         <p className="mt-0.5 text-sm text-muted">Your cases and today’s work.</p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

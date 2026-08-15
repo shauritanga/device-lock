@@ -22,16 +22,20 @@ export function StatCard({
   }[tone];
 
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <div className="flex items-center gap-3">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${toneBg}`}>
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${toneBg}`}
+        >
           <Icon className="h-5 w-5" />
         </div>
-        <span className="text-sm font-medium text-muted">{label}</span>
+        <span className="min-w-0 text-sm font-medium text-muted">{label}</span>
       </div>
-      <div className="mt-4 flex items-end gap-2">
-        <span className="text-3xl font-bold tracking-tight tabular-nums">{value}</span>
-        {hint && <span className="mb-1 text-xs text-muted">{hint}</span>}
+      <div className="mt-3 flex flex-wrap items-end gap-2 sm:mt-4">
+        <span className="text-2xl font-bold tracking-tight tabular-nums sm:text-3xl">
+          {value}
+        </span>
+        {hint && <span className="mb-0.5 text-xs text-muted sm:mb-1">{hint}</span>}
       </div>
     </Card>
   );

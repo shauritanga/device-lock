@@ -11,7 +11,7 @@ export default function Profile() {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-ink">Profile</h1>
+        <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Profile</h1>
         <p className="mt-0.5 text-sm text-muted">Your account details.</p>
       </div>
 

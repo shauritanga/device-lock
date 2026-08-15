@@ -34,7 +34,7 @@ export default function Devices() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Devices</h2>
+          <h2 className="hidden text-xl font-bold tracking-tight md:block">Devices</h2>
           <p className="text-sm text-muted">
             Enrolled phones — lock status, check-in, and enrollment QR. Start a
             credit sale under Sales to add a new financed device.

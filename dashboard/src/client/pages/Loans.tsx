@@ -34,7 +34,7 @@ export default function Loans() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Loans</h2>
+          <h2 className="hidden text-xl font-bold tracking-tight md:block">Loans</h2>
           <p className="text-sm text-muted">
             Open a loan for the installment schedule and payment history. New
             credit sales are started under Sales.

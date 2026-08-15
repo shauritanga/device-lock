@@ -245,10 +245,10 @@ export default function CollectionCaseDetail() {
   return (
     <div className="space-y-6">
       <Link
-        to="/"
+        to="/cases"
         className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to work queue
+        <ArrowLeft className="h-4 w-4" /> Back to cases
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-3">
