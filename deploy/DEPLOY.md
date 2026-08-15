@@ -66,6 +66,36 @@ npm run build           # typecheck + dist/client + dist/admin
 pm2 restart device-lock-api
 ```
 
+### Agent APK (QR provisioning)
+
+`GET /v1/provisioning/agent.apk` serves a **release** APK from disk.
+
+Preferred production path (set in `backend/.env`):
+
+```env
+PROVISIONING_APK_PATH=/var/www/device-lock/provisioning/agent.apk
+PROVISIONING_SIGNATURE_CHECKSUM=<base64url SHA-256 of release signing cert>
+PUBLIC_BASE_URL=https://api.linda.co.tz
+```
+
+Build and publish from a machine that has `android-dpc/keystore.properties`
+(never commit the keystore):
+
+```bash
+cd android-dpc
+./gradlew assembleRelease
+
+# checksum for PROVISIONING_SIGNATURE_CHECKSUM:
+# keytool -exportcert -alias linda-agent -keystore signing/linda-agent-release.jks \
+#   | openssl dgst -sha256 -binary | openssl base64 | tr '+/' '-_' | tr -d '='
+
+scp app/build/outputs/apk/release/app-release.apk \
+  root@139.59.139.30:/var/www/device-lock/provisioning/agent.apk
+```
+
+Confirm: `curl -sI https://api.linda.co.tz/v1/provisioning/agent.apk` → `200`.
+The APK must embed `https://api.linda.co.tz/v1` (not localhost).
+
 ## 3. nginx + TLS (first time only)
 
 ```bash

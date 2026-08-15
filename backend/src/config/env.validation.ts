@@ -64,13 +64,11 @@ export const envSchema = z.object({
   // /v1/provisioning/agent.apk when unset.
   PROVISIONING_APK_URL: z.string().optional(),
   // Local APK file to serve at /v1/provisioning/agent.apk. Defaults to the
-  // android-dpc debug build output.
+  // android-dpc release build output.
   PROVISIONING_APK_PATH: z.string().optional(),
-  // base64url SHA-256 of the APK signing certificate. Default is the debug
-  // signing cert; a release build MUST override this with its own.
-  PROVISIONING_SIGNATURE_CHECKSUM: z
-    .string()
-    .default('UQ5XskBHO8lfumfO_3ELysm9uyG_5JTVkiZNV-ezi9A'),
+  // base64url SHA-256 of the APK signing certificate. Must match the release
+  // keystore used to sign the APK served at /v1/provisioning/agent.apk.
+  PROVISIONING_SIGNATURE_CHECKSUM: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

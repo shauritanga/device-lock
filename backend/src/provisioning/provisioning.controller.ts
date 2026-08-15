@@ -25,7 +25,7 @@ export class ProvisioningController {
     const apk = this.provisioning.apkPath;
     if (!existsSync(apk)) {
       throw new NotFoundException(
-        'Agent APK not found — build android-dpc (assembleDebug) or set PROVISIONING_APK_PATH',
+        'Agent APK not found — build android-dpc (assembleRelease) or set PROVISIONING_APK_PATH',
       );
     }
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');

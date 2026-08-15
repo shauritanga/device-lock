@@ -24,9 +24,8 @@ export class ProvisioningService {
 
   constructor(config: ConfigService<Env, true>) {
     this.component = config.get('PROVISIONING_ADMIN_COMPONENT', { infer: true });
-    this.checksum = config.get('PROVISIONING_SIGNATURE_CHECKSUM', {
-      infer: true,
-    });
+    this.checksum =
+      config.get('PROVISIONING_SIGNATURE_CHECKSUM', { infer: true }) ?? '';
     this.apkUrl = config.get('PROVISIONING_APK_URL', { infer: true });
     this.publicBaseUrl = config.get('PUBLIC_BASE_URL', { infer: true });
     this.apkPath =
@@ -34,7 +33,7 @@ export class ProvisioningService {
       path.resolve(
         process.cwd(),
         '..',
-        'android-dpc/app/build/outputs/apk/debug/app-debug.apk',
+        'android-dpc/app/build/outputs/apk/release/app-release.apk',
       );
   }
 

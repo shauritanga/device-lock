@@ -3,10 +3,20 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+import java.util.Properties
+
 // Enable FCM only when a Firebase config is supplied. Without google-services.json
 // the app still builds and runs — it just falls back to periodic check-ins.
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
+}
+
+// Release signing (optional locally). Create android-dpc/keystore.properties from
+// keystore.properties.example — never commit the real file or the .jks.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
 
 android {
@@ -17,12 +27,10 @@ android {
         applicationId = "com.devicelock.agent"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1-poc"
+        versionCode = 2
+        versionName = "0.2.0"
 
-        // Always point at production so debug APKs and enrolled devices share
-        // one backend (easy fleet management while still developing). Not
-        // overridable on-device. HTTPS only — no cleartext fallback.
+        // Production API only — not overridable on-device. HTTPS only.
         buildConfigField(
             "String",
             "AGENT_BASE_URL",
@@ -36,19 +44,33 @@ android {
         buildConfigField("String", "SUPPORT_PHONE", "\"+255658216813\"")
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
-            // Same production API as debug.
             buildConfigField(
                 "String",
                 "AGENT_BASE_URL",
                 "\"https://api.linda.co.tz/v1\"",
             )
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

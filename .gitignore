@@ -20,3 +20,4 @@ google-services.json
 dist/
 build/
 collector_home_screenshot.png
+provisioning/*.apk
