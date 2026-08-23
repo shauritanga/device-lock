@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, existsSync, readFileSync } from 'fs';
+import { createHash } from 'crypto';
+import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import type { Env } from '../config/env.validation';
 
