@@ -1,22 +1,20 @@
 package com.devicelock.agent
 
-import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
+import androidx.appcompat.app.AppCompatActivity
 
 /**
- * Required from Android 10+. Called after we become Device Owner so we can
- * apply policy and finish setup. Missing this screen also produces
- * "Something went wrong" after the APK installs.
+ * Required from Android 10+. Called after we become Device Owner. Must return
+ * RESULT_OK or the wizard reports that setup failed.
  */
-class PolicyComplianceActivity : Activity() {
+class PolicyComplianceActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        runCatching { DeviceLockController(this).applyManagedRestrictions() }
+        setContentView(R.layout.activity_provisioning)
 
         val extras = extrasBundle()
         val token = extras?.getString(LockAdminReceiver.EXTRA_ENROLLMENT_TOKEN)
@@ -26,11 +24,13 @@ class PolicyComplianceActivity : Activity() {
             AgentSync.requestEnroll(this)
         }
 
-        setResult(RESULT_OK)
-        finish()
+        window.decorView.post {
+            setResult(RESULT_OK)
+            finish()
+        }
     }
 
-    private fun extrasBundle(): PersistableBundle? =
+    private fun extrasBundle(): PersistableBundle? = runCatching {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(
                 DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
@@ -42,4 +42,5 @@ class PolicyComplianceActivity : Activity() {
                 DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
             )
         }
+    }.getOrNull()
 }

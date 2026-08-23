@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Device Lock Agent</string>
+    <string name="provisioning_title">Setting up this phone</string>
+    <string name="provisioning_body">Linda is finishing Device Owner setup. Keep Wi-Fi on.</string>
 
     <string name="nav_home">Home</string>
     <string name="nav_payments">Payments</string>

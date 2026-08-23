@@ -90,8 +90,9 @@
         <activity
             android:name=".GetProvisioningModeActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.NoDisplay"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            android:excludeFromRecents="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:theme="@style/Theme.DeviceLock">
             <intent-filter>
                 <action android:name="android.app.action.GET_PROVISIONING_MODE" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -102,10 +103,12 @@
         <activity
             android:name=".PolicyComplianceActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.NoDisplay"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            android:excludeFromRecents="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:theme="@style/Theme.DeviceLock">
             <intent-filter>
                 <action android:name="android.app.action.ADMIN_POLICY_COMPLIANCE" />
+                <action android:name="android.app.action.PROVISIONING_SUCCESSFUL" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

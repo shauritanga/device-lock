@@ -6,7 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.PersistableBundle
-import android.widget.Toast
+
 
 /**
  * Device Admin / Device Owner receiver.
@@ -19,15 +19,12 @@ import android.widget.Toast
 class LockAdminReceiver : DeviceAdminReceiver() {
 
     override fun onEnabled(context: Context, intent: android.content.Intent) {
-        Toast.makeText(context, "Device Lock admin enabled", Toast.LENGTH_SHORT).show()
-        // Lock down anti-removal (no factory reset / safe boot / add user) the
-        // instant we become Device Owner, so the device is protected from wipe
-        // from the very start — not only once a loan goes overdue.
-        runCatching { DeviceLockController(context).applyManagedRestrictions() }
+        // Do not apply user restrictions here. The setup wizard is still
+        // running; DISALLOW_FACTORY_RESET during this callback aborts setup
+        // on some Pixels with "Something went wrong".
     }
 
     override fun onDisabled(context: Context, intent: Intent) {
-        Toast.makeText(context, "Device Lock admin disabled", Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -38,12 +35,12 @@ class LockAdminReceiver : DeviceAdminReceiver() {
      * immediately so the fresh device is protected from the first moment.
      */
     override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
-        runCatching { DeviceLockController(context).applyManagedRestrictions() }
-
         val extras: PersistableBundle? =
-            intent.getParcelableExtra(
-                DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
-            )
+            runCatching {
+                intent.getParcelableExtra<PersistableBundle>(
+                    DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
+                )
+            }.getOrNull()
         val token = extras?.getString(EXTRA_ENROLLMENT_TOKEN)?.takeIf { it.isNotBlank() }
         if (token != null) {
             AgentStore(context).pendingEnrollToken = token

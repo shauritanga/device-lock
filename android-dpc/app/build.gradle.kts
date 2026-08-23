@@ -27,8 +27,8 @@ android {
         applicationId = "com.devicelock.agent"
         minSdk = 24
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.3.1"
 
         // Production API only — not overridable on-device. HTTPS only.
         buildConfigField(

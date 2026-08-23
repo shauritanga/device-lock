@@ -28,6 +28,7 @@ class EnrollWorker(context: Context, params: WorkerParameters) :
         return try {
             AgentManager(applicationContext).performEnroll(token)
             store.pendingEnrollToken = null
+            runCatching { DeviceLockController(applicationContext).applyManagedRestrictions() }
             Result.success()
         } catch (t: Throwable) {
             // Transient (offline / backend not reachable yet): retry with backoff.
