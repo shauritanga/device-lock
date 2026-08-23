@@ -1,21 +1,20 @@
 package com.devicelock.agent
 
+import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
 
 /**
- * Required from Android 10+. After the setup wizard installs this APK it asks
- * which management mode we want. Returning CANCELED or crashing here shows a
- * generic "Something went wrong" on the phone.
+ * Required from Android 10+. Keep this activity tiny: no AppCompat, no layout.
+ * Inflating Material during Setup Wizard crashes on Pixel and shows
+ * "Something went wrong / contact your IT admin".
  */
-class GetProvisioningModeActivity : AppCompatActivity() {
+class GetProvisioningModeActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_provisioning)
 
         val fullyManaged = DevicePolicyManager.PROVISIONING_MODE_FULLY_MANAGED_DEVICE
         var mode = fullyManaged
@@ -23,21 +22,15 @@ class GetProvisioningModeActivity : AppCompatActivity() {
             val allowed = intent.getIntegerArrayListExtra(
                 DevicePolicyManager.EXTRA_PROVISIONING_ALLOWED_PROVISIONING_MODES,
             )
-            // Empty list must NOT cancel — Pixel/AOSP treat it as "any mode".
             if (!allowed.isNullOrEmpty() && !allowed.contains(fullyManaged)) {
                 mode = allowed[0]
             }
         }
 
-        val result = Intent().putExtra(
-            DevicePolicyManager.EXTRA_PROVISIONING_MODE,
-            mode,
+        setResult(
+            RESULT_OK,
+            Intent().putExtra(DevicePolicyManager.EXTRA_PROVISIONING_MODE, mode),
         )
-        // Let the window draw first. Theme.NoDisplay + finish-in-onCreate
-        // crashes setup on newer Pixels.
-        window.decorView.post {
-            setResult(RESULT_OK, result)
-            finish()
-        }
+        finish()
     }
 }

@@ -1,36 +1,32 @@
 package com.devicelock.agent
 
+import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
-import androidx.appcompat.app.AppCompatActivity
 
-/**
- * Required from Android 10+. Called after we become Device Owner. Must return
- * RESULT_OK or the wizard reports that setup failed.
- */
-class PolicyComplianceActivity : AppCompatActivity() {
+/** Required from Android 10+. Must return RESULT_OK without crashing. */
+class PolicyComplianceActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_provisioning)
 
-        val extras = extrasBundle()
-        val token = extras?.getString(LockAdminReceiver.EXTRA_ENROLLMENT_TOKEN)
-            ?.takeIf { it.isNotBlank() }
-        if (token != null) {
-            AgentStore(this).pendingEnrollToken = token
-            AgentSync.requestEnroll(this)
+        runCatching {
+            val extras = extrasBundle()
+            val token = extras?.getString(LockAdminReceiver.EXTRA_ENROLLMENT_TOKEN)
+                ?.takeIf { it.isNotBlank() }
+            if (token != null) {
+                AgentStore(this).pendingEnrollToken = token
+                AgentSync.requestEnroll(this)
+            }
         }
 
-        window.decorView.post {
-            setResult(RESULT_OK)
-            finish()
-        }
+        setResult(RESULT_OK)
+        finish()
     }
 
-    private fun extrasBundle(): PersistableBundle? = runCatching {
+    private fun extrasBundle(): PersistableBundle? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(
                 DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
@@ -42,5 +38,4 @@ class PolicyComplianceActivity : AppCompatActivity() {
                 DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
             )
         }
-    }.getOrNull()
 }

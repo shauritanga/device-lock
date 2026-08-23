@@ -1,19 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash } from 'crypto';
-import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import type { Env } from '../config/env.validation';
 
 /**
  * Builds the Android setup-wizard provisioning payload used for zero-touch /
  * QR enrollment. A factory-fresh device scanned with this QR downloads the
- * agent APK, verifies its checksum, installs it as **Device Owner**,
+ * agent APK, verifies its signing certificate, installs it as **Device Owner**,
  * and hands it the admin-extras bundle — which carries the enrollment token so
  * the agent auto-enrols with no typing.
  *
  * Only the enrollment token is placed in the QR; the backend URL is baked into
  * the APK at build time so the agent can't be repointed at a rogue server.
+ *
+ * Do not put PACKAGE_CHECKSUM (hash of the APK file) in the QR. That hash
+ * changes every rebuild, so a console tab left open still shows a QR that
+ * downloads the new APK and then fails with a generic IT-admin error.
+ * SIGNATURE_CHECKSUM is the signing cert and stays stable across releases.
  */
 @Injectable()
 export class ProvisioningService {
@@ -56,7 +59,9 @@ export class ProvisioningService {
   buildProvisioningPayload(enrollmentToken: string): Record<string, unknown> {
     const payload: Record<string, unknown> = {
       'android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME':
-        this.component,
+        this.component.includes('/')
+          ? this.component
+          : `${this.component}/.LockAdminReceiver`,
       'android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION':
         this.downloadLocation(),
       'android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED': true,
@@ -65,26 +70,19 @@ export class ProvisioningService {
       },
     };
 
-    const packageChecksum = this.packageChecksum();
-    if (packageChecksum) {
-      payload['android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM'] =
-        packageChecksum;
-    }
-
     if (this.checksum) {
+      // AOSP samples keep base64 padding (`=`). URL-safe alphabet is required.
       payload[
         'android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM'
-      ] = this.checksum;
+      ] = padBase64Url(this.checksum);
     }
 
     return payload;
   }
+}
 
-  /** URL-safe base64 SHA-256 of the APK bytes the wizard will download. */
-  private packageChecksum(): string | undefined {
-    if (!existsSync(this.apkPath)) return undefined;
-    return createHash('sha256')
-      .update(readFileSync(this.apkPath))
-      .digest('base64url');
-  }
+function padBase64Url(value: string): string {
+  const urlSafe = value.replace(/\+/g, '-').replace(/\//g, '_');
+  const pad = (4 - (urlSafe.length % 4)) % 4;
+  return urlSafe + '='.repeat(pad);
 }

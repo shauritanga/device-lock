@@ -59,7 +59,7 @@ export const envSchema = z.object({
   // The DeviceAdminReceiver the setup wizard makes device-owner.
   PROVISIONING_ADMIN_COMPONENT: z
     .string()
-    .default('com.devicelock.agent/com.devicelock.agent.LockAdminReceiver'),
+    .default('com.devicelock.agent/.LockAdminReceiver'),
   // Where the wizard downloads the agent APK. Defaults to this server's
   // /v1/provisioning/agent.apk when unset.
   PROVISIONING_APK_URL: z.string().optional(),

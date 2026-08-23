@@ -92,7 +92,7 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
-            android:theme="@style/Theme.DeviceLock">
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.app.action.GET_PROVISIONING_MODE" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -105,7 +105,7 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
-            android:theme="@style/Theme.DeviceLock">
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.app.action.ADMIN_POLICY_COMPLIANCE" />
                 <action android:name="android.app.action.PROVISIONING_SUCCESSFUL" />

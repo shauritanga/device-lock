@@ -33,6 +33,8 @@ export default function DeviceDetail() {
     queryKey: ['device', id, 'qr'],
     queryFn: async () => (await api.get<EnrollmentPayload>(`/devices/${id}/qr`)).data,
     retry: false,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const regenerate = useMutation({
@@ -188,8 +190,8 @@ export default function DeviceDetail() {
                   <QRCodeSVG
                     value={JSON.stringify(enroll.qr)}
                     size={280}
-                    level="L"
-                    marginSize={2}
+                    level="M"
+                    marginSize={4}
                   />
                 </div>
                 <p className="mt-4 text-center text-xs text-muted">
