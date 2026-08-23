@@ -12,6 +12,8 @@
 
 # DeviceAdminReceiver is bound by the platform by name.
 -keep class com.devicelock.agent.LockAdminReceiver { *; }
+-keep class com.devicelock.agent.GetProvisioningModeActivity { *; }
+-keep class com.devicelock.agent.PolicyComplianceActivity { *; }
 
 # FCM service is referenced from the manifest; keep its callbacks explicit too.
 -keep class com.devicelock.agent.AgentMessagingService { *; }

@@ -86,6 +86,30 @@
             </intent-filter>
         </service>
 
+        <!-- Android 10+ QR / zero-touch: wizard asks for Device Owner vs profile. -->
+        <activity
+            android:name=".GetProvisioningModeActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <intent-filter>
+                <action android:name="android.app.action.GET_PROVISIONING_MODE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Android 10+ QR / zero-touch: apply policy after we are Device Owner. -->
+        <activity
+            android:name=".PolicyComplianceActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <intent-filter>
+                <action android:name="android.app.action.ADMIN_POLICY_COMPLIANCE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- The Device Admin / Device Owner receiver -->
         <receiver
             android:name=".LockAdminReceiver"

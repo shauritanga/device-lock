@@ -187,9 +187,9 @@ export default function DeviceDetail() {
                 <div className="rounded-xl2 border border-line bg-white p-4">
                   <QRCodeSVG
                     value={JSON.stringify(enroll.qr)}
-                    size={200}
-                    level="M"
-                    marginSize={0}
+                    size={280}
+                    level="L"
+                    marginSize={2}
                   />
                 </div>
                 <p className="mt-4 text-center text-xs text-muted">

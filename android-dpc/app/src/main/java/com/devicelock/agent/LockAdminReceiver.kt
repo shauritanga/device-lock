@@ -53,7 +53,7 @@ class LockAdminReceiver : DeviceAdminReceiver() {
 
     companion object {
         /** Key inside PROVISIONING_ADMIN_EXTRAS_BUNDLE carrying the enroll token. */
-        private const val EXTRA_ENROLLMENT_TOKEN = "enrollmentToken"
+        const val EXTRA_ENROLLMENT_TOKEN = "enrollmentToken"
 
         fun componentName(context: Context): ComponentName =
             ComponentName(context.applicationContext, LockAdminReceiver::class.java)

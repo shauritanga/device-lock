@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash, existsSync, readFileSync } from 'fs';
 import * as path from 'path';
 import type { Env } from '../config/env.validation';
 
 /**
  * Builds the Android setup-wizard provisioning payload used for zero-touch /
  * QR enrollment. A factory-fresh device scanned with this QR downloads the
- * agent APK, verifies its signing certificate, installs it as **Device Owner**,
+ * agent APK, verifies its checksum, installs it as **Device Owner**,
  * and hands it the admin-extras bundle — which carries the enrollment token so
  * the agent auto-enrols with no typing.
  *
@@ -52,18 +53,37 @@ export class ProvisioningService {
    * `android.app.extra.PROVISIONING_*` names the setup wizard expects.
    */
   buildProvisioningPayload(enrollmentToken: string): Record<string, unknown> {
-    return {
+    const payload: Record<string, unknown> = {
       'android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME':
         this.component,
       'android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION':
         this.downloadLocation(),
-      'android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM':
-        this.checksum,
       'android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED': true,
-      'android.app.extra.PROVISIONING_SKIP_ENCRYPTION': true,
       'android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE': {
         enrollmentToken,
       },
     };
+
+    const packageChecksum = this.packageChecksum();
+    if (packageChecksum) {
+      payload['android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM'] =
+        packageChecksum;
+    }
+
+    if (this.checksum) {
+      payload[
+        'android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM'
+      ] = this.checksum;
+    }
+
+    return payload;
+  }
+
+  /** URL-safe base64 SHA-256 of the APK bytes the wizard will download. */
+  private packageChecksum(): string | undefined {
+    if (!existsSync(this.apkPath)) return undefined;
+    return createHash('sha256')
+      .update(readFileSync(this.apkPath))
+      .digest('base64url');
   }
 }
