@@ -17,6 +17,7 @@
 
 # FCM service is referenced from the manifest; keep its callbacks explicit too.
 -keep class com.devicelock.agent.AgentMessagingService { *; }
+-keep class com.devicelock.agent.LockCheckinReceiver { *; }
 
 # org.json is part of the platform; nothing to keep, but don't warn on it.
 -dontwarn org.json.**

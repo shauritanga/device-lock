@@ -218,15 +218,43 @@ class AgentManager(context: Context) {
 
     /** Apply a single command's on-device effect. */
     private fun execute(cmd: AgentCommand) {
-        when (cmd.type) {
-            "LOCK" -> controller.lock()
-            "UNLOCK" -> controller.unlock()
-            // Release is only ever sent by the backend once the loan is settled
-            // (or an owner forces it). The device has no local authority to
-            // release itself — see MainActivity.
-            "RELEASE" -> controller.releaseDevice()
-            else -> throw IllegalArgumentException("Unknown command ${cmd.type}")
+        runOnMain {
+            when (cmd.type) {
+                "LOCK" -> controller.lock()
+                "UNLOCK" -> controller.unlock()
+                // Release is only ever sent by the backend once the loan is settled
+                // (or an owner forces it). The device has no local authority to
+                // release itself — see MainActivity.
+                "RELEASE" -> controller.releaseDevice()
+                else -> throw IllegalArgumentException("Unknown command ${cmd.type}")
+            }
         }
+    }
+
+    /**
+     * Lock-task / startActivity must run on the main thread. If we are already
+     * on main (foreground poll), run inline — posting+waiting would deadlock.
+     */
+    private fun runOnMain(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            block()
+            return
+        }
+        val done = java.util.concurrent.CountDownLatch(1)
+        var error: Throwable? = null
+        main.post {
+            try {
+                block()
+            } catch (t: Throwable) {
+                error = t
+            } finally {
+                done.countDown()
+            }
+        }
+        if (!done.await(15, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw IllegalStateException("Timed out applying command on main thread")
+        }
+        error?.let { throw it }
     }
 
     private fun parseSmsCommand(message: String): SmsCommand? {

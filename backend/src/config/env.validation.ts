@@ -69,6 +69,10 @@ export const envSchema = z.object({
   // base64url SHA-256 of the APK signing certificate. Must match the release
   // keystore used to sign the APK served at /v1/provisioning/agent.apk.
   PROVISIONING_SIGNATURE_CHECKSUM: z.string().optional(),
+
+  // Firebase service-account JSON (raw or file path). Required for instant
+  // lock/unlock; without it commands stay QUEUED until the phone checks in.
+  FCM_SERVICE_ACCOUNT_JSON: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

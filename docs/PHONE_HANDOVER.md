@@ -200,7 +200,8 @@ These run in the background. You do not need them to complete handover:
 | Cannot sign in | Confirm you are on **client.linda.co.tz**, not admin. Ask the owner to reset staff password. |
 | Sale will not create | Check IMEI uniqueness, required fields, and consent tick. |
 | QR expired or already used | On the device page, regenerate the enrollment token, factory-reset again, scan the new QR. |
-| Phone says **Something went wrong** after scanning / while installing | Factory-reset again. On the **very first** welcome screen, connect **Wi-Fi**, then tap **6 times** (do not finish Google/HiOS setup). Scan **this sale’s** QR, not a screenshot of an old one. If it still fails, the shop must publish a new agent APK (Android 10+ needs the setup activities); then regenerate the QR and retry. |
+| Phone says **Something went wrong** after scanning / while installing | If the phone is a **Pixel** (or any model with Google Play Protect), this QR cannot make Linda Device Owner — Google blocks it. Enroll that model only after Android Device Policy (AMAPI) is connected. On Tecno/Infinix/Itel, factory-reset, Wi-Fi, 6 taps, scan a fresh QR. |
+| Pixel / Play Protect phone on credit | Same shop steps, but the QR must install Google’s Device Policy app, not Linda as owner. Linda still locks the buyer app under that. Ask the operator to enable Android Management API. |
 | Phone never shows ACTIVE | Wi-Fi, wait for check-in, confirm you scanned this device’s QR not another sale’s. |
 | Lock does nothing | Not Device Owner. Factory-reset and QR enroll again. |
 | Buyer app empty | Wait for check-in; confirm the sale linked this IMEI to the customer. |

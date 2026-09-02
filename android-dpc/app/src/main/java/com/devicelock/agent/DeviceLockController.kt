@@ -96,6 +96,8 @@ class DeviceLockController(private val context: Context) {
         setLockScreenAsHome(true)
 
         markLocked(true)
+        LockCheckinReceiver.schedule(context)
+        AgentSync.requestImmediateSync(context)
 
         // Bring up the lock screen on top of everything.
         val intent = Intent(context, LockScreenActivity::class.java).apply {
@@ -158,17 +160,29 @@ class DeviceLockController(private val context: Context) {
         require(isDeviceOwner()) { "Not device owner" }
 
         dpm.clearUserRestriction(admin, UserManager.DISALLOW_DEBUGGING_FEATURES)
-        dpm.setLockTaskPackages(admin, arrayOf())
-        // Hand HOME back to the normal launcher.
+        // Hand HOME back to the normal launcher before leaving kiosk mode.
         setLockScreenAsHome(false)
-
         markLocked(false)
+        LockCheckinReceiver.cancel(context)
 
-        // Tell any visible lock screen to dismiss, whatever triggered the unlock
-        // (staff button, foreground poll, or a background check-in Worker).
+        // Keep lock-task packages until [clearLockTaskSession] runs *after*
+        // stopLockTask(). Clearing them first strands some OEMs (Aquos, etc.)
+        // inside a pinned session with no way to exit.
         context.sendBroadcast(
             Intent(ACTION_UNLOCKED).setPackage(context.packageName),
         )
+        context.startActivity(
+            Intent(context, LockScreenActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra(EXTRA_DISMISS, true)
+            },
+        )
+    }
+
+    /** Call only after the lock activity has left lock-task mode. */
+    fun clearLockTaskSession() {
+        if (!isDeviceOwner()) return
+        dpm.setLockTaskPackages(admin, arrayOf())
     }
 
     /**
@@ -189,6 +203,7 @@ class DeviceLockController(private val context: Context) {
         dpm.setLockTaskPackages(admin, arrayOf())
         setLockScreenAsHome(false)
         markLocked(false)
+        LockCheckinReceiver.cancel(context)
 
         @Suppress("DEPRECATION")
         dpm.clearDeviceOwnerApp(context.packageName)
@@ -222,6 +237,9 @@ class DeviceLockController(private val context: Context) {
 
         /** Broadcast (package-internal) sent whenever the device is unlocked. */
         const val ACTION_UNLOCKED = "com.devicelock.agent.action.UNLOCKED"
+
+        /** Intent extra: lock screen should leave kiosk and finish. */
+        const val EXTRA_DISMISS = "dismiss"
 
         /** Normally-disabled HOME alias enabled only while locked. */
         private const val LOCK_HOME_ALIAS = "com.devicelock.agent.LockHomeAlias"

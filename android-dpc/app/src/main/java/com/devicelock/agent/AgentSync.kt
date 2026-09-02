@@ -39,9 +39,10 @@ object AgentSync {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             PERIODIC_WORK,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request,
         )
+        requestImmediateSync(context)
     }
 
     /**

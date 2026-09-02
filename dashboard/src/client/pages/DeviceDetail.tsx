@@ -24,10 +24,12 @@ export default function DeviceDetail() {
   const { data: device, isLoading } = useQuery({
     queryKey: ['device', id],
     queryFn: async () => (await api.get<Device>(`/devices/${id}`)).data,
+    refetchInterval: 3_000,
   });
   const { data: commands } = useQuery({
     queryKey: ['device', id, 'commands'],
     queryFn: async () => (await api.get<DeviceCommand[]>(`/devices/${id}/commands`)).data,
+    refetchInterval: 3_000,
   });
   const { data: enroll } = useQuery({
     queryKey: ['device', id, 'qr'],
@@ -48,12 +50,18 @@ export default function DeviceDetail() {
   const lock = useMutation({
     mutationFn: async () =>
       (await api.post(`/devices/${id}/lock`, { reason: 'manual lock from console' })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['device', id] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device', id] });
+      qc.invalidateQueries({ queryKey: ['device', id, 'commands'] });
+    },
   });
   const unlock = useMutation({
     mutationFn: async () =>
       (await api.post(`/devices/${id}/unlock`, { reason: 'manual unlock from console' })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['device', id] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device', id] });
+      qc.invalidateQueries({ queryKey: ['device', id, 'commands'] });
+    },
   });
   const approveSim = useMutation({
     mutationFn: async () =>
@@ -197,6 +205,13 @@ export default function DeviceDetail() {
                 <p className="mt-4 text-center text-xs text-muted">
                   On a new device: tap the setup screen 6× to open the QR scanner,
                   then scan. It provisions and enrolls automatically.
+                </p>
+                <p className="mt-3 rounded-xl2 border border-amber-200 bg-amber-50 px-3 py-2 text-center text-2xs leading-relaxed text-amber-950">
+                  Pixel, Samsung, and other phones with Google Play Protect will
+                  reject this QR. Google only allows their own Device Policy app
+                  as Device Owner on those models. Tecno / Infinix / Itel without
+                  that block can still enroll here. Pixel credit sales need
+                  Android Device Policy enrollment (we can wire that next).
                 </p>
                 <p className="mt-3 w-full break-all rounded-xl bg-canvas p-3 text-center font-mono text-2xs text-muted">
                   {enroll.enrollmentToken}

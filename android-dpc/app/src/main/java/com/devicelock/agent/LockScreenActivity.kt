@@ -52,16 +52,22 @@ class LockScreenActivity : AppCompatActivity() {
         setContentView(binding.root)
         controller = DeviceLockController(this)
         agent = AgentManager(this)
+        registerUnlockReceiver()
 
-        // If we somehow launched (e.g. as HOME after a reboot) but the device is
-        // no longer locked, don't show the lock at all — go straight home.
-        if (!controller.isLocked()) {
+        // Unlock (or a HOME relaunch after unlock) must leave kiosk even if
+        // this activity was paused — Aquos lock-task often calls onPause.
+        if (intent.getBooleanExtra(DeviceLockController.EXTRA_DISMISS, false) ||
+            !controller.isLocked()
+        ) {
             dismiss()
             return
         }
 
         // Enter kiosk mode so this screen owns the device.
         runCatching { startLockTask() }
+        // Start polling here, not only in onResume — lock-task on Aquos can
+        // pause the activity and would otherwise never pull UNLOCK.
+        poll.postDelayed(pollRunnable, POLL_INTERVAL_MS)
 
         // Show the helpline as text as well as a button: if the dialer is
         // unavailable for any reason, the customer can still read the number and
@@ -123,22 +129,30 @@ class LockScreenActivity : AppCompatActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(DeviceLockController.EXTRA_DISMISS, false) ||
+            !controller.isLocked()
+        ) {
+            dismiss()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
-        // Safety net: if an unlock happened while we were paused (broadcast
-        // missed), dismiss as soon as we come back and notice we're unlocked.
         if (!controller.isLocked()) {
             dismiss()
             return
         }
-        registerUnlockReceiver()
+        poll.removeCallbacks(pollRunnable)
         poll.postDelayed(pollRunnable, POLL_INTERVAL_MS)
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onDestroy() {
         poll.removeCallbacks(pollRunnable)
         runCatching { unregisterReceiver(unlockReceiver) }
+        super.onDestroy()
     }
 
     private fun registerUnlockReceiver() {
@@ -173,6 +187,7 @@ class LockScreenActivity : AppCompatActivity() {
     private fun dismiss() {
         poll.removeCallbacks(pollRunnable)
         runCatching { stopLockTask() }
+        runCatching { controller.clearLockTaskSession() }
         runCatching {
             startActivity(
                 Intent(Intent.ACTION_MAIN)
@@ -190,7 +205,7 @@ class LockScreenActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val POLL_INTERVAL_MS = 10_000L
+        private const val POLL_INTERVAL_MS = 5_000L
 
         /** Tanzania / GSM standard emergency number. */
         private const val EMERGENCY_NUMBER = "112"
