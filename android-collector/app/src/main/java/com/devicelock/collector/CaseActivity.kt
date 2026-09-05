@@ -1,8 +1,6 @@
 package com.devicelock.collector
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -14,7 +12,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.devicelock.collector.databinding.ActivityCaseBinding
@@ -55,6 +52,14 @@ class CaseActivity : AppCompatActivity() {
             finish()
             return
         }
+        // Recover an in-flight contact if the process died while the collector
+        // was away (long call) — SessionStore persists it, unlike this field.
+        if (store.pendingCaseId == caseId) {
+            pendingSessionId = store.pendingSessionId
+            pendingChannel = store.pendingChannel
+            sessionStartedAt = store.pendingStartedAt
+            customerPhone = store.pendingCustomerPhone.orEmpty()
+        }
 
         binding.btnBack.setOnClickListener { finish() }
         binding.btnRefresh.setOnClickListener { loadCase() }
@@ -73,6 +78,39 @@ class CaseActivity : AppCompatActivity() {
         binding.tabRepayments.setOnClickListener { selectTab(Tab.REPAYMENTS) }
 
         loadCase()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        maybeShowCommunicationResultSheet()
+    }
+
+    /** Auto-opens the mandatory result sheet when returning from a call/WhatsApp. */
+    private fun maybeShowCommunicationResultSheet() {
+        val channel = pendingChannel ?: return
+        if (channel != "CALL" && channel != "WHATSAPP") return
+        showCommunicationResultSheet()
+    }
+
+    /** Shows the result sheet for whatever contact is pending, any channel. */
+    private fun showCommunicationResultSheet() {
+        val sessionId = pendingSessionId ?: return
+        val channel = pendingChannel ?: return
+        if (supportFragmentManager.findFragmentByTag(CommunicationResultSheet.TAG) != null) return
+        CommunicationResultSheet.newInstance(
+            sessionId = sessionId,
+            caseId = caseId,
+            channel = channel,
+            customerPhone = customerPhone,
+            sessionStartedAt = sessionStartedAt,
+        ).apply {
+            onSubmitted = {
+                pendingSessionId = null
+                pendingChannel = null
+                currentCase?.let { renderPanels(it) }
+                loadCase()
+            }
+        }.show(supportFragmentManager, CommunicationResultSheet.TAG)
     }
 
     private fun loadCase() {
@@ -153,7 +191,7 @@ class CaseActivity : AppCompatActivity() {
         val sessions = json.optJSONArray("sessions") ?: JSONArray()
 
         if (pendingSessionId != null) {
-            binding.panelRecords.addView(actionRow())
+            binding.panelRecords.addView(pendingResultBanner())
         }
 
         if (timeline.length() == 0 && sessions.length() == 0) {
@@ -338,6 +376,13 @@ class CaseActivity : AppCompatActivity() {
                 pendingSessionId = result.sessionId
                 pendingChannel = channel
                 sessionStartedAt = System.currentTimeMillis()
+                store.savePendingContact(
+                    sessionId = result.sessionId,
+                    caseId = caseId,
+                    channel = channel,
+                    customerPhone = customerPhone,
+                    startedAt = sessionStartedAt,
+                )
                 selectedTab = Tab.RECORDS
                 currentCase?.let { renderPanels(it) }
                 result.launchUrl?.let { openUrl(it) }
@@ -362,92 +407,18 @@ class CaseActivity : AppCompatActivity() {
         }
     }
 
-    private fun verifyFromLogs() {
-        val sessionId = pendingSessionId
-        val channel = pendingChannel
-        if (sessionId == null || channel == null) {
-            toast("Start a contact first")
-            return
-        }
-        if (channel == "WHATSAPP") {
-            toast("WhatsApp cannot be verified from device logs. Use self-report.")
-            return
-        }
-        val need = if (channel == "CALL") Manifest.permission.READ_CALL_LOG else Manifest.permission.READ_SMS
-        if (ContextCompat.checkSelfPermission(this, need) != PackageManager.PERMISSION_GRANTED) {
-            toast("Permission required: $need")
-            return
-        }
-
-        setLoading(true)
-        lifecycleScope.launch {
-            try {
-                val match = withContext(Dispatchers.IO) {
-                    when (channel) {
-                        "CALL" -> LogMatcher.findCallMatch(this@CaseActivity, customerPhone, sessionStartedAt)
-                        "SMS" -> LogMatcher.findSmsMatch(this@CaseActivity, customerPhone, sessionStartedAt)
-                        else -> null
-                    }
-                }
-                if (match == null) {
-                    toast("No matching outgoing $channel log found yet")
-                    return@launch
-                }
-                val dialDurationSeconds =
-                    ((match.logAtMillis - sessionStartedAt) / 1000).coerceAtLeast(0).toInt()
-                withContext(Dispatchers.IO) {
-                    api.submitProof(
-                        sessionId,
-                        match.logAtIso,
-                        match.durationSeconds,
-                        match.matchedPhone,
-                        match.direction,
-                        dialDurationSeconds,
-                    )
-                }
-                pendingSessionId = null
-                toast("Contact verified from device logs")
-                loadCase()
-            } catch (e: Exception) {
-                toast(e.message ?: "Verify failed")
-            } finally {
-                setLoading(false)
-            }
-        }
-    }
-
-    private fun completeSelf() {
-        val sessionId = pendingSessionId ?: run {
-            toast("Start a contact first")
-            return
-        }
-        setLoading(true)
-        lifecycleScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    api.completeSelfReported(sessionId, "Completed from collector app")
-                }
-                pendingSessionId = null
-                toast("Marked complete")
-                loadCase()
-            } catch (e: Exception) {
-                toast(e.message ?: "Complete failed")
-            } finally {
-                setLoading(false)
-            }
-        }
-    }
-
-    private fun actionRow(): LinearLayout {
+    /**
+     * Banner shown while a contact is pending. The result sheet already opens
+     * automatically on resume for CALL/WHATSAPP; this is the manual fallback
+     * (e.g. for SMS, or if the auto-open was somehow missed).
+     */
+    private fun pendingResultBanner(): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 12.dp())
         }
-        row.addView(actionMini("Verify from logs") { verifyFromLogs() })
-        row.addView(actionMini("Self report") { completeSelf() }.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginStart = 10.dp()
-        })
+        row.addView(actionMini("Log collection result") { showCommunicationResultSheet() })
         return row
     }
 

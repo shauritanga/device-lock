@@ -56,6 +56,7 @@ type CaseDetail = {
     channel: string;
     status: string;
     verificationStatus: string;
+    communicationResult?: string | null;
     body?: string | null;
     durationSeconds?: number | null;
     occurredAt: string;
@@ -403,7 +404,10 @@ export default function CollectionCaseDetail() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold">{t.channel}</span>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {t.communicationResult ? (
+                        <StatusPill status={t.communicationResult} />
+                      ) : null}
                       <StatusPill status={t.verificationStatus} />
                       <StatusPill status={t.status} />
                     </div>

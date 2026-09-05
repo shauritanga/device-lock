@@ -142,32 +142,39 @@ class ApiClient(
         )
     }
 
-    fun submitProof(
+    /**
+     * Logs the collector-reported disposition of a contact session (bottom
+     * sheet shown when they return to the app). When [deviceMatchMeta] is
+     * present (a device call-log match was found) the backend marks the
+     * session DEVICE_LOG_MATCHED instead of SELF_REPORTED.
+     */
+    fun completeContact(
         sessionId: String,
-        logAtIso: String,
+        communicationResult: String,
         durationSeconds: Int?,
-        matchedPhone: String,
-        direction: String = "OUTGOING",
-        dialDurationSeconds: Int? = null,
+        outcomeNote: String?,
+        deviceMatchMeta: JSONObject? = null,
     ): JSONObject {
         val payload = JSONObject()
-            .put("logAt", logAtIso)
-            .put("matchedPhone", matchedPhone)
-            .put("direction", direction)
+            .put("communicationResult", communicationResult)
+            .put("verificationStatus", if (deviceMatchMeta != null) "DEVICE_LOG_MATCHED" else "SELF_REPORTED")
         if (durationSeconds != null) payload.put("durationSeconds", durationSeconds)
-        val meta = JSONObject()
-            .put("source", "android-collector")
-            .put("matchedPhone", matchedPhone)
-        if (dialDurationSeconds != null) meta.put("dialDurationSeconds", dialDurationSeconds)
-        payload.put("deviceMatchMeta", meta)
-        return request("POST", "/collections/contact-sessions/$sessionId/proof", payload, auth = true)
+        if (!outcomeNote.isNullOrBlank()) payload.put("outcomeNote", outcomeNote)
+        if (deviceMatchMeta != null) payload.put("deviceMatchMeta", deviceMatchMeta)
+        return request("POST", "/collections/contact-sessions/$sessionId/complete", payload, auth = true)
     }
 
-    fun completeSelfReported(sessionId: String, note: String?): JSONObject {
+    fun createPromise(
+        caseId: String,
+        promisedAmount: Double,
+        dueDateIso: String,
+        notes: String?,
+    ): JSONObject {
         val payload = JSONObject()
-            .put("verificationStatus", "SELF_REPORTED")
-        if (!note.isNullOrBlank()) payload.put("outcomeNote", note)
-        return request("POST", "/collections/contact-sessions/$sessionId/complete", payload, auth = true)
+            .put("promisedAmount", promisedAmount)
+            .put("dueDate", dueDateIso)
+        if (!notes.isNullOrBlank()) payload.put("notes", notes)
+        return request("POST", "/collections/cases/$caseId/promises", payload, auth = true)
     }
 
     private fun requestArray(method: String, path: String): JSONArray {

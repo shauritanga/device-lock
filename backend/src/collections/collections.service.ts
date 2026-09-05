@@ -1152,6 +1152,7 @@ export class CollectionsService {
         verificationStatus: verification,
         durationSeconds: dto.durationSeconds,
         outcomeNote: dto.outcomeNote,
+        communicationResult: dto.communicationResult,
         deviceMatchMeta: dto.deviceMatchMeta
           ? (dto.deviceMatchMeta as Prisma.InputJsonValue)
           : undefined,
@@ -1165,6 +1166,7 @@ export class CollectionsService {
         status: CommunicationStatus.COMPLETED,
         verificationStatus: verification,
         durationSeconds: dto.durationSeconds,
+        communicationResult: dto.communicationResult,
         body: dto.outcomeNote
           ? `${session.bodyPreview ?? ''}\nOutcome: ${dto.outcomeNote}`.trim()
           : undefined,

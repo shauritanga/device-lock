@@ -86,6 +86,16 @@ enum CommunicationDirection {
   INBOUND
 }
 
+/// Collector-reported disposition of a call/WhatsApp contact, captured
+/// immediately when they return to the app (bottom sheet on CaseActivity).
+enum CommunicationResult {
+  CONNECTED
+  NOT_CONNECTED
+  REPAYMENT_COMMITTED
+  SUSPECTED_FRAUD
+  OTHER
+}
+
 enum CommunicationStatus {
   QUEUED
   SENT
@@ -466,6 +476,7 @@ model ContactSession {
   expiresAt          DateTime
   completedAt        DateTime?
   outcomeNote        String?
+  communicationResult CommunicationResult?
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
 
@@ -498,6 +509,7 @@ model CommunicationLog {
   customerPhone      String?
   body               String?
   durationSeconds    Int?
+  communicationResult CommunicationResult?
   providerRef        String?
   metadata           Json?
   occurredAt         DateTime                  @default(now())

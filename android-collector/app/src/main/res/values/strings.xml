@@ -41,4 +41,16 @@
     <string name="days_overdue">Days overdue</string>
     <string name="session_pending">Session pending — open phone app, then verify</string>
     <string name="verified">Verified from device logs</string>
+
+    <string name="log_result_title">Log collection record</string>
+    <string name="communication_result">Communication result</string>
+    <string name="result_connected">Connected</string>
+    <string name="result_not_connected">Not connected</string>
+    <string name="result_repayment_committed">Repayment committed</string>
+    <string name="result_suspected_fraud">Suspected fraud</string>
+    <string name="result_other">Other</string>
+    <string name="promised_amount">Promised amount</string>
+    <string name="promise_due_date">Promise due date</string>
+    <string name="communication_remark">Remark</string>
+    <string name="submit_result">Submit</string>
 </resources>

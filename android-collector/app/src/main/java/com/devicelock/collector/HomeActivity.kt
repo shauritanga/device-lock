@@ -67,7 +67,19 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (store.isLoggedIn) load()
+        if (!store.isLoggedIn) return
+        val pendingCaseId = store.pendingCaseId
+        if (!pendingCaseId.isNullOrBlank()) {
+            // A call/WhatsApp result is still unlogged (likely the process was
+            // killed while the collector was away) — send them straight back to
+            // log it instead of showing the dashboard.
+            startActivity(
+                Intent(this, CaseActivity::class.java)
+                    .putExtra(CaseActivity.EXTRA_CASE_ID, pendingCaseId),
+            )
+            return
+        }
+        load()
     }
 
     private fun bindDate() {

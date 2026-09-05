@@ -15,6 +15,7 @@ import {
   CollectionCaseStatus,
   CollectionsPackage,
   CollectionsSubscriptionStatus,
+  CommunicationResult,
   ContactChannel,
   ContactVerificationStatus,
   PromiseToPayStatus,
@@ -125,6 +126,11 @@ export class CompleteContactDto {
   @IsOptional()
   @IsString()
   outcomeNote?: string;
+
+  /** Collector-reported disposition, captured on the result bottom sheet. */
+  @IsOptional()
+  @IsEnum(CommunicationResult)
+  communicationResult?: CommunicationResult;
 
   /** Device log match payload from companion app (Phase 2b) */
   @IsOptional()

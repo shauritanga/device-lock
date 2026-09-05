@@ -34,16 +34,20 @@ export function statusTone(status: string): Tone {
     case 'ACKED':
     case 'CONVERTED':
     case 'QUALIFIED':
+    case 'CONNECTED':
+    case 'REPAYMENT_COMMITTED':
       return 'green';
     case 'LOCKED':
     case 'FAILED':
     case 'DEFAULTED':
     case 'OVERDUE':
+    case 'SUSPECTED_FRAUD':
       return 'red';
     case 'PENDING_ENROLLMENT':
     case 'PENDING':
     case 'QUEUED':
     case 'NEW':
+    case 'NOT_CONNECTED':
       return 'amber';
     case 'SENT':
     case 'CONTACTED':

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/txtSheetTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/log_result_title"
+            android:textColor="@color/ink"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtSheetSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/muted"
+            android:textSize="14sp"
+            tools:text="Method: Call" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/communication_result"
+            android:textColor="@color/ink"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <RadioGroup
+            android:id="@+id/radioResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp">
+
+            <RadioButton
+                android:id="@+id/optConnected"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/result_connected" />
+
+            <RadioButton
+                android:id="@+id/optNotConnected"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/result_not_connected" />
+
+            <RadioButton
+                android:id="@+id/optRepaymentCommitted"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/result_repayment_committed" />
+
+            <RadioButton
+                android:id="@+id/optSuspectedFraud"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/result_suspected_fraud" />
+
+            <RadioButton
+                android:id="@+id/optOther"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/result_other" />
+        </RadioGroup>
+
+        <LinearLayout
+            android:id="@+id/groupRepayment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/promised_amount">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/inputPromiseAmount"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:hint="@string/promise_due_date">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/inputPromiseDate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="false" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="@string/communication_remark">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputRemark"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top"
+                android:inputType="textMultiLine"
+                android:minLines="2" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/txtSheetError"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/danger"
+            android:textSize="13sp"
+            android:visibility="gone"
+            tools:text="Choose a communication result"
+            tools:visibility="visible" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSubmitResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="@string/submit_result" />
+
+    </LinearLayout>
+</ScrollView>
