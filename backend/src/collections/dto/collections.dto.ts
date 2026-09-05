@@ -66,9 +66,11 @@ export class CreatePlatformStaffDto {
   @IsEmail()
   email!: string;
 
+  /** Optional: if omitted, a temporary password is generated and emailed. */
+  @IsOptional()
   @IsString()
   @MinLength(8)
-  password!: string;
+  password?: string;
 
   @IsString()
   @MinLength(2)

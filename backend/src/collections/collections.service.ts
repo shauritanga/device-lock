@@ -56,10 +56,18 @@ import {
   UpdatePromiseDto,
 } from './dto/collections.dto';
 import { hashPassword } from '../auth/auth.service';
+import { generateTemporaryPassword } from '../common/crypto.util';
+import { EmailService } from '../notifications/email.service';
 import type { Env } from '../config/env.validation';
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const INVOICE_DUE_DAYS = 14;
+
+const PLATFORM_STAFF_ROLE_LABELS: Record<string, string> = {
+  COLLECTIONS_ADMIN: 'Collections Admin',
+  MASTER_COLLECTOR: 'Master Collector',
+  COLLECTOR: 'Collector',
+};
 
 const OPEN_STATUSES: CollectionCaseStatus[] = [
   CollectionCaseStatus.OPEN,
@@ -84,6 +92,7 @@ export class CollectionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly callProvider: CallProviderService,
+    private readonly email: EmailService,
     config: ConfigService<Env, true>,
   ) {
     this.publicBaseUrl = (
@@ -2674,11 +2683,14 @@ export class CollectionsService {
       throw new BadRequestException('Only COLLECTOR accounts can be assigned to a master');
     }
 
-    const passwordHash = await hashPassword(dto.password);
+    const email = dto.email.toLowerCase().trim();
+    const temporaryPassword = dto.password || generateTemporaryPassword();
+    const passwordHash = await hashPassword(temporaryPassword);
+    let created;
     try {
-      return await this.prisma.user.create({
+      created = await this.prisma.user.create({
         data: {
-          email: dto.email.toLowerCase().trim(),
+          email,
           fullName: dto.fullName,
           passwordHash,
           role: dto.role as UserRole,
@@ -2700,6 +2712,21 @@ export class CollectionsService {
     } catch {
       throw new BadRequestException('Could not create user (email may exist)');
     }
+
+    const emailSent = await this.email.sendCollectorWelcome({
+      to: email,
+      fullName: dto.fullName,
+      email,
+      temporaryPassword,
+      roleLabel: PLATFORM_STAFF_ROLE_LABELS[dto.role] ?? dto.role,
+    });
+    if (!emailSent) {
+      this.logger.warn(
+        `Welcome email not delivered for ${email} — credentials returned in API for admin to share`,
+      );
+    }
+
+    return { ...created, temporaryPassword, emailSent };
   }
 
   async assignCollectorMaster(

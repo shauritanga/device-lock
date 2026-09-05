@@ -155,6 +155,51 @@ export class EmailService {
     `.trim();
     return this.send({ to: opts.to, subject, html, text });
   }
+
+  /** Welcome + login credentials for a new collections staff (collector) account. */
+  async sendCollectorWelcome(opts: {
+    to: string;
+    fullName: string;
+    email: string;
+    temporaryPassword: string;
+    roleLabel: string;
+  }): Promise<boolean> {
+    const first = opts.fullName.trim().split(/\s+/)[0] || opts.fullName;
+    const subject = 'Your Linda Collector account is ready';
+    const text = [
+      `Hi ${first},`,
+      '',
+      `An account has been created for you as a ${opts.roleLabel} on Linda.`,
+      '',
+      'Sign in on the Linda Collector Android app with these details:',
+      `  Email:    ${opts.email}`,
+      `  Password: ${opts.temporaryPassword}`,
+      '',
+      'Please sign in and change your password after your first login.',
+      '',
+      '— The Linda team',
+    ].join('\n');
+    const html = `
+      <div style="font-family:system-ui,-apple-system,sans-serif;line-height:1.5;color:#1a1a1a;max-width:560px">
+        <p>Hi ${escapeHtml(first)},</p>
+        <p>An account has been created for you as a <strong>${escapeHtml(opts.roleLabel)}</strong> on Linda.</p>
+        <p>Sign in on the <strong>Linda Collector</strong> Android app with these details:</p>
+        <table style="border-collapse:collapse;margin:16px 0;width:100%;max-width:420px">
+          <tr>
+            <td style="padding:8px 12px;background:#f4f4f5;border:1px solid #e4e4e7;font-weight:600">Email</td>
+            <td style="padding:8px 12px;border:1px solid #e4e4e7">${escapeHtml(opts.email)}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;background:#f4f4f5;border:1px solid #e4e4e7;font-weight:600">Password</td>
+            <td style="padding:8px 12px;border:1px solid #e4e4e7;font-family:ui-monospace,monospace">${escapeHtml(opts.temporaryPassword)}</td>
+          </tr>
+        </table>
+        <p>Please sign in and change your password after your first login.</p>
+        <p>— The Linda team</p>
+      </div>
+    `.trim();
+    return this.send({ to: opts.to, subject, html, text });
+  }
 }
 
 function escapeHtml(value: string) {

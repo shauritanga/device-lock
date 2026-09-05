@@ -86,9 +86,13 @@ export default function Collectors() {
   const createStaff = useMutation({
     mutationFn: async () =>
       (
-        await api.post('/collections/collectors', {
+        await api.post<{
+          email: string;
+          temporaryPassword: string;
+          emailSent: boolean;
+        }>('/collections/collectors', {
           email: newStaff.email,
-          password: newStaff.password,
+          password: newStaff.password || undefined,
           fullName: newStaff.fullName,
           role: newStaff.role,
           phone: newStaff.phone || undefined,
@@ -101,7 +105,6 @@ export default function Collectors() {
     onSuccess: () => {
       setNewStaff(emptyForm);
       setShowPassword(false);
-      setCreateOpen(false);
       qc.invalidateQueries({ queryKey: ['collections', 'collectors'] });
     },
   });
@@ -456,10 +459,45 @@ export default function Collectors() {
 
       <Modal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => {
+          setCreateOpen(false);
+          createStaff.reset();
+        }}
         title={isMaster ? 'Add collector' : 'Add account'}
         className="max-w-lg"
       >
+        {createStaff.isSuccess && createStaff.data ? (
+          <div className="space-y-4">
+            <p className="text-sm text-emerald-700">
+              Account created for <span className="font-medium">{createStaff.data.email}</span>.{' '}
+              {createStaff.data.emailSent
+                ? 'Login credentials have been emailed to them.'
+                : 'We could not send the welcome email — share these credentials with them directly.'}
+            </p>
+            {!createStaff.data.emailSent ? (
+              <div className="rounded-xl border border-line bg-subtle p-3 text-sm">
+                <div>
+                  Email: <span className="font-mono">{createStaff.data.email}</span>
+                </div>
+                <div>
+                  Password:{' '}
+                  <span className="font-mono">{createStaff.data.temporaryPassword}</span>
+                </div>
+              </div>
+            ) : null}
+            <div className="flex justify-end border-t border-line pt-4">
+              <Button
+                type="button"
+                onClick={() => {
+                  setCreateOpen(false);
+                  createStaff.reset();
+                }}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        ) : (
         <form
           className="space-y-4"
           onSubmit={(e) => {
@@ -494,17 +532,16 @@ export default function Collectors() {
             />
           </Field>
 
-          <Field label="Password">
+          <Field label="Password (optional)">
             <div className="relative">
               <Input
                 type={showPassword ? 'text' : 'password'}
                 value={newStaff.password}
                 onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
-                required
                 minLength={8}
                 autoComplete="new-password"
                 className="pr-11"
-                placeholder="At least 8 characters"
+                placeholder="Leave blank to auto-generate and email"
               />
               <button
                 type="button"
@@ -520,6 +557,9 @@ export default function Collectors() {
                 )}
               </button>
             </div>
+            <p className="mt-1 text-xs text-muted">
+              Either way, the collector receives their sign-in details by email.
+            </p>
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -571,7 +611,14 @@ export default function Collectors() {
               <UserPlus className="h-4 w-4" />
               {createStaff.isPending ? 'Creating…' : 'Create account'}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setCreateOpen(false);
+                createStaff.reset();
+              }}
+            >
               Cancel
             </Button>
           </div>
@@ -582,6 +629,7 @@ export default function Collectors() {
             </p>
           ) : null}
         </form>
+        )}
       </Modal>
 
       <Modal

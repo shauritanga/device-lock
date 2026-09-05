@@ -13,6 +13,7 @@ import {
 } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { hashPassword } from '../auth/auth.service';
+import { generateTemporaryPassword } from '../common/crypto.util';
 import { PrismaService } from '../common/prisma/prisma.service';
 import type { Env } from '../config/env.validation';
 import { COLLECTIONS_PACKAGES } from '../collections/packages';
@@ -67,17 +68,6 @@ function toCollectionsPackage(code?: string | null): CollectionsPackage {
     return CollectionsPackage.BUSINESS;
   }
   return CollectionsPackage.STARTER;
-}
-
-/** Readable temporary password for first login (never stored in plaintext). */
-function generateTemporaryPassword() {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-  const bytes = randomBytes(12);
-  let out = '';
-  for (let i = 0; i < 12; i++) {
-    out += alphabet[bytes[i]! % alphabet.length];
-  }
-  return out;
 }
 
 @Injectable()
