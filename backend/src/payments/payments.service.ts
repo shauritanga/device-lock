@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
@@ -21,7 +22,11 @@ import { CommandsService } from '../commands/commands.service';
 import { ClickPesaService } from '../integrations/clickpesa/clickpesa.service';
 import { TENANT_ID_KEY } from '../common/tenant/tenant-context';
 import { randomToken } from '../common/crypto.util';
-import { InitiatePaymentDto, RecordPaymentDto } from './dto/payment.dto';
+import {
+  InitiatePaymentDto,
+  MarkInstallmentPaidDto,
+  RecordPaymentDto,
+} from './dto/payment.dto';
 import { CollectionsService } from '../collections/collections.service';
 
 const toCents = (d: Prisma.Decimal | number | string) =>
@@ -55,6 +60,86 @@ export class PaymentsService {
     });
     await this.applyConfirmed(payment.id);
     return this.prisma.scoped.payment.findFirst({ where: { id: payment.id } });
+  }
+
+  /**
+   * Mark one installment paid from the console (till/cash received in advance
+   * of — or outside — the mobile-money gateway). Creates a CONFIRMED manual
+   * payment for the installment's outstanding balance (or a smaller partial
+   * amount) and runs the same allocation + unlock/release flow as any payment.
+   *
+   * Payments allocate oldest-first, so earlier unpaid installments must be
+   * cleared before a later one can be marked paid.
+   */
+  async recordInstallmentPayment(
+    installmentId: string,
+    dto: MarkInstallmentPaidDto,
+  ) {
+    const installment = await this.prisma.scoped.installment.findFirst({
+      where: { id: installmentId },
+      include: { loan: { select: { id: true, tenantId: true, status: true } } },
+    });
+    if (!installment?.loan) throw new NotFoundException('Installment not found');
+    if (installment.loan.status !== LoanStatus.ACTIVE) {
+      throw new BadRequestException('Only ACTIVE loans can take payments');
+    }
+    if (
+      installment.status === InstallmentStatus.PAID ||
+      installment.status === InstallmentStatus.WAIVED
+    ) {
+      throw new BadRequestException('Installment is already settled');
+    }
+
+    const remaining =
+      toCents(installment.amount) - toCents(installment.amountPaid);
+    if (remaining <= 0) {
+      throw new BadRequestException('Installment is already settled');
+    }
+
+    const earlierUnpaid = await this.prisma.scoped.installment.findFirst({
+      where: {
+        loanId: installment.loanId,
+        sequence: { lt: installment.sequence },
+        status: {
+          notIn: [InstallmentStatus.PAID, InstallmentStatus.WAIVED],
+        },
+      },
+      orderBy: { sequence: 'asc' },
+      select: { sequence: true },
+    });
+    if (earlierUnpaid) {
+      throw new BadRequestException(
+        `Clear installment #${earlierUnpaid.sequence} first — payments apply oldest-first`,
+      );
+    }
+
+    const payCents =
+      dto.amount !== undefined && dto.amount !== null
+        ? toCents(dto.amount)
+        : remaining;
+    if (payCents <= 0) {
+      throw new BadRequestException('Amount must be greater than zero');
+    }
+    if (payCents > remaining) {
+      throw new BadRequestException(
+        `Amount exceeds the ${fromCents(remaining)} outstanding on installment #${installment.sequence}`,
+      );
+    }
+
+    const payment = await this.prisma.scoped.payment.create({
+      data: {
+        tenantId: installment.loan.tenantId,
+        loanId: installment.loanId,
+        amount: fromCents(payCents),
+        method: dto.method ?? PaymentMethod.CASH,
+        status: PaymentStatus.CONFIRMED,
+      },
+    });
+    await this.applyConfirmed(payment.id);
+    const updated = await this.prisma.scoped.installment.findFirst({
+      where: { id: installmentId },
+    });
+    return { payment, installment: updated };
   }
 
   /** Start a ClickPesa USSD-push collection; payment confirmed later by webhook. */

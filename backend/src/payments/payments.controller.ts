@@ -1,8 +1,12 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PaymentsService } from './payments.service';
-import { InitiatePaymentDto, RecordPaymentDto } from './dto/payment.dto';
+import {
+  InitiatePaymentDto,
+  MarkInstallmentPaidDto,
+  RecordPaymentDto,
+} from './dto/payment.dto';
 
 @Controller('payments')
 export class PaymentsController {
@@ -18,6 +22,15 @@ export class PaymentsController {
   @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
   initiate(@Body() dto: InitiatePaymentDto) {
     return this.payments.initiateMobileMoney(dto);
+  }
+
+  @Post('installments/:installmentId/pay')
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
+  payInstallment(
+    @Param('installmentId') installmentId: string,
+    @Body() dto: MarkInstallmentPaidDto,
+  ) {
+    return this.payments.recordInstallmentPayment(installmentId, dto);
   }
 
   @Get()
