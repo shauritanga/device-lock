@@ -1464,8 +1464,15 @@ export class CollectionsService {
     });
     const loan = await this.prisma.loan.findUnique({
       where: { id: loanId },
-      select: { status: true },
+      select: { status: true, device: { select: { status: true } } },
     });
+
+    // A case closes only when all installments are paid AND the phone is
+    // released. A completed loan whose release the agent hasn't confirmed
+    // yet rests at PAID until onDeviceReleased() closes it.
+    const loanCompleted = loan?.status === LoanStatus.COMPLETED;
+    const phoneReleased = loan?.device?.status === DeviceStatus.RELEASED;
+    const fullySettled = loanCompleted && phoneReleased;
 
     let caseUpdated = false;
     if (
@@ -1479,14 +1486,14 @@ export class CollectionsService {
         await this.prisma.collectionCase.update({
           where: { id: caseRow.id },
           data: {
-            status:
-              loan?.status === LoanStatus.COMPLETED
-                ? CollectionCaseStatus.CLOSED
-                : CollectionCaseStatus.PAID,
+            status: fullySettled
+              ? CollectionCaseStatus.CLOSED
+              : CollectionCaseStatus.PAID,
             closedAt: new Date(),
-            closedReason:
-              loan?.status === LoanStatus.COMPLETED
-                ? 'loan completed'
+            closedReason: fullySettled
+              ? 'loan completed'
+              : loanCompleted
+                ? 'loan completed — awaiting phone release'
                 : 'arrears cleared',
             amountDue: 0,
           },
@@ -1522,6 +1529,43 @@ export class CollectionsService {
     }
 
     return { caseUpdated, ptpKept };
+  }
+
+  /**
+   * Called when the agent confirms RELEASE: the phone is now in the
+   * customer's hands. If the loan is fully paid, the case closes now —
+   * closure means all installments paid AND phone released.
+   */
+  async onDeviceReleased(deviceId: string) {
+    const device = await this.prisma.device.findUnique({
+      where: { id: deviceId },
+      select: {
+        status: true,
+        loan: { select: { id: true, status: true } },
+      },
+    });
+    if (!device || device.status !== DeviceStatus.RELEASED) {
+      return { closed: false };
+    }
+    if (!device.loan || device.loan.status !== LoanStatus.COMPLETED) {
+      return { closed: false };
+    }
+    const caseRow = await this.prisma.collectionCase.findUnique({
+      where: { loanId: device.loan.id },
+    });
+    if (!caseRow || caseRow.status === CollectionCaseStatus.CLOSED) {
+      return { closed: false };
+    }
+    await this.prisma.collectionCase.update({
+      where: { id: caseRow.id },
+      data: {
+        status: CollectionCaseStatus.CLOSED,
+        closedAt: new Date(),
+        closedReason: 'phone released',
+        amountDue: 0,
+      },
+    });
+    return { closed: true };
   }
 
   /** Mark OPEN promises whose dueDate has passed without payment as BROKEN. */

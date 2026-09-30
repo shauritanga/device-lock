@@ -14,6 +14,7 @@ import {
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PushService } from '../notifications/push.service';
 import { SmsService } from '../notifications/sms.service';
+import { CollectionsService } from '../collections/collections.service';
 
 /** Commands the agent must execute, with their resulting device state. */
 const STATUS_AFTER_ACK: Partial<Record<CommandType, DeviceStatus>> = {
@@ -30,6 +31,7 @@ export class CommandsService {
     private readonly prisma: PrismaService,
     private readonly push: PushService,
     private readonly sms: SmsService,
+    private readonly collections: CollectionsService,
   ) {}
 
   /** Queue a command for a device and attempt instant push (fallback: check-in). */
@@ -192,6 +194,18 @@ export class CommandsService {
         },
       });
     });
+
+    // A confirmed release may close the collection case (fully-paid loan +
+    // released phone). Best-effort: never fail the ack over it.
+    if (ok && command.type === CommandType.RELEASE) {
+      try {
+        await this.collections.onDeviceReleased(deviceId);
+      } catch (e) {
+        this.logger.warn(
+          `Collections release hook failed for device ${deviceId}: ${(e as Error).message}`,
+        );
+      }
+    }
 
     return { ok: true };
   }
