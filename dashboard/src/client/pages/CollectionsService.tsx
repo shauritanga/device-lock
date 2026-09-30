@@ -1,12 +1,20 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Headphones, Send } from 'lucide-react';
+import {
+  CalendarCheck,
+  FolderOpen,
+  Headphones,
+  PhoneCall,
+  Send,
+  Wallet,
+} from 'lucide-react';
 import { api } from '@/shared/api/client';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Pill, StatusPill } from '@/shared/components/ui/Pill';
-import { EmptyState } from '@/shared/components/ui/misc';
+import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Button } from '@/shared/components/ui/Button';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
+import { StatCard } from '@/shared/components/StatCard';
 import { CaseList, type CollectionCase } from '@/shared/components/CaseList';
 import { money, shortDate } from '@/shared/lib/format';
 
@@ -76,6 +84,8 @@ type Invoice = {
   tenant: { name: string };
 };
 
+const OPEN_CASE = new Set(['OPEN', 'IN_PROGRESS', 'PROMISED', 'ESCALATED']);
+
 /**
  * Seller-facing view of the managed collections service. Read-only by design:
  * platform collectors do the follow-up, the seller sees what they are paying
@@ -135,33 +145,86 @@ export default function CollectionsService() {
   const handedOver = (referable.data ?? []).filter(
     (l) => l.caseSource === 'SELLER_HANDOFF',
   );
+  const openCases = (cases.data ?? []).filter((c) => OPEN_CASE.has(c.status));
+  const amountUnderCollection = openCases.reduce((sum, c) => sum + Number(c.amountDue), 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-sm text-muted">
-        <Headphones className="h-4 w-4" />
-        Managed collections — our collectors follow up your overdue accounts
-      </div>
-
-      <Card className="p-5">
-        <p className="text-sm font-medium text-muted">Your collections service</p>
-        <p className="mt-1 text-lg font-semibold">
-          {sub?.subscription
-            ? `${sub.subscription.packageCode} · ${sub.subscription.status}`
-            : 'Not subscribed'}
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          Active devices: {sub?.activeDevices ?? '—'}
-          {sub?.suggestedPackage ? ` · Suggested package: ${sub.suggestedPackage}` : ''}
-        </p>
-        {!sub?.subscription ? (
-          <p className="mt-3 rounded-xl bg-canvas px-4 py-3 text-sm text-ink-soft">
-            You are not subscribed yet. Contact your {' '}
-            <span className="font-medium text-ink">Linda</span> account manager to activate
-            managed collections for your company.
+      <Card className="p-5 sm:p-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+            <Headphones className="h-5 w-5" />
+          </div>
+          <div>
+            {sub?.subscription ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-lg font-bold tracking-tight">
+                  {titleCase(sub.subscription.packageCode)} plan
+                </span>
+                <StatusPill status={sub.subscription.status} />
+              </div>
+            ) : (
+              <p className="text-lg font-bold tracking-tight">Not subscribed</p>
+            )}
+            <p className="mt-0.5 text-sm text-muted">
+              {sub?.activeDevices ?? '—'} active devices
+              {sub?.suggestedPackage
+                ? ` · Suggested package: ${titleCase(sub.suggestedPackage)}`
+                : ''}
+            </p>
+          </div>
+        </div>
+        {!sub?.subscription && !mySub.isLoading ? (
+          <p className="mt-4 border-t border-line pt-4 text-sm text-ink-soft">
+            Managed collections is not active yet. Contact your{' '}
+            <span className="font-medium text-ink">Linda</span> account manager to
+            activate follow-up for your company.
           </p>
         ) : null}
       </Card>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          icon={FolderOpen}
+          label="Open cases"
+          value={cases.isLoading ? '—' : openCases.length.toLocaleString()}
+          hint="in managed follow-up"
+          tone="red"
+        />
+        <StatCard
+          icon={Wallet}
+          label="Under collection"
+          value={cases.isLoading ? '—' : money(amountUnderCollection)}
+          hint="open case balances"
+          tone="amber"
+        />
+        <StatCard
+          icon={PhoneCall}
+          label="Contacts this week"
+          value={
+            activity.isLoading || !activity.data
+              ? '—'
+              : activity.data.totals.contacts.toLocaleString()
+          }
+          hint={
+            activity.data
+              ? `${activity.data.totals.collectorsActive} collector${activity.data.totals.collectorsActive === 1 ? '' : 's'} active`
+              : undefined
+          }
+          tone="brand"
+        />
+        <StatCard
+          icon={CalendarCheck}
+          label="Promises logged"
+          value={
+            activity.isLoading || !activity.data
+              ? '—'
+              : activity.data.totals.promises.toLocaleString()
+          }
+          hint="last 7 days"
+          tone="green"
+        />
+      </div>
 
       <Card>
         <CardHeader
@@ -265,96 +328,65 @@ export default function CollectionsService() {
 
       <Card>
         <CardHeader
-          title="Collections packages"
-          subtitle="Priced by the number of active financed devices"
+          title="Collector activity"
+          subtitle="What platform collectors did on your overdue accounts in the last 7 days"
         />
-        <div className="grid gap-3 p-5 sm:grid-cols-3">
-          {(packages.data ?? []).map((p) => (
-            <div
-              key={p.code}
-              className="rounded-xl border border-line bg-canvas/60 p-4 text-sm"
-            >
-              <p className="font-semibold text-ink">{p.label}</p>
-              <p className="mt-1 text-muted">
-                Devices {p.deviceBandMin}–{p.deviceBandMax}
-              </p>
-              <p className="mt-2 font-semibold tabular-nums">
-                {p.priceModel === 'PER_DEVICE'
-                  ? `${money(p.unitPrice ?? 0)} / device / mo`
-                  : `${money(p.flatPrice ?? 0)} / mo`}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {activity.data ? (
-        <Card>
-          <CardHeader
-            title="Collector activity (last 7 days)"
-            subtitle="What platform collectors did on your overdue accounts"
-          />
-          <div className="grid gap-3 p-5 sm:grid-cols-3">
-            <div className="rounded-xl bg-canvas p-4 text-sm">
-              <p className="text-muted">Contacts</p>
-              <p className="text-2xl font-bold tabular-nums">
-                {activity.data.totals.contacts}
-              </p>
-            </div>
-            <div className="rounded-xl bg-canvas p-4 text-sm">
-              <p className="text-muted">Promises logged</p>
-              <p className="text-2xl font-bold tabular-nums">
-                {activity.data.totals.promises}
-              </p>
-            </div>
-            <div className="rounded-xl bg-canvas p-4 text-sm">
-              <p className="text-muted">Collectors active</p>
-              <p className="text-2xl font-bold tabular-nums">
-                {activity.data.totals.collectorsActive}
-              </p>
-            </div>
+        {activity.isLoading ? (
+          <Center><Spinner /></Center>
+        ) : !activity.data ? (
+          <div className="p-5">
+            <EmptyState title="No activity data" />
           </div>
-
-          {(activity.data.byCollector?.length ?? 0) > 0 ? (
-            <div className="space-y-2 border-t border-line px-5 py-4">
-              {activity.data.byCollector.map((c) => (
-                <div
-                  key={c.collectorName}
-                  className="flex justify-between rounded-xl bg-canvas px-4 py-2 text-sm"
-                >
-                  <span className="font-medium">{c.collectorName}</span>
-                  <span className="text-muted">
-                    {c.contacts} contacts · {c.calls} call · {c.sms} sms · {c.wa} wa
-                  </span>
+        ) : (
+          <>
+            {(activity.data.byCollector?.length ?? 0) > 0 ? (
+              <div className="px-2 pb-2 pt-2">
+                <p className="px-3 pb-1 text-xs font-medium text-muted">By collector</p>
+                <div className="divide-y divide-line">
+                  {activity.data.byCollector.map((c) => (
+                    <div
+                      key={c.collectorName}
+                      className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2.5 text-sm"
+                    >
+                      <span className="font-medium">{c.collectorName}</span>
+                      <span className="tabular-nums text-muted">
+                        {plural(c.contacts, 'contact')} · {plural(c.calls, 'call')} ·{' '}
+                        {c.sms.toLocaleString()} SMS · {plural(c.wa, 'WhatsApp message')}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : null}
+              </div>
+            ) : null}
 
-          {(activity.data.recentContacts?.length ?? 0) > 0 ? (
-            <div className="max-h-64 space-y-2 overflow-y-auto border-t border-line p-5">
-              {activity.data.recentContacts.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex flex-wrap items-center justify-between gap-2 text-sm"
-                >
-                  <div>
-                    <p className="font-medium text-ink">{c.customerName}</p>
-                    <p className="text-xs text-muted">
-                      {c.collectorName} · {c.channel} · {shortDate(c.initiatedAt)}
-                    </p>
-                  </div>
-                  <StatusPill status={c.verificationStatus} />
+            <div className="border-t border-line px-2 pb-3 pt-3">
+              <p className="px-3 pb-1 text-xs font-medium text-muted">Latest contacts</p>
+              {(activity.data.recentContacts?.length ?? 0) > 0 ? (
+                <div className="max-h-64 divide-y divide-line overflow-y-auto">
+                  {activity.data.recentContacts.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium text-ink">{c.customerName}</p>
+                        <p className="text-xs text-muted">
+                          {c.collectorName} · {c.channel} · {shortDate(c.initiatedAt)}
+                        </p>
+                      </div>
+                      <StatusPill status={c.verificationStatus} />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="px-3 py-4">
+                  <EmptyState title="No collector contacts this week yet" />
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="border-t border-line p-5">
-              <EmptyState title="No collector contacts this week yet" />
-            </div>
-          )}
-        </Card>
-      ) : null}
+          </>
+        )}
+      </Card>
 
       <CaseList
         title="Your collection cases"
@@ -365,42 +397,92 @@ export default function CollectionsService() {
         showCompany={false}
       />
 
-      <Card>
-        <CardHeader
-          title="Collections invoices"
-          subtitle="Managed follow-up packages, separate from your platform billing"
-        />
-        {!invoices.data?.length ? (
-          <div className="p-5">
-            <EmptyState
-              title="No collections invoices yet"
-              hint="Invoices appear here once your subscription is active."
-            />
-          </div>
-        ) : (
-          <div className="divide-y divide-line px-2 pb-2">
-            {invoices.data.map((inv) => (
-              <div
-                key={inv.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-3 py-3 text-sm"
-              >
-                <div>
-                  <p className="font-semibold">{inv.packageCode}</p>
-                  <p className="text-xs text-muted">
-                    {shortDate(inv.periodStart)} – {shortDate(inv.periodEnd)} ·{' '}
-                    {inv.activeDevices} devices · due {shortDate(inv.dueDate)}
-                    {inv.paidAt ? ` · paid ${shortDate(inv.paidAt)}` : ''}
-                  </p>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader
+            title="Collections packages"
+            subtitle="Priced by the number of active financed devices"
+          />
+          {packages.isLoading ? (
+            <Center><Spinner /></Center>
+          ) : (
+            <div className="divide-y divide-line px-2 pb-2 pt-2">
+              {(packages.data ?? []).map((p) => {
+                const current = sub?.subscription?.packageCode === p.code;
+                return (
+                  <div
+                    key={p.code}
+                    className="flex items-center justify-between gap-3 px-3 py-3 text-sm"
+                  >
+                    <div>
+                      <p className="flex flex-wrap items-center gap-2 font-medium">
+                        {p.label}
+                        {current ? <Pill tone="brand">Current</Pill> : null}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Devices {p.deviceBandMin}–{p.deviceBandMax}
+                      </p>
+                    </div>
+                    <p className="shrink-0 font-semibold tabular-nums">
+                      {p.priceModel === 'PER_DEVICE'
+                        ? `${money(p.unitPrice ?? 0)} / device / mo`
+                        : `${money(p.flatPrice ?? 0)} / mo`}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Collections invoices"
+            subtitle="Managed follow-up packages, separate from platform billing"
+          />
+          {invoices.isLoading ? (
+            <Center><Spinner /></Center>
+          ) : !invoices.data?.length ? (
+            <div className="p-5">
+              <EmptyState
+                title="No collections invoices yet"
+                hint="Invoices appear here once your subscription is active."
+              />
+            </div>
+          ) : (
+            <div className="divide-y divide-line px-2 pb-2 pt-2">
+              {invoices.data.map((inv) => (
+                <div key={inv.id} className="px-3 py-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium">{titleCase(inv.packageCode)}</p>
+                    <p className="font-semibold tabular-nums">{money(inv.total)}</p>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-muted">
+                      {shortDate(inv.periodStart)} – {shortDate(inv.periodEnd)} ·{' '}
+                      {inv.activeDevices} devices · due {shortDate(inv.dueDate)}
+                      {inv.paidAt ? ` · paid ${shortDate(inv.paidAt)}` : ''}
+                    </p>
+                    <StatusPill status={inv.status} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <p className="font-semibold tabular-nums">{money(inv.total)}</p>
-                  <StatusPill status={inv.status} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
+}
+
+function plural(count: number, one: string, many = `${one}s`) {
+  return `${count.toLocaleString()} ${count === 1 ? one : many}`;
+}
+
+function titleCase(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

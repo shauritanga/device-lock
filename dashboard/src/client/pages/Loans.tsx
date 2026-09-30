@@ -32,14 +32,7 @@ export default function Loans() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="hidden text-xl font-bold tracking-tight md:block">Loans</h2>
-          <p className="text-sm text-muted">
-            Open a loan for the installment schedule and payment history. New
-            credit sales are started under Sales.
-          </p>
-        </div>
+      <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={() => navigate('/sales')}>
           <Plus className="h-4 w-4" /> New credit sale
         </Button>
