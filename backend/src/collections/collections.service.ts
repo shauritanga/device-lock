@@ -249,6 +249,14 @@ export class CollectionsService {
       include: { tenant: { select: { id: true, name: true } } },
     });
 
+    // Keep tenant-level platform billing in step: the seller console's
+    // Billing page reads billingPlan/subscriptionStatus, so an activated
+    // collections package must be reflected there too.
+    await this.prisma.tenant.update({
+      where: { id: dto.tenantId },
+      data: { billingPlan: dto.packageCode, subscriptionStatus: 'ACTIVE' },
+    });
+
     const synced = await this.syncOverdueCasesForTenant(dto.tenantId);
     return {
       subscription: sub,
