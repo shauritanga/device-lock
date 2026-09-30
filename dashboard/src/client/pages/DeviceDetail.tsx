@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -10,6 +10,7 @@ import {
   Lock,
   RefreshCw,
   ShieldAlert,
+  Trash2,
   Unlock,
   X,
   XCircle,
@@ -18,6 +19,7 @@ import { api } from '@/shared/api/client';
 import type { Device, DeviceCommand } from '@/shared/api/types';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
+import { Modal } from '@/shared/components/ui/Modal';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { shortDate } from '@/shared/lib/format';
 
@@ -41,8 +43,10 @@ const STATUS_DOT: Record<string, string> = {
 
 export default function DeviceDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: device, isLoading } = useQuery({
     queryKey: ['device', id],
@@ -110,6 +114,13 @@ export default function DeviceDetail() {
       refreshDevice();
     },
   });
+  const del = useMutation({
+    mutationFn: async () => (await api.delete(`/devices/${id}`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['devices'] });
+      navigate('/devices');
+    },
+  });
   const approveSim = useMutation({
     mutationFn: async () =>
       (await api.post(`/devices/${id}/approve-sim-change`, {
@@ -136,9 +147,23 @@ export default function DeviceDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/devices" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Back to devices
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link to="/devices" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+          <ArrowLeft className="h-4 w-4" /> Back to devices
+        </Link>
+        {device.status === 'PENDING_ENROLLMENT' ? (
+          <Button
+            variant="ghost"
+            className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+            onClick={() => {
+              del.reset();
+              setConfirmDelete(true);
+            }}
+          >
+            <Trash2 className="h-4 w-4" /> Delete device
+          </Button>
+        ) : null}
+      </div>
 
       {managementWarning ? (
         <Card className="border-amber-200 bg-amber-50 p-4">
@@ -352,6 +377,41 @@ export default function DeviceDetail() {
           )}
         </div>
       </Card>
+
+      <Modal
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Delete this device?"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            This permanently removes{' '}
+            <span className="font-semibold text-ink">IMEI {device.imei}</span> along
+            with its loan schedule, contract, and enrollment token. The customer
+            record is kept, and the IMEI is freed so the phone can be registered
+            again. This cannot be undone.
+          </p>
+          {del.isError ? (
+            <p className="text-sm text-rose-600">{errorDetail(del.error)}</p>
+          ) : null}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setConfirmDelete(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => del.mutate()}
+              disabled={del.isPending}
+            >
+              {del.isPending ? 'Deleting…' : 'Delete device'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

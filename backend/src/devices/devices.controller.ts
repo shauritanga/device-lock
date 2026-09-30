@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -48,6 +49,12 @@ export class DevicesController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateDeviceDto) {
     return this.devices.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  remove(@Param('id') id: string) {
+    return this.devices.remove(id);
   }
 
   @Post(':id/enrollment-token')

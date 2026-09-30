@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { DeviceStatus, LoanStatus, UserRole } from '@prisma/client';
+import {
+  DeviceStatus,
+  LoanStatus,
+  PaymentStatus,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ProvisioningService } from '../provisioning/provisioning.service';
 import {
@@ -80,6 +85,49 @@ export class DevicesService {
   async update(id: string, dto: UpdateDeviceDto) {
     await this.findOne(id);
     return this.prisma.scoped.device.update({ where: { id }, data: dto });
+  }
+
+  /**
+   * Delete a device that never enrolled (failed QR setup, wrong phone, sale
+   * abandoned). Refuses anything that ever enrolled and anything with confirmed
+   * payments. Cascades the sale artifacts (loan, schedule, contract, tokens,
+   * queued commands, events) and frees the IMEI for re-registration; the
+   * customer record is kept.
+   */
+  async remove(id: string) {
+    const device = await this.prisma.scoped.device.findFirst({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        lastCheckInAt: true,
+        loan: {
+          select: {
+            id: true,
+            payments: {
+              where: { status: PaymentStatus.CONFIRMED },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+    if (!device) throw new NotFoundException('Device not found');
+    if (
+      device.status !== DeviceStatus.PENDING_ENROLLMENT ||
+      device.lastCheckInAt
+    ) {
+      throw new ConflictException(
+        'Only devices that never enrolled can be deleted',
+      );
+    }
+    if (device.loan && device.loan.payments.length > 0) {
+      throw new ConflictException(
+        'This sale has confirmed payments, so it cannot be deleted',
+      );
+    }
+    await this.prisma.scoped.device.delete({ where: { id } });
+    return { deleted: true, id };
   }
 
   async approveSimChange(id: string, reason?: string) {
