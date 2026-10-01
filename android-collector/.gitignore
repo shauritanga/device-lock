@@ -8,3 +8,9 @@
 .externalNativeBuild/
 .cxx/
 /app/build/
+
+# Release signing — never commit keystores or passwords
+/keystore.properties
+*.jks
+*.keystore
+/signing/

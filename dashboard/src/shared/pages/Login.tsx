@@ -53,9 +53,9 @@ export default function Login({
   const form = (
     <div className={cn('w-full', isAdmin ? 'max-w-[380px]' : 'max-w-md')}>
       {!isAdmin && (
-        <div className="mb-6 flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
-            <BrandIcon className="h-5 w-5" />
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-white shadow-sm border border-border p-0.5">
+            <img src="/logos/logo-corrected-icon-only.jpg" alt={brand.name} className="h-full w-full object-contain rounded-lg" />
           </div>
           <div>
             <p className="text-lg font-bold leading-tight tracking-tight">{brand.name}</p>
@@ -66,8 +66,8 @@ export default function Login({
 
       {isAdmin && (
         <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#0369A1] text-white">
-            <BrandIcon className="h-4 w-4" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] overflow-hidden bg-white shadow-sm border border-border p-0.5">
+            <img src="/logos/logo-corrected-icon-only.jpg" alt={brand.name} className="h-full w-full object-contain rounded-lg" />
           </div>
           <div>
             <p className="text-[15px] font-bold tracking-tight text-ink">{brand.name}</p>
@@ -205,9 +205,9 @@ export default function Login({
         />
 
         <div className="relative flex h-full min-h-full flex-col justify-between p-10 xl:p-12">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-white/15 ring-1 ring-white/25 backdrop-blur-sm">
-              <BrandIcon className="h-5 w-5 text-white" />
+          <div className="flex items-center gap-3.5">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-1 shadow-lg ring-1 ring-white/40">
+              <img src="/logos/logo-corrected-icon-only.jpg" alt={brand.name} className="h-full w-full object-contain rounded-lg" />
             </span>
             <div>
               <p className="text-[17px] font-extrabold tracking-tight text-white">

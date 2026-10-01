@@ -162,8 +162,8 @@ export function AppShell({
             sidebarCollapsed ? 'md:justify-center md:px-0' : 'px-2',
           )}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">
-            <BrandIcon className="h-5 w-5" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-white shadow-sm border border-border p-0.5">
+            <img src="/logos/logo-corrected-icon-only.jpg" alt={brand.name} className="h-full w-full object-contain rounded-lg" />
           </div>
           <div className={cn('min-w-0 flex-1', sidebarCollapsed && 'md:hidden')}>
             <p className="truncate text-lg font-bold leading-tight tracking-tight">

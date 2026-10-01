@@ -66,9 +66,9 @@ class CaseActivity : AppCompatActivity() {
         binding.btnCall.setOnClickListener { startChannel("CALL") }
         binding.btnSms.setOnClickListener { startChannel("SMS") }
         binding.btnWhatsapp.setOnClickListener { startChannel("WHATSAPP") }
-        binding.btnFullPayment.setOnClickListener { toast("Payment capture opens in the web console for now") }
-        binding.btnPartialPay.setOnClickListener { toast("Partial payment capture opens in the web console for now") }
-        binding.btnExtension.setOnClickListener { toast("Extension workflow opens in the web console for now") }
+        // Dials a USSD prompt so the customer can enter their PIN to confirm payment.
+        // TODO: wire to Selcom once that integration is ready.
+        binding.btnFullPayment.setOnClickListener { toast("Full payment (Selcom USSD) is not wired up yet") }
         binding.btnPreviousCase.setOnClickListener { toast("Previous/next queue navigation is not linked yet") }
         binding.btnNextCase.setOnClickListener { toast("Previous/next queue navigation is not linked yet") }
 
