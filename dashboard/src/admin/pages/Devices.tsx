@@ -130,7 +130,7 @@ function embed(lat: number, lng: number) {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}`;
 }
 
-/** Platform-admin view of every seller's customer devices, with last-known location for follow-up. */
+/** Platform-admin view of phones handed over for collections follow-up, with last-known location. */
 export default function Devices() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -213,7 +213,10 @@ export default function Devices() {
         </Center>
       ) : !data || data.length === 0 ? (
         <Card className="p-3">
-          <EmptyState title="No devices found" hint="Try a different search or filter." />
+          <EmptyState
+            title="No handed-over phones"
+            hint="Phones appear here once a seller hands the customer over for collections follow-up, or the case opens automatically. Try a different search or filter."
+          />
         </Card>
       ) : view === 'map' ? (
         <Card className="space-y-3 p-3">

@@ -179,11 +179,24 @@ export class CollectionsService {
     const q = query.q?.trim();
     return this.prisma.device.findMany({
       where: {
+        // Only phones handed over for follow-up (an active collections case).
+        loan: {
+          collectionCase: {
+            status: {
+              in: [
+                CollectionCaseStatus.OPEN,
+                CollectionCaseStatus.IN_PROGRESS,
+                CollectionCaseStatus.PROMISED,
+                CollectionCaseStatus.ESCALATED,
+              ],
+            },
+          },
+        },
         ...(query.tenantId ? { tenantId: query.tenantId } : {}),
         ...(query.located === 'true' ? { lastLat: { not: null } } : {}),
         ...(query.status ? { status: query.status } : {}),
         ...(query.overdue === 'true'
-          ? { loan: { installments: { some: { status: 'OVERDUE' as const } } } }
+          ? { AND: [{ loan: { installments: { some: { status: 'OVERDUE' as const } } } }] }
           : {}),
         ...(q
           ? {

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import {
+  CollectionCaseStatus,
   DeviceStatus,
   LoanStatus,
   PaymentStatus,
@@ -185,9 +186,24 @@ export class DevicesService {
     }
     const device = await this.prisma.scoped.device.findFirst({
       where: { id },
-      select: { id: true, tenantId: true, status: true },
+      select: {
+        id: true,
+        tenantId: true,
+        status: true,
+        loan: { select: { collectionCase: { select: { status: true } } } },
+      },
     });
     if (!device) throw new NotFoundException('Device not found');
+    const caseStatus = device.loan?.collectionCase?.status;
+    if (
+      !caseStatus ||
+      caseStatus === CollectionCaseStatus.PAID ||
+      caseStatus === CollectionCaseStatus.CLOSED
+    ) {
+      throw new ForbiddenException(
+        'This phone has not been handed over for collections follow-up, so it cannot be locked or unlocked by the platform',
+      );
+    }
     if (
       device.status === DeviceStatus.PENDING_ENROLLMENT ||
       device.status === DeviceStatus.RELEASED ||

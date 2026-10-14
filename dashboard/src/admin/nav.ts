@@ -71,7 +71,7 @@ export const ADMIN_NAV: NavGroup[] = [
         to: '/devices',
         label: 'Devices',
         icon: Smartphone,
-        subtitle: 'Customers’ phones across all sellers, with last-known location',
+        subtitle: 'Phones handed over for follow-up — status, location, lock and unlock',
       },
       {
         to: '/collectors',
