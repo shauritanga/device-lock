@@ -14,6 +14,9 @@ import { StatusPill } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Field, Input } from '@/shared/components/ui/Field';
 import { money, shortDate } from '@/shared/lib/format';
+import { useAuth } from '@/shared/auth/AuthContext';
+import { PLATFORM_ADMIN_ROLES, roleAllowed } from '@/shared/auth/roles';
+import { DeviceLockActions, DeviceLockDialog } from '../components/DeviceLockDialog';
 
 type CaseDetail = {
   id: string;
@@ -22,6 +25,7 @@ type CaseDetail = {
   customerName: string | null;
   customerPhone: string | null;
   isRepeatCustomer: boolean;
+  deviceId?: string | null;
   deviceImei: string | null;
   deviceModel: string | null;
   deviceStatus: string | null;
@@ -92,6 +96,9 @@ type CaseDetail = {
 export default function CollectionCaseDetail() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const canLockDevices = roleAllowed(user?.role, PLATFORM_ADMIN_ROLES);
+  const [lockAction, setLockAction] = useState<'LOCK' | 'UNLOCK' | null>(null);
   const [smsBody, setSmsBody] = useState(
     'Hello, this is a reminder about your device installment. Please pay today.',
   );
@@ -306,6 +313,14 @@ export default function CollectionCaseDetail() {
                 ) : null}
               </dd>
             </div>
+            {canLockDevices && data.deviceId && data.deviceStatus ? (
+              <div className="col-span-2 flex flex-wrap gap-2">
+                <DeviceLockActions
+                  device={lockTarget(data)}
+                  onAction={setLockAction}
+                />
+              </div>
+            ) : null}
             <div className="col-span-2">
               <dt className="text-muted">Assigned to</dt>
               <dd>
@@ -666,6 +681,23 @@ export default function CollectionCaseDetail() {
           </div>
         </Card>
       </div>
+
+      <DeviceLockDialog
+        device={lockAction && data.deviceId ? lockTarget(data) : null}
+        action={lockAction ?? 'LOCK'}
+        onClose={() => setLockAction(null)}
+      />
     </div>
   );
+}
+
+function lockTarget(d: CaseDetail) {
+  return {
+    id: d.deviceId ?? '',
+    imei: d.deviceImei ?? '',
+    model: d.deviceModel,
+    customerName: d.customerName,
+    company: d.companyName,
+    status: d.deviceStatus ?? '',
+  };
 }

@@ -24,6 +24,9 @@ import {
   UpdateDeviceDto,
 } from './dto/device.dto';
 
+const isPlatformAdmin = (role: UserRole) =>
+  role === UserRole.SUPER_ADMIN || role === UserRole.COLLECTIONS_ADMIN;
+
 @Controller('devices')
 export class DevicesController {
   constructor(
@@ -73,30 +76,51 @@ export class DevicesController {
     return this.devices.enrollmentPayload(id);
   }
 
+  /** Platform admins lock across all sellers; a reason is mandatory and audited. */
   @Post(':id/lock')
   @HttpCode(202)
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
-  lock(
+  @Roles(
+    UserRole.OWNER,
+    UserRole.MANAGER,
+    UserRole.AGENT,
+    UserRole.SUPER_ADMIN,
+    UserRole.COLLECTIONS_ADMIN,
+  )
+  async lock(
     @Param('id') id: string,
     @Body() dto: LockDeviceDto,
     @CurrentUser() actor: AuthUser,
   ) {
+    let reason = dto.reason;
+    if (isPlatformAdmin(actor.role)) {
+      reason = await this.devices.auditAdminLockAction(id, 'LOCK', actor, dto.reason);
+    }
     return this.commands.queue(id, CommandType.LOCK, {
-      reason: dto.reason,
+      reason,
       issuedById: actor.userId,
     });
   }
 
   @Post(':id/unlock')
   @HttpCode(202)
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
-  unlock(
+  @Roles(
+    UserRole.OWNER,
+    UserRole.MANAGER,
+    UserRole.AGENT,
+    UserRole.SUPER_ADMIN,
+    UserRole.COLLECTIONS_ADMIN,
+  )
+  async unlock(
     @Param('id') id: string,
     @Body() dto: LockDeviceDto,
     @CurrentUser() actor: AuthUser,
   ) {
+    let reason = dto.reason;
+    if (isPlatformAdmin(actor.role)) {
+      reason = await this.devices.auditAdminLockAction(id, 'UNLOCK', actor, dto.reason);
+    }
     return this.commands.queue(id, CommandType.UNLOCK, {
-      reason: dto.reason,
+      reason,
       issuedById: actor.userId,
     });
   }

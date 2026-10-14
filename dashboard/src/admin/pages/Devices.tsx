@@ -12,6 +12,9 @@ import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Input } from '@/shared/components/ui/Field';
 import { cn } from '@/shared/lib/cn';
+import { useAuth } from '@/shared/auth/AuthContext';
+import { PLATFORM_ADMIN_ROLES, roleAllowed } from '@/shared/auth/roles';
+import { DeviceLockActions, DeviceLockDialog } from '../components/DeviceLockDialog';
 
 type AdminDevice = {
   id: string;
@@ -130,6 +133,9 @@ function embed(lat: number, lng: number) {
 /** Platform-admin view of every seller's customer devices, with last-known location for follow-up. */
 export default function Devices() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canLockDevices = roleAllowed(user?.role, PLATFORM_ADMIN_ROLES);
+  const [lockAction, setLockAction] = useState<'LOCK' | 'UNLOCK' | null>(null);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [view, setView] = useState<'list' | 'map'>('list');
@@ -347,6 +353,21 @@ export default function Devices() {
                 No location yet. It appears after the phone's next check-in with location on.
               </p>
             )}
+            {canLockDevices ? (
+              <div className="flex flex-wrap gap-2 border-t border-line pt-3">
+                <DeviceLockActions
+                  device={{
+                    id: selected.id,
+                    imei: selected.imei,
+                    model: selected.model,
+                    customerName: selected.customer?.fullName,
+                    company: selected.tenant.name,
+                    status: selected.status,
+                  }}
+                  onAction={setLockAction}
+                />
+              </div>
+            ) : null}
             {selected.loan?.collectionCase ? (
               <button
                 type="button"
@@ -359,6 +380,23 @@ export default function Devices() {
           </div>
         ) : null}
       </Modal>
+
+      <DeviceLockDialog
+        device={
+          selected && lockAction
+            ? {
+                id: selected.id,
+                imei: selected.imei,
+                model: selected.model,
+                customerName: selected.customer?.fullName,
+                company: selected.tenant.name,
+                status: selected.status,
+              }
+            : null
+        }
+        action={lockAction ?? 'LOCK'}
+        onClose={() => setLockAction(null)}
+      />
     </div>
   );
 }

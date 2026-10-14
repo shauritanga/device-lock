@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -167,6 +168,46 @@ export class DevicesService {
    * for a write-off / recovery when the loan is not yet settled. Returns the
    * reason string to record on the command; throws if release is not allowed.
    */
+  /**
+   * Guards and audits a lock/unlock issued by a platform admin (who has no
+   * tenant of their own). Records who did it and why in the device history so
+   * the seller can see it.
+   */
+  async auditAdminLockAction(
+    id: string,
+    action: 'LOCK' | 'UNLOCK',
+    actor: { userId: string; role: UserRole },
+    reason: string | undefined,
+  ) {
+    const trimmed = reason?.trim() ?? '';
+    if (trimmed.length < 3) {
+      throw new BadRequestException('A reason is required (at least 3 characters)');
+    }
+    const device = await this.prisma.scoped.device.findFirst({
+      where: { id },
+      select: { id: true, tenantId: true, status: true },
+    });
+    if (!device) throw new NotFoundException('Device not found');
+    if (
+      device.status === DeviceStatus.PENDING_ENROLLMENT ||
+      device.status === DeviceStatus.RELEASED ||
+      device.status === DeviceStatus.WIPED
+    ) {
+      throw new ConflictException(
+        `Cannot ${action.toLowerCase()} a device that is ${device.status.toLowerCase().replace('_', ' ')}`,
+      );
+    }
+    await this.prisma.scoped.deviceEvent.create({
+      data: {
+        tenantId: device.tenantId,
+        deviceId: id,
+        type: action === 'LOCK' ? 'ADMIN_LOCK_QUEUED' : 'ADMIN_UNLOCK_QUEUED',
+        metadata: { reason: trimmed, byUserId: actor.userId, byRole: actor.role },
+      },
+    });
+    return trimmed;
+  }
+
   async assertReleasable(
     id: string,
     actorRole: UserRole,
