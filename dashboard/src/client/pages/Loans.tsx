@@ -8,7 +8,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { StatusPill } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
-import { money, shortDate } from '@/shared/lib/format';
+import { money, shortDate, termLabel } from '@/shared/lib/format';
 
 /**
  * Loan book — schedules and repayment status.
@@ -64,7 +64,7 @@ export default function Loans() {
                 <td className="px-4 py-3">
                   {money(l.principal, l.currency)}
                 </td>
-                <td className="px-4 py-3 text-muted">{l.termMonths} mo</td>
+                <td className="px-4 py-3 text-muted">{termLabel(l)}</td>
                 <td className="px-4 py-3">
                   <StatusPill status={l.status} />
                 </td>

@@ -27,6 +27,7 @@ import {
   CreatePlatformStaffDto,
   CreatePromiseDto,
   ListCasesQuery,
+  ListDevicesQuery,
   CollectorPerformanceQuery,
   GenerateCollectionsInvoiceDto,
   MarkInvoicePaidDto,
@@ -378,6 +379,12 @@ export class CollectionsController {
       );
     }
     return this.collections.saveCustomerKycPhotos(id, files, actor);
+  }
+
+  @Get('devices')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  listDevices(@Query() query: ListDevicesQuery, @CurrentUser() actor: AuthUser) {
+    return this.collections.listDevices(query, actor);
   }
 
   @Get('reports/paid-cases')

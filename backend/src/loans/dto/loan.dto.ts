@@ -1,9 +1,12 @@
+import { PaymentFrequency } from '@prisma/client';
 import {
+  IsEnum,
   IsInt,
   IsISO8601,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
 
@@ -29,9 +32,16 @@ export class CreateLoanDto {
   @Min(0)
   interestRate?: number;
 
+  /** Installment frequency; defaults to MONTHLY. */
+  @IsOptional()
+  @IsEnum(PaymentFrequency)
+  frequency?: PaymentFrequency;
+
+  /** Number of installments (days / weeks / months depending on frequency). */
   @IsInt()
   @Min(1)
-  termMonths!: number;
+  @Max(730)
+  termPeriods!: number;
 
   @IsOptional()
   @IsString()

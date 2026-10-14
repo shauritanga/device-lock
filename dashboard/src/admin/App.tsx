@@ -8,6 +8,7 @@ import Collections from './pages/Collections';
 import CollectionCaseDetail from './pages/CollectionCaseDetail';
 import CollectionsReports from './pages/CollectionsReports';
 import CallCentre from './pages/CallCentre';
+import Devices from './pages/Devices';
 import Companies from './pages/Companies';
 import CompanyDetail from './pages/CompanyDetail';
 import Collectors from './pages/Collectors';
@@ -42,6 +43,16 @@ export default function AdminApp() {
           <Shell>
             <RequireRole allow={STAFFING_ADMIN_ROLES}>
               <CallCentre />
+            </RequireRole>
+          </Shell>
+        }
+      />
+      <Route
+        path="/devices"
+        element={
+          <Shell>
+            <RequireRole allow={PLATFORM_ADMIN_ROLES}>
+              <Devices />
             </RequireRole>
           </Shell>
         }

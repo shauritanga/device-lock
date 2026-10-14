@@ -255,6 +255,9 @@ class DeviceLockController(private val context: Context) {
             Manifest.permission.RECEIVE_SMS,
             Manifest.permission.READ_PHONE_STATE,
             Manifest.permission.READ_PHONE_NUMBERS,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
         )
     }
 }

@@ -26,7 +26,9 @@ export interface Customer {
   fullName: string;
   phone: string;
   nationalId?: string | null;
-  idDocumentType?: 'NATIONAL_ID' | 'VOTER_ID' | 'DRIVING_LICENSE' | null;
+  idDocumentType?: 'NATIONAL_ID' | 'VOTER_ID' | 'DRIVING_LICENSE' | 'PASSPORT' | null;
+  selfiePhotoUrl?: string | null;
+  idCardPhotoUrl?: string | null;
   address?: string | null;
   createdAt: string;
 }
@@ -88,12 +90,16 @@ export interface Installment {
   paidAt?: string | null;
 }
 
+export type PaymentFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
 export interface Loan {
   id: string;
   principal: string;
   downPayment: string;
   interestRate: string;
   termMonths: number;
+  frequency?: PaymentFrequency;
+  termPeriods?: number;
   currency: string;
   status: string;
   startDate: string;

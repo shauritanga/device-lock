@@ -100,6 +100,7 @@ object AgentApi {
         isDeviceOwner: Boolean,
         managedRestrictionsApplied: Boolean,
         simInfo: SimInfo,
+        location: LocationFix? = null,
     ): CheckinResult {
         val body = JSONObject()
             .put("lockState", lockState)
@@ -107,6 +108,11 @@ object AgentApi {
             .put("managedRestrictionsApplied", managedRestrictionsApplied)
         fcmToken?.let { body.put("fcmToken", it) }
         putSimInfo(body, simInfo)
+        location?.let {
+            body.put("latitude", it.latitude)
+            body.put("longitude", it.longitude)
+            it.accuracy?.let { a -> body.put("locationAccuracy", a.toDouble()) }
+        }
         val json = post("$baseUrl/agent/checkin", body, bearer = agentToken)
         val arr: JSONArray = json.optJSONArray("commands") ?: JSONArray()
         val commands = ArrayList<AgentCommand>(arr.length())
@@ -288,3 +294,6 @@ object AgentApi {
     private fun JSONObject.optNullableString(name: String): String? =
         if (isNull(name)) null else optString(name).takeIf { it.isNotBlank() }
 }
+
+/** Last-known GPS/network fix attached to a check-in. */
+data class LocationFix(val latitude: Double, val longitude: Double, val accuracy: Float?)

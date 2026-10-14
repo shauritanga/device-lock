@@ -4,6 +4,7 @@ import {
   Headphones,
   Inbox,
   LayoutDashboard,
+  Smartphone,
   PhoneCall,
   ShieldCheck,
   UserCog,
@@ -65,6 +66,12 @@ export const ADMIN_NAV: NavGroup[] = [
         label: 'Companies',
         icon: Building2,
         subtitle: 'Seller companies — open one for subscription and invoices',
+      },
+      {
+        to: '/devices',
+        label: 'Devices',
+        icon: Smartphone,
+        subtitle: 'Customers’ phones across all sellers, with last-known location',
       },
       {
         to: '/collectors',

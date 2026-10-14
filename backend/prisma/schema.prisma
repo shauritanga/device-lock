@@ -149,6 +149,13 @@ enum IdDocumentType {
   NATIONAL_ID
   VOTER_ID
   DRIVING_LICENSE
+  PASSPORT
+}
+
+enum PaymentFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
 }
 
 enum InstallmentStatus {
@@ -631,6 +638,12 @@ model Device {
   simLastChangedAt       DateTime?
   simChangeApprovedAt    DateTime?
 
+  // Last-known GPS fix reported by the agent at check-in
+  lastLat              Float?
+  lastLng              Float?
+  lastLocationAccuracy Float?
+  lastLocationAt       DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -673,7 +686,9 @@ model Loan {
   principal    Decimal    @db.Decimal(14, 2) // device price financed
   downPayment  Decimal    @default(0) @db.Decimal(14, 2)
   interestRate Decimal    @default(0) @db.Decimal(5, 2) // % flat, simple model for MVP
-  termMonths   Int
+  termMonths   Int // approximate length in months (exact for MONTHLY loans)
+  frequency    PaymentFrequency @default(MONTHLY)
+  termPeriods  Int              @default(0) // number of installments (days / weeks / months)
   currency     String     @default("TZS")
   status       LoanStatus @default(ACTIVE)
   startDate    DateTime   @default(now())

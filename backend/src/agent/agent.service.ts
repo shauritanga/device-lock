@@ -101,6 +101,14 @@ export class AgentService {
         ...(dto.fcmToken ? { fcmToken: dto.fcmToken } : {}),
         ...sim,
         ...(simFingerprint ? { simFingerprint } : {}),
+        ...(dto.latitude != null && dto.longitude != null
+          ? {
+              lastLat: dto.latitude,
+              lastLng: dto.longitude,
+              lastLocationAccuracy: dto.locationAccuracy ?? null,
+              lastLocationAt: new Date(),
+            }
+          : {}),
       },
     });
 

@@ -45,6 +45,7 @@ import {
   AssignCollectorMasterDto,
   CreatePromiseDto,
   ListCasesQuery,
+  ListDevicesQuery,
   CollectorPerformanceQuery,
   GenerateCollectionsInvoiceDto,
   MarkInvoicePaidDto,
@@ -170,6 +171,74 @@ export class CollectionsService {
       throw new BadRequestException('Platform users have no seller subscription');
     }
     return this.getSubscriptionForTenant(actor.tenantId);
+  }
+
+  /** Platform-admin view of every seller's customer devices, with last-known location. */
+  async listDevices(query: ListDevicesQuery, actor: AuthUser) {
+    this.assertPlatformAdmin(actor);
+    const q = query.q?.trim();
+    return this.prisma.device.findMany({
+      where: {
+        ...(query.tenantId ? { tenantId: query.tenantId } : {}),
+        ...(query.located === 'true' ? { lastLat: { not: null } } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.overdue === 'true'
+          ? { loan: { installments: { some: { status: 'OVERDUE' as const } } } }
+          : {}),
+        ...(q
+          ? {
+              OR: [
+                { imei: { contains: q, mode: 'insensitive' as const } },
+                {
+                  customer: {
+                    OR: [
+                      { fullName: { contains: q, mode: 'insensitive' as const } },
+                      { phone: { contains: q } },
+                    ],
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+      select: {
+        id: true,
+        imei: true,
+        make: true,
+        model: true,
+        status: true,
+        lastCheckInAt: true,
+        lockedAt: true,
+        lastLat: true,
+        lastLng: true,
+        lastLocationAccuracy: true,
+        lastLocationAt: true,
+        tenant: { select: { id: true, name: true } },
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            address: true,
+            selfiePhotoUrl: true,
+          },
+        },
+        loan: {
+          select: {
+            id: true,
+            status: true,
+            frequency: true,
+            collectionCase: { select: { id: true, status: true } },
+            installments: {
+              where: { status: 'OVERDUE' as const },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
   }
 
   async listSubscriptions(actor: AuthUser) {

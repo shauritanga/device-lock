@@ -25,3 +25,16 @@ export function initials(name: string): string {
     .join('')
     .toUpperCase();
 }
+
+const FREQ_UNIT = { DAILY: 'day', WEEKLY: 'week', MONTHLY: 'month' } as const;
+
+/** e.g. "30 days", "12 weeks", "6 months". Falls back to termMonths for legacy loans. */
+export function termLabel(loan: {
+  frequency?: keyof typeof FREQ_UNIT;
+  termPeriods?: number;
+  termMonths: number;
+}): string {
+  const unit = FREQ_UNIT[loan.frequency ?? 'MONTHLY'];
+  const n = loan.termPeriods || loan.termMonths;
+  return `${n} ${unit}${n === 1 ? '' : 's'}`;
+}

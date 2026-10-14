@@ -101,6 +101,7 @@ class AgentManager(context: Context) {
             controller.isDeviceOwner(),
             controller.managedRestrictionsApplied(),
             readSimInfo(),
+            readLastLocation(),
         )
         store.lastSuccessfulCheckinAt = System.currentTimeMillis()
         checkin.smsSecret?.let { store.smsSecret = it }
@@ -315,6 +316,28 @@ class AgentManager(context: Context) {
     }.getOrDefault(0L)
 
     @Suppress("DEPRECATION")
+    /** Freshest last-known fix across providers, or null if no permission / no fix yet. */
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun readLastLocation(): LocationFix? {
+        val granted = appContext.checkSelfPermission(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            appContext.checkSelfPermission(
+                android.Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!granted) return null
+        val lm = appContext.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+        val best = runCatching { lm.getProviders(true) }.getOrNull().orEmpty()
+            .mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
+            .maxByOrNull { it.time }
+            ?: return null
+        return LocationFix(
+            best.latitude,
+            best.longitude,
+            if (best.hasAccuracy()) best.accuracy else null,
+        )
+    }
+
     private fun readSimInfo(): SimInfo {
         val tm = appContext.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         return SimInfo(

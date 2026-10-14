@@ -1,11 +1,31 @@
 import { type InputHTMLAttributes, type SelectHTMLAttributes, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  children,
+  required,
+  hint,
+  error,
+}: {
+  label: string;
+  children: ReactNode;
+  required?: boolean;
+  hint?: string;
+  error?: string | null;
+}) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-ink">
+        {label}
+        {required ? <span className="ml-0.5 text-rose-600">*</span> : null}
+      </span>
       {children}
+      {error ? (
+        <span className="mt-1 block text-xs text-rose-600">{error}</span>
+      ) : hint ? (
+        <span className="mt-1 block text-xs text-muted">{hint}</span>
+      ) : null}
     </label>
   );
 }

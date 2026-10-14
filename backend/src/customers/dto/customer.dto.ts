@@ -17,9 +17,9 @@ export class CreateCustomerDto {
   @IsEnum(IdDocumentType)
   idDocumentType!: IdDocumentType;
 
-  @IsOptional()
   @IsString()
-  address?: string;
+  @MinLength(3)
+  address!: string;
 }
 
 export class UpdateCustomerDto {
@@ -44,5 +44,6 @@ export class UpdateCustomerDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(3)
   address?: string;
 }

@@ -18,6 +18,7 @@ import {
   CommunicationResult,
   ContactChannel,
   ContactVerificationStatus,
+  DeviceStatus,
   PromiseToPayStatus,
 } from '@prisma/client';
 
@@ -61,6 +62,31 @@ export class ListCasesQuery {
   @IsOptional()
   @IsString()
   mine?: string;
+}
+
+export class ListDevicesQuery {
+  @IsOptional()
+  @IsUUID()
+  tenantId?: string;
+
+  /** Matches customer name/phone, device IMEI. */
+  @IsOptional()
+  @IsString()
+  q?: string;
+
+  /** 'true' => only devices with a reported location. */
+  @IsOptional()
+  @IsString()
+  located?: string;
+
+  /** 'true' => only devices whose loan has an overdue installment. */
+  @IsOptional()
+  @IsString()
+  overdue?: string;
+
+  @IsOptional()
+  @IsEnum(DeviceStatus)
+  status?: DeviceStatus;
 }
 
 export class CreatePlatformStaffDto {

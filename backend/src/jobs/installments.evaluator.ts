@@ -106,6 +106,7 @@ export class InstallmentsEvaluator {
       select: {
         id: true,
         currency: true,
+        frequency: true,
         customer: { select: { phone: true, fullName: true } },
         device: { select: { id: true, status: true, graceDays: true } },
         installments: {
@@ -130,7 +131,11 @@ export class InstallmentsEvaluator {
       const installment = loan.installments[0];
       if (!installment || !loan.device || !loan.customer?.phone) continue;
 
-      const grace = loan.device.graceDays ?? tenantGraceDays;
+      // A tenant-wide grace of several days would span multiple daily
+      // installments, so daily loans get at most 1 day unless overridden per device.
+      const tenantGrace =
+        loan.frequency === 'DAILY' ? Math.min(tenantGraceDays, 1) : tenantGraceDays;
+      const grace = loan.device.graceDays ?? tenantGrace;
       const dueDay = startOfDay(installment.dueDate);
       const daysUntilDue = daysBetween(today, dueDay);
       const daysOverdue = daysBetween(dueDay, today);

@@ -15,6 +15,7 @@ const ID_TYPES = [
   { value: 'NATIONAL_ID', label: 'National ID' },
   { value: 'VOTER_ID', label: 'Voter ID' },
   { value: 'DRIVING_LICENSE', label: 'Driving licence' },
+  { value: 'PASSPORT', label: 'Passport' },
 ] as const;
 
 function idTypeLabel(type?: string | null) {
@@ -28,6 +29,7 @@ export default function Customers() {
     fullName: '',
     phone: '',
     nationalId: '',
+    address: '',
     idDocumentType: 'NATIONAL_ID' as (typeof ID_TYPES)[number]['value'],
   });
 
@@ -36,15 +38,26 @@ export default function Customers() {
     queryFn: async () => (await api.get<Customer[]>('/customers')).data,
   });
 
+  const [photo, setPhoto] = useState<File | null>(null);
+
   const create = useMutation({
-    mutationFn: async () => (await api.post('/customers', form)).data,
+    mutationFn: async () => {
+      if (!photo) throw new Error('Customer photo is required');
+      const customer = (await api.post<Customer>('/customers', form)).data;
+      const body = new FormData();
+      body.append('photo', photo);
+      return (await api.post<Customer>(`/customers/${customer.id}/photos`, body))
+        .data;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['customers'] });
       setOpen(false);
+      setPhoto(null);
       setForm({
         fullName: '',
         phone: '',
         nationalId: '',
+        address: '',
         idDocumentType: 'NATIONAL_ID',
       });
     },
@@ -144,6 +157,24 @@ export default function Customers() {
               minLength={4}
             />
           </Field>
+          <Field label="Physical address">
+            <Input
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              placeholder="Street, ward, city"
+              required
+              minLength={3}
+            />
+          </Field>
+          <Field label="Customer photo">
+            <Input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="user"
+              onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+              required
+            />
+          </Field>
           {create.isError ? (
             <p className="text-sm text-rose-600">Could not create customer.</p>
           ) : null}
@@ -151,7 +182,7 @@ export default function Customers() {
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending || !photo}>
               {create.isPending ? 'Saving…' : 'Create'}
             </Button>
           </div>

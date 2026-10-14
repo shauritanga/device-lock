@@ -4,10 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { LoanStatus } from '@prisma/client';
+import { LoanStatus, PaymentFrequency } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateLoanDto } from './dto/loan.dto';
-import { generateSchedule } from './installment.util';
+import { approxMonths, generateSchedule } from './installment.util';
 
 @Injectable()
 export class LoansService {
@@ -35,12 +35,17 @@ export class LoansService {
       throw new ConflictException('Device already has a loan');
     }
 
+    const frequency = dto.frequency ?? PaymentFrequency.MONTHLY;
+    if (frequency === PaymentFrequency.MONTHLY && dto.termPeriods > 60) {
+      throw new BadRequestException('Monthly loans are limited to 60 months');
+    }
     const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
     const schedule = generateSchedule({
       principal: dto.principal,
       downPayment,
       interestRatePct: interestRate,
-      termMonths: dto.termMonths,
+      termPeriods: dto.termPeriods,
+      frequency,
       startDate,
     });
 
@@ -53,7 +58,9 @@ export class LoansService {
           principal: dto.principal,
           downPayment,
           interestRate,
-          termMonths: dto.termMonths,
+          termMonths: approxMonths(dto.termPeriods, frequency),
+          termPeriods: dto.termPeriods,
+          frequency,
           currency: dto.currency ?? 'TZS',
           startDate,
           status: LoanStatus.ACTIVE,
