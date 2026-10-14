@@ -34,6 +34,14 @@ type CaseDetail = {
   assignedTo?: { fullName: string; phone?: string | null } | null;
   idCardPhotoUrl: string | null;
   selfiePhotoUrl: string | null;
+  guardians?: Array<{
+    id: string;
+    fullName: string;
+    relationship: string;
+    phone: string;
+    address: string;
+    photoUrl: string;
+  }>;
   occupation: string | null;
   employerName: string | null;
   employerPhone: string | null;
@@ -547,6 +555,33 @@ export default function CollectionCaseDetail() {
               </div>
             </div>
           </form>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Guardians"
+            subtitle="People who vouch for this customer — call them if the customer is unreachable"
+          />
+          <ul className="divide-y divide-line">
+            {(data.guardians ?? []).length === 0 ? (
+              <li className="p-5 text-sm text-muted">No guardians on file.</li>
+            ) : (
+              data.guardians!.map((g) => (
+                <li key={g.id} className="flex items-center gap-3 p-4">
+                  <img src={g.photoUrl} alt={g.fullName} className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                  <div className="min-w-0 flex-1 text-sm">
+                    <p className="font-medium text-ink">
+                      {g.fullName} <span className="font-normal text-muted">· {g.relationship}</span>
+                    </p>
+                    <p className="truncate text-muted">{g.address}</p>
+                  </div>
+                  <a href={`tel:${g.phone}`} className="shrink-0 text-sm font-medium text-brand-700 hover:underline">
+                    {g.phone}
+                  </a>
+                </li>
+              ))
+            )}
+          </ul>
         </Card>
 
         <Card>

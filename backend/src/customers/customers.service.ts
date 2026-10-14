@@ -8,7 +8,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Env } from '../config/env.validation';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
+import {
+  CreateCustomerDto,
+  CreateGuardianDto,
+  UpdateCustomerDto,
+} from './dto/customer.dto';
+
+export const MAX_GUARDIANS = 5;
+export const REQUIRED_GUARDIANS = 3;
 
 @Injectable()
 export class CustomersService {
@@ -33,13 +40,14 @@ export class CustomersService {
   findAll() {
     return this.prisma.scoped.customer.findMany({
       orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { guardians: true } } },
     });
   }
 
   async findOne(id: string) {
     const customer = await this.prisma.scoped.customer.findFirst({
       where: { id },
-      include: { devices: true, loans: true },
+      include: { devices: true, loans: true, guardians: true },
     });
     if (!customer) throw new NotFoundException('Customer not found');
     return customer;
@@ -48,6 +56,32 @@ export class CustomersService {
   async update(id: string, dto: UpdateCustomerDto) {
     await this.findOne(id);
     return this.prisma.scoped.customer.update({ where: { id }, data: dto });
+  }
+
+  async addGuardian(
+    customerId: string,
+    dto: CreateGuardianDto,
+    photo: Express.Multer.File | undefined,
+  ) {
+    const customer = await this.findOne(customerId);
+    if (!photo) throw new BadRequestException('Guardian photo is required');
+    if (customer.guardians.length >= MAX_GUARDIANS) {
+      throw new BadRequestException(
+        `A customer can have at most ${MAX_GUARDIANS} guardians`,
+      );
+    }
+    const dir = path.join(this.uploadsRoot, 'guardians', customerId);
+    fs.mkdirSync(dir, { recursive: true });
+    const name = `photo-${Date.now()}-${customer.guardians.length}${path.extname(photo.originalname)}`;
+    fs.writeFileSync(path.join(dir, name), photo.buffer);
+    return this.prisma.scoped.guardian.create({
+      data: {
+        ...dto,
+        tenantId: customer.tenantId,
+        customerId,
+        photoUrl: `${this.publicBaseUrl}/uploads/guardians/${customerId}/${name}`,
+      },
+    });
   }
 
   /** Saves the customer's photo (selfie) and optional ID-card photo. */

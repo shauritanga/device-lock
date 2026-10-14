@@ -47,3 +47,29 @@ export class UpdateCustomerDto {
   @MinLength(3)
   address?: string;
 }
+
+export class CreateGuardianDto {
+  @IsString()
+  @MinLength(2)
+  fullName!: string;
+
+  /** e.g. Parent, Spouse, Sibling, Employer, Friend. */
+  @IsString()
+  @MinLength(2)
+  relationship!: string;
+
+  @IsString()
+  @MinLength(7)
+  phone!: string;
+
+  @IsEnum(IdDocumentType)
+  idDocumentType!: IdDocumentType;
+
+  @IsString()
+  @MinLength(4)
+  nationalId!: string;
+
+  @IsString()
+  @MinLength(3)
+  address!: string;
+}

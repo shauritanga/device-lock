@@ -5,12 +5,17 @@ import {
   Param,
   Patch,
   Post,
+  UploadedFile,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
+import {
+  CreateCustomerDto,
+  CreateGuardianDto,
+  UpdateCustomerDto,
+} from './dto/customer.dto';
 
 const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
 const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -58,5 +63,20 @@ export class CustomersController {
     files: { photo?: Express.Multer.File[]; idCard?: Express.Multer.File[] },
   ) {
     return this.customers.savePhotos(id, files ?? {});
+  }
+
+  @Post(':id/guardians')
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      limits: { fileSize: PHOTO_MAX_BYTES },
+      fileFilter: (_req, file, cb) => cb(null, PHOTO_TYPES.has(file.mimetype)),
+    }),
+  )
+  addGuardian(
+    @Param('id') id: string,
+    @Body() dto: CreateGuardianDto,
+    @UploadedFile() photo?: Express.Multer.File,
+  ) {
+    return this.customers.addGuardian(id, dto, photo);
   }
 }

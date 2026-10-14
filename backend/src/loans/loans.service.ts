@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { LoanStatus, PaymentFrequency } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { REQUIRED_GUARDIANS } from '../customers/customers.service';
 import { CreateLoanDto } from './dto/loan.dto';
 import { approxMonths, generateSchedule } from './installment.util';
 
@@ -23,8 +24,14 @@ export class LoansService {
     // Validate referenced entities exist within the caller's tenant.
     const customer = await this.prisma.scoped.customer.findFirst({
       where: { id: dto.customerId },
+      include: { _count: { select: { guardians: true } } },
     });
     if (!customer) throw new NotFoundException('Customer not found');
+    if (customer._count.guardians < REQUIRED_GUARDIANS) {
+      throw new BadRequestException(
+        `Customer needs ${REQUIRED_GUARDIANS} guardians before a loan can be created`,
+      );
+    }
 
     const device = await this.prisma.scoped.device.findFirst({
       where: { id: dto.deviceId },

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { api } from '@/shared/api/client';
 import type { Customer } from '@/shared/api/types';
@@ -7,8 +7,6 @@ import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { Avatar, Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
-import { Modal } from '@/shared/components/ui/Modal';
-import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { shortDate } from '@/shared/lib/format';
 
 const ID_TYPES = [
@@ -23,44 +21,11 @@ function idTypeLabel(type?: string | null) {
 }
 
 export default function Customers() {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    fullName: '',
-    phone: '',
-    nationalId: '',
-    address: '',
-    idDocumentType: 'NATIONAL_ID' as (typeof ID_TYPES)[number]['value'],
-  });
+  const navigate = useNavigate();
 
   const { data, isLoading } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => (await api.get<Customer[]>('/customers')).data,
-  });
-
-  const [photo, setPhoto] = useState<File | null>(null);
-
-  const create = useMutation({
-    mutationFn: async () => {
-      if (!photo) throw new Error('Customer photo is required');
-      const customer = (await api.post<Customer>('/customers', form)).data;
-      const body = new FormData();
-      body.append('photo', photo);
-      return (await api.post<Customer>(`/customers/${customer.id}/photos`, body))
-        .data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['customers'] });
-      setOpen(false);
-      setPhoto(null);
-      setForm({
-        fullName: '',
-        phone: '',
-        nationalId: '',
-        address: '',
-        idDocumentType: 'NATIONAL_ID',
-      });
-    },
   });
 
   if (isLoading) {
@@ -74,16 +39,19 @@ export default function Customers() {
   return (
     <div className="space-y-5">
       <div className="flex justify-end">
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" /> New customer
+        <Button onClick={() => navigate('/sales')}>
+          <Plus className="h-4 w-4" /> New customer (credit sale)
         </Button>
       </div>
 
       <Card className="p-3">
         {!data || data.length === 0 ? (
-          <EmptyState title="No customers yet" hint="Add your first customer to begin." />
+          <EmptyState
+            title="No customers yet"
+            hint="Customers are added through a credit sale, with their guardians."
+          />
         ) : (
-          <Table columns={['Customer', 'Phone', 'Person ID', 'Joined']}>
+          <Table columns={['Customer', 'Phone', 'Person ID', 'Guardians', 'Joined']}>
             {data.map((c) => (
               <Row key={c.id}>
                 <td className="px-4 py-3">
@@ -98,6 +66,7 @@ export default function Customers() {
                     ? `${idTypeLabel(c.idDocumentType)} · ${c.nationalId}`
                     : '—'}
                 </td>
+                <td className="px-4 py-3 text-muted">{c._count?.guardians ?? 0} of 3</td>
                 <td className="px-4 py-3 text-right text-muted">
                   {shortDate(c.createdAt)}
                 </td>
@@ -106,88 +75,6 @@ export default function Customers() {
           </Table>
         )}
       </Card>
-
-      <Modal open={open} onClose={() => setOpen(false)} title="New customer">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            create.mutate();
-          }}
-          className="space-y-4"
-        >
-          <Field label="Full name">
-            <Input
-              value={form.fullName}
-              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label="Phone (mobile money)">
-            <Input
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="0712 345 678"
-              required
-            />
-          </Field>
-          <Field label="ID type">
-            <Select
-              value={form.idDocumentType}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  idDocumentType: e.target
-                    .value as (typeof ID_TYPES)[number]['value'],
-                })
-              }
-              required
-            >
-              {ID_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="ID number">
-            <Input
-              value={form.nationalId}
-              onChange={(e) => setForm({ ...form, nationalId: e.target.value })}
-              required
-              minLength={4}
-            />
-          </Field>
-          <Field label="Physical address">
-            <Input
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-              placeholder="Street, ward, city"
-              required
-              minLength={3}
-            />
-          </Field>
-          <Field label="Customer photo">
-            <Input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              capture="user"
-              onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-              required
-            />
-          </Field>
-          {create.isError ? (
-            <p className="text-sm text-rose-600">Could not create customer.</p>
-          ) : null}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={create.isPending || !photo}>
-              {create.isPending ? 'Saving…' : 'Create'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

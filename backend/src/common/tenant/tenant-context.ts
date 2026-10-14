@@ -13,6 +13,7 @@ export const TENANT_ID_KEY = 'tenantId';
 export const TENANT_SCOPED_MODELS = new Set<string>([
   'User',
   'Customer',
+  'Guardian',
   'Device',
   'EnrollmentToken',
   'Loan',

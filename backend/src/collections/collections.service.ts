@@ -2963,6 +2963,17 @@ const caseInclude = {
       employerName: true,
       employerPhone: true,
       monthlyIncome: true,
+      guardians: {
+        orderBy: { createdAt: 'asc' as const },
+        select: {
+          id: true,
+          fullName: true,
+          relationship: true,
+          phone: true,
+          address: true,
+          photoUrl: true,
+        },
+      },
     },
   },
   device: {
@@ -2998,6 +3009,7 @@ function mapCase(row: any) {
     customerNationalId: row.customer?.nationalId ?? null,
     idCardPhotoUrl: row.customer?.idCardPhotoUrl ?? null,
     selfiePhotoUrl: row.customer?.selfiePhotoUrl ?? null,
+    guardians: row.customer?.guardians ?? [],
     occupation: row.customer?.occupation ?? null,
     employerName: row.customer?.employerName ?? null,
     employerPhone: row.customer?.employerPhone ?? null,

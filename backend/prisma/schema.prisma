@@ -237,56 +237,57 @@ model Tenant {
   promisesToPay           PromiseToPay[]
   collectionsInvoices     CollectionsInvoice[]
   demoRequests            DemoRequest[]
+  guardians               Guardian[]
 
   @@index([isActive])
 }
 
 /// Inbound sales lead from the public marketing site demo form.
 model DemoRequest {
-  id              String            @id @default(uuid())
-  fullName        String
-  companyName     String
-  phone           String
-  email           String?
+  id                String            @id @default(uuid())
+  fullName          String
+  companyName       String
+  phone             String
+  email             String?
   /// Raw band from the form, e.g. "Fewer than 30" / "30 – 44".
-  devicesPerMonth String?
+  devicesPerMonth   String?
   /// Suggested package from the band (STARTER | GROWTH | BUSINESS | ENTERPRISE).
-  suggestedPackage String?
-  message         String?
-  status          DemoRequestStatus @default(NEW)
-  adminNotes      String?
+  suggestedPackage  String?
+  message           String?
+  status            DemoRequestStatus @default(NEW)
+  adminNotes        String?
   /// Set when sales converts the lead into a seller tenant.
   convertedTenantId String?
-  convertedTenant   Tenant?         @relation(fields: [convertedTenantId], references: [id], onDelete: SetNull)
-  source          String            @default("website")
-  userAgent       String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  contactedAt     DateTime?
+  convertedTenant   Tenant?           @relation(fields: [convertedTenantId], references: [id], onDelete: SetNull)
+  source            String            @default("website")
+  userAgent         String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  contactedAt       DateTime?
 
   @@index([status, createdAt])
   @@index([phone])
 }
 
 model User {
-  id           String    @id @default(uuid())
+  id                String    @id @default(uuid())
   // null for SUPER_ADMIN, COLLECTIONS_ADMIN, MASTER_COLLECTOR, COLLECTOR (platform operators)
-  tenantId     String?
-  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  email        String    @unique
-  passwordHash String
-  fullName     String
-  role         UserRole  @default(AGENT)
-  isActive     Boolean   @default(true)
+  tenantId          String?
+  tenant            Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email             String    @unique
+  passwordHash      String
+  fullName          String
+  role              UserRole  @default(AGENT)
+  isActive          Boolean   @default(true)
   // Phone the collector uses for BYOD follow-up (E.164 preferred).
-  phone        String?
+  phone             String?
   /// COLLECTOR → MASTER_COLLECTOR who manages them (null = unassigned).
-  managedById  String?
-  managedBy    User?     @relation("CollectorTeam", fields: [managedById], references: [id], onDelete: SetNull)
-  managedCollectors User[] @relation("CollectorTeam")
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  managedById       String?
+  managedBy         User?     @relation("CollectorTeam", fields: [managedById], references: [id], onDelete: SetNull)
+  managedCollectors User[]    @relation("CollectorTeam")
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   issuedCommands          DeviceCommand[]           @relation("CommandIssuedBy")
   assignedCallFollowUps   CallFollowUp[]            @relation("CallAssignedTo")
@@ -468,24 +469,24 @@ model ContactSession {
   collectorId String
   collector   User           @relation("ContactCollector", fields: [collectorId], references: [id], onDelete: Cascade)
 
-  channel            ContactChannel
-  customerPhone      String
-  collectorPhone     String?
-  bodyPreview        String?
-  status             ContactSessionStatus      @default(PENDING)
-  verificationStatus ContactVerificationStatus @default(NONE)
-  provider           String?
-  providerRef        String?
-  durationSeconds    Int?
-  deviceMatchMeta    Json?
-  launchUrl          String? // tel: / sms: / wa.me deep link for client
-  initiatedAt        DateTime                  @default(now())
-  expiresAt          DateTime
-  completedAt        DateTime?
-  outcomeNote        String?
+  channel             ContactChannel
+  customerPhone       String
+  collectorPhone      String?
+  bodyPreview         String?
+  status              ContactSessionStatus      @default(PENDING)
+  verificationStatus  ContactVerificationStatus @default(NONE)
+  provider            String?
+  providerRef         String?
+  durationSeconds     Int?
+  deviceMatchMeta     Json?
+  launchUrl           String? // tel: / sms: / wa.me deep link for client
+  initiatedAt         DateTime                  @default(now())
+  expiresAt           DateTime
+  completedAt         DateTime?
+  outcomeNote         String?
   communicationResult CommunicationResult?
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   communicationLog CommunicationLog?
 
@@ -509,19 +510,19 @@ model CommunicationLog {
   collectorId      String?
   collector        User?           @relation("CommCollector", fields: [collectorId], references: [id], onDelete: SetNull)
 
-  channel            ContactChannel
-  direction          CommunicationDirection    @default(OUTBOUND)
-  status             CommunicationStatus       @default(PENDING_PROOF)
-  verificationStatus ContactVerificationStatus @default(NONE)
-  customerPhone      String?
-  body               String?
-  durationSeconds    Int?
+  channel             ContactChannel
+  direction           CommunicationDirection    @default(OUTBOUND)
+  status              CommunicationStatus       @default(PENDING_PROOF)
+  verificationStatus  ContactVerificationStatus @default(NONE)
+  customerPhone       String?
+  body                String?
+  durationSeconds     Int?
   communicationResult CommunicationResult?
-  providerRef        String?
-  metadata           Json?
-  occurredAt         DateTime                  @default(now())
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
+  providerRef         String?
+  metadata            Json?
+  occurredAt          DateTime                  @default(now())
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   @@index([tenantId, occurredAt])
   @@index([caseId, occurredAt])
@@ -572,16 +573,16 @@ model RefreshToken {
 // ---------------------------------------------------------------------------
 
 model Customer {
-  id         String   @id @default(uuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  fullName   String
-  phone      String // primary mobile-money number
+  id             String          @id @default(uuid())
+  tenantId       String
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fullName       String
+  phone          String // primary mobile-money number
   /// National ID, voter ID, or driving licence number (value).
-  nationalId String?
+  nationalId     String?
   /// Which document `nationalId` refers to.
   idDocumentType IdDocumentType?
-  address    String?
+  address        String?
 
   // KYC / employment info (collections staff app)
   idCardPhotoUrl String?
@@ -600,10 +601,34 @@ model Customer {
   callFollowUps   CallFollowUp[]
   callAttempts    CallAttempt[]
   collectionCases CollectionCase[]
+  guardians       Guardian[]
   // ContactSession / CommunicationLog / PromiseToPay keyed via case/loan; no reverse needed on Customer for MVP
 
   @@unique([tenantId, phone])
   @@index([tenantId])
+}
+
+/// A person who vouches for a customer's loan. Each customer needs three.
+model Guardian {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  fullName       String
+  relationship   String
+  phone          String
+  idDocumentType IdDocumentType
+  nationalId     String
+  address        String
+  photoUrl       String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([customerId])
 }
 
 model Device {
@@ -683,15 +708,15 @@ model Loan {
   deviceId   String   @unique
   device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
-  principal    Decimal    @db.Decimal(14, 2) // device price financed
-  downPayment  Decimal    @default(0) @db.Decimal(14, 2)
-  interestRate Decimal    @default(0) @db.Decimal(5, 2) // % flat, simple model for MVP
+  principal    Decimal          @db.Decimal(14, 2) // device price financed
+  downPayment  Decimal          @default(0) @db.Decimal(14, 2)
+  interestRate Decimal          @default(0) @db.Decimal(5, 2) // % flat, simple model for MVP
   termMonths   Int // approximate length in months (exact for MONTHLY loans)
   frequency    PaymentFrequency @default(MONTHLY)
   termPeriods  Int              @default(0) // number of installments (days / weeks / months)
-  currency     String     @default("TZS")
-  status       LoanStatus @default(ACTIVE)
-  startDate    DateTime   @default(now())
+  currency     String           @default("TZS")
+  status       LoanStatus       @default(ACTIVE)
+  startDate    DateTime         @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

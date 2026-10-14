@@ -21,6 +21,17 @@ export interface TokenPair {
   refreshToken: string;
 }
 
+export interface Guardian {
+  id: string;
+  fullName: string;
+  relationship: string;
+  phone: string;
+  idDocumentType: 'NATIONAL_ID' | 'VOTER_ID' | 'DRIVING_LICENSE' | 'PASSPORT';
+  nationalId: string;
+  address: string;
+  photoUrl: string;
+}
+
 export interface Customer {
   id: string;
   fullName: string;
@@ -29,6 +40,8 @@ export interface Customer {
   idDocumentType?: 'NATIONAL_ID' | 'VOTER_ID' | 'DRIVING_LICENSE' | 'PASSPORT' | null;
   selfiePhotoUrl?: string | null;
   idCardPhotoUrl?: string | null;
+  guardians?: Guardian[];
+  _count?: { guardians: number };
   address?: string | null;
   createdAt: string;
 }

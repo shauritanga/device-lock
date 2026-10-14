@@ -5,37 +5,43 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  Camera,
   Check,
   CheckCircle2,
   Copy,
   CreditCard,
   Plus,
   QrCode,
+  ShieldCheck,
   Smartphone,
-  RefreshCw,
-  Upload,
   UserRound,
+  Users,
 } from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/shared/api/client';
-import type { Customer, Device, Loan } from '@/shared/api/types';
+import type { Customer, Device, Guardian, Loan } from '@/shared/api/types';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
-import { Field, Input, Select } from '@/shared/components/ui/Field';
+import { Field, Input } from '@/shared/components/ui/Field';
+import { FieldGrid, FormSection } from '@/shared/components/ui/FormSection';
 import { Modal } from '@/shared/components/ui/Modal';
 import { StatusPill } from '@/shared/components/ui/Pill';
 import { Row, Table } from '@/shared/components/ui/Table';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { cn } from '@/shared/lib/cn';
 import { money, shortDate, termLabel } from '@/shared/lib/format';
+import {
+  emptyPerson,
+  ID_TYPES,
+  PersonFields,
+  useObjectUrl,
+  validatePerson,
+  type PersonErrors,
+  type PersonForm,
+} from '../components/PersonFields';
 
-type IdDocumentType =
-  | 'NATIONAL_ID'
-  | 'VOTER_ID'
-  | 'DRIVING_LICENSE'
-  | 'PASSPORT';
 type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
+const REQUIRED_GUARDIANS = 3;
 
 const FREQUENCIES: Array<{
   value: Frequency;
@@ -50,7 +56,14 @@ const FREQUENCIES: Array<{
   { value: 'MONTHLY', label: 'Monthly', unit: 'months', per: 'monthly', defaultTerm: '6', presets: [3, 4, 6, 9, 12] },
 ];
 
-const STEPS = ['Customer', 'Phone', 'Plan', 'Review'] as const;
+const STEPS = [
+  { label: 'Customer', hint: 'Who is buying on credit' },
+  { label: 'Guardians', hint: 'Three people who vouch for the customer' },
+  { label: 'Phone', hint: 'The phone being financed' },
+  { label: 'Plan', hint: 'Price, deposit and repayment schedule' },
+  { label: 'Review', hint: 'Confirm with the customer' },
+] as const;
+const LAST_STEP = STEPS.length - 1;
 
 /** Mirrors backend addPeriods so the preview matches the generated schedule. */
 function dueDateFor(start: string, n: number, f: Frequency): Date {
@@ -71,19 +84,7 @@ type SaleResult = {
   loan: Loan;
 };
 
-const ID_TYPES: Array<{ value: IdDocumentType; label: string; hint: string }> = [
-  { value: 'NATIONAL_ID', label: 'National ID', hint: 'NIDA / citizenship ID' },
-  { value: 'VOTER_ID', label: 'Voter ID', hint: 'Voters’ card number' },
-  { value: 'DRIVING_LICENSE', label: 'Driving licence', hint: 'Licence number' },
-  { value: 'PASSPORT', label: 'Passport', hint: 'Passport number' },
-];
-
-const initialForm = {
-  fullName: '',
-  phone: '',
-  idDocumentType: 'NATIONAL_ID' as IdDocumentType,
-  nationalId: '',
-  address: '',
+const initialSale = {
   imei: '',
   make: '',
   model: '',
@@ -95,38 +96,47 @@ const initialForm = {
   startDate: new Date().toISOString().slice(0, 10),
   consentAccepted: false,
 };
+type SaleForm = typeof initialSale;
 
 const TERMS_VERSION = 'simulinda-v1';
 
-function buildTerms(form: typeof initialForm, totalRepayable: number) {
-  const idLabel =
-    ID_TYPES.find((t) => t.value === form.idDocumentType)?.label ?? 'ID';
+function buildTerms(customer: PersonForm, sale: SaleForm, totalRepayable: number) {
+  const idLabel = ID_TYPES.find((t) => t.value === customer.idDocumentType)?.label ?? 'ID';
+  const unit = FREQUENCIES.find((f) => f.value === sale.frequency)?.unit ?? 'months';
   return [
     'SimuLinda Credit Sale Agreement',
-    `Customer: ${form.fullName}`,
-    `Phone: ${[form.make, form.model].filter(Boolean).join(' ') || form.imei}`,
-    `Device ID/IMEI: ${form.imei}`,
-    `${idLabel}: ${form.nationalId}`,
-    `Phone price: TZS ${Number(form.principal || 0).toLocaleString('en-US')}`,
-    `Deposit: TZS ${Number(form.downPayment || 0).toLocaleString('en-US')}`,
+    `Customer: ${customer.fullName}`,
+    `Phone: ${[sale.make, sale.model].filter(Boolean).join(' ') || sale.imei}`,
+    `Device ID/IMEI: ${sale.imei}`,
+    `${idLabel}: ${customer.nationalId}`,
+    `Phone price: TZS ${Number(sale.principal || 0).toLocaleString('en-US')}`,
+    `Deposit: TZS ${Number(sale.downPayment || 0).toLocaleString('en-US')}`,
     `Total repayable: TZS ${totalRepayable.toLocaleString('en-US')}`,
-    `Term: ${form.termPeriods} ${FREQUENCIES.find((f) => f.value === form.frequency)?.unit ?? 'months'} (${form.frequency.toLowerCase()} installments)`,
+    `Term: ${sale.termPeriods} ${unit} (${sale.frequency.toLowerCase()} installments)`,
     'The customer agrees to pay installments on time.',
     'The customer understands that reminders will be sent before restriction.',
     'If payments are missed after the grace period, the phone may be restricted until payment is confirmed.',
     'The phone reports its last-known location to the seller while the loan is active, for follow-up on missed payments.',
+    'The three guardians named in this sale were informed and may be contacted if payments are missed.',
     'Emergency access remains available and personal data is not deleted.',
     'After final settlement, the phone is released permanently to the customer.',
   ].join('\n');
 }
 
+const prefixErrors = (prefix: string, e: PersonErrors) =>
+  Object.fromEntries(Object.entries(e).map(([k, v]) => [`${prefix}.${k}`, v as string]));
+
 export default function Sales() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [form, setForm] = useState(initialForm);
+  const [customer, setCustomer] = useState<PersonForm>(emptyPerson());
+  const [guardians, setGuardians] = useState<PersonForm[]>(() =>
+    Array.from({ length: REQUIRED_GUARDIANS }, emptyPerson),
+  );
+  const [sale, setSale] = useState<SaleForm>(initialSale);
+  const [activeGuardian, setActiveGuardian] = useState(0);
   const [result, setResult] = useState<SaleResult | null>(null);
   const [open, setOpen] = useState(false);
-  const [photo, setPhoto] = useState<File | null>(null);
   const [step, setStep] = useState(0);
   const [showErrors, setShowErrors] = useState(false);
 
@@ -135,165 +145,182 @@ export default function Sales() {
     queryFn: async () => (await api.get<Loan[]>('/loans')).data,
   });
 
-  const financed = Math.max(
-    (Number(form.principal) || 0) - (Number(form.downPayment) || 0),
-    0,
-  );
-  const interestRate = Number(form.interestRate) || 0;
-  const totalRepayable = financed + financed * (interestRate / 100);
-  const freq = FREQUENCIES.find((f) => f.value === form.frequency)!;
-  const perInstallment =
-    totalRepayable / Math.max(Number(form.termPeriods) || 1, 1);
-
-  // An existing customer who already has a photo on file doesn't need a new one.
   const { data: knownCustomers } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => (await api.get<Customer[]>('/customers')).data,
     enabled: open,
   });
-  const existingPhotoOk = !!knownCustomers?.find(
-    (c) => normalizePhone(c.phone) === normalizePhone(form.phone),
-  )?.selfiePhotoUrl;
 
-  const matched = form.phone.trim()
+  const matched = customer.phone.trim()
     ? knownCustomers?.find(
-        (c) => normalizePhone(c.phone) === normalizePhone(form.phone),
+        (c) => normalizePhone(c.phone) === normalizePhone(customer.phone),
       )
     : undefined;
+  const existingPhotoOk = !!matched?.selfiePhotoUrl;
+  const haveGuardians = matched?._count?.guardians ?? 0;
+  const neededGuardians = Math.max(REQUIRED_GUARDIANS - haveGuardians, 0);
 
   // Prefill blank fields from a matched customer so the seller doesn't retype.
   useEffect(() => {
     if (!matched) return;
-    setForm((f) => ({
-      ...f,
-      fullName: f.fullName || matched.fullName,
-      nationalId: f.nationalId || matched.nationalId || '',
-      address: f.address || matched.address || '',
+    setCustomer((c) => ({
+      ...c,
+      fullName: c.fullName || matched.fullName,
+      nationalId: c.nationalId || matched.nationalId || '',
+      address: c.address || matched.address || '',
       idDocumentType: matched.nationalId
-        ? ((matched.idDocumentType as IdDocumentType | null) ?? f.idDocumentType)
-        : f.idDocumentType,
+        ? (matched.idDocumentType ?? c.idDocumentType)
+        : c.idDocumentType,
     }));
   }, [matched?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const photoUrl = useMemo(
-    () => (photo ? URL.createObjectURL(photo) : null),
-    [photo],
+  const financed = Math.max(
+    (Number(sale.principal) || 0) - (Number(sale.downPayment) || 0),
+    0,
   );
+  const interestRate = Number(sale.interestRate) || 0;
+  const totalRepayable = financed + financed * (interestRate / 100);
+  const freq = FREQUENCIES.find((f) => f.value === sale.frequency)!;
+  const perInstallment = totalRepayable / Math.max(Number(sale.termPeriods) || 1, 1);
 
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
-    if (form.fullName.trim().length < 2) e.fullName = 'Enter the full name';
-    if (form.phone.replace(/\D/g, '').length < 7) e.phone = 'Enter a valid phone number';
-    if (form.nationalId.trim().length < 4) e.nationalId = 'Enter the ID number';
-    if (form.address.trim().length < 3) e.address = 'Enter the physical address';
-    if (!photo && !existingPhotoOk) e.photo = 'Take or upload a photo of the customer';
-    if (form.imei.trim().length < 4) e.imei = 'Enter the IMEI / device ID';
-    if (!(Number(form.principal) > 0)) e.principal = 'Enter the phone price';
-    if (Number(form.downPayment) >= Number(form.principal) && Number(form.principal) > 0)
+    Object.assign(
+      e,
+      prefixErrors('c', validatePerson(customer, 'customer', { photoOptional: existingPhotoOk })),
+    );
+    const phones = [customer.phone.replace(/\D/g, '')];
+    for (let i = 0; i < neededGuardians; i++) {
+      const g = guardians[i];
+      const ge = validatePerson(g, 'guardian');
+      const digits = g.phone.replace(/\D/g, '');
+      if (!ge.phone && phones.includes(digits)) {
+        ge.phone = 'Must differ from the customer and other guardians';
+      }
+      phones.push(digits);
+      Object.assign(e, prefixErrors(`g${i}`, ge));
+    }
+    if (sale.imei.trim().length < 4) e.imei = 'Enter the IMEI / device ID';
+    if (!(Number(sale.principal) > 0)) e.principal = 'Enter the phone price';
+    if (Number(sale.downPayment) >= Number(sale.principal) && Number(sale.principal) > 0)
       e.downPayment = 'Deposit must be less than the price';
-    const t = Number(form.termPeriods);
+    const t = Number(sale.termPeriods);
     if (!Number.isInteger(t) || t < 1) e.termPeriods = 'Enter a whole number of at least 1';
-    else if (form.frequency === 'MONTHLY' && t > 60) e.termPeriods = 'Maximum 60 months';
+    else if (sale.frequency === 'MONTHLY' && t > 60) e.termPeriods = 'Maximum 60 months';
     else if (t > 730) e.termPeriods = 'Maximum 730';
-    if (!form.startDate) e.startDate = 'Pick a start date';
+    if (!sale.startDate) e.startDate = 'Pick a start date';
     return e;
-  }, [form, photo, existingPhotoOk]);
+  }, [customer, guardians, sale, existingPhotoOk, neededGuardians]);
 
-  const stepFields: string[][] = [
-    ['fullName', 'phone', 'nationalId', 'address', 'photo'],
-    ['imei'],
-    ['principal', 'downPayment', 'termPeriods', 'startDate'],
-    [],
-  ];
-  const stepHasErrors = (i: number) => stepFields[i].some((k) => errors[k]);
+  const stepOwns = (i: number, key: string) =>
+    i === 0
+      ? key.startsWith('c.')
+      : i === 1
+        ? /^g\d\./.test(key)
+        : i === 2
+          ? key === 'imei'
+          : i === 3
+            ? ['principal', 'downPayment', 'termPeriods', 'startDate'].includes(key)
+            : false;
+  const stepErrorKeys = (i: number) => Object.keys(errors).filter((k) => stepOwns(i, k));
+  const personErrors = (prefix: string): PersonErrors =>
+    showErrors
+      ? Object.fromEntries(
+          Object.entries(errors)
+            .filter(([k]) => k.startsWith(`${prefix}.`))
+            .map(([k, v]) => [k.slice(prefix.length + 1), v]),
+        )
+      : {};
   const err = (k: string) => (showErrors ? errors[k] : undefined);
+  const guardianHasError = (i: number) =>
+    Object.keys(errors).some((k) => k.startsWith(`g${i}.`));
 
   function next() {
-    if (stepHasErrors(step)) {
+    const bad = stepErrorKeys(step);
+    if (bad.length) {
       setShowErrors(true);
+      if (step === 1) {
+        const first = Array.from({ length: neededGuardians }).findIndex((_, i) =>
+          guardianHasError(i),
+        );
+        if (first >= 0) setActiveGuardian(first);
+      }
       return;
     }
     setShowErrors(false);
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    setStep((s) => Math.min(s + 1, LAST_STEP));
   }
 
-  const idPlaceholder = useMemo(() => {
-    switch (form.idDocumentType) {
-      case 'VOTER_ID':
-        return 'e.g. T-1234-5678-9012';
-      case 'DRIVING_LICENSE':
-        return 'e.g. 4001234567';
-      case 'PASSPORT':
-        return 'e.g. AB123456';
-      default:
-        return 'e.g. 19850615-12345-00001-23';
-    }
-  }, [form.idDocumentType]);
+  function resetAll() {
+    setCustomer(emptyPerson());
+    setGuardians(Array.from({ length: REQUIRED_GUARDIANS }, emptyPerson));
+    setSale({ ...initialSale, startDate: new Date().toISOString().slice(0, 10) });
+    setStep(0);
+    setActiveGuardian(0);
+    setShowErrors(false);
+  }
 
   const createSale = useMutation({
     mutationFn: async () => {
-      const phone = form.phone.trim();
-      const nationalId = form.nationalId.trim();
-      if (!nationalId) throw new Error('Person ID is required');
-      if (!phone) throw new Error('Phone number is required');
-      if (!form.address.trim()) throw new Error('Physical address is required');
-      if (!photo && !existingPhotoOk) throw new Error('Customer photo is required');
+      const phone = customer.phone.trim();
+      const base = {
+        fullName: customer.fullName.trim(),
+        nationalId: customer.nationalId.trim(),
+        idDocumentType: customer.idDocumentType,
+        address: customer.address.trim(),
+      };
 
       const existingCustomers = (await api.get<Customer[]>('/customers')).data;
       const existing = existingCustomers.find(
         (c) => normalizePhone(c.phone) === normalizePhone(phone),
       );
 
-      let customer: Customer;
-      if (existing) {
-        customer = (
-          await api.patch<Customer>(`/customers/${existing.id}`, {
-            fullName: form.fullName.trim(),
-            nationalId,
-            idDocumentType: form.idDocumentType,
-            address: form.address.trim(),
-          })
-        ).data;
-      } else {
-        customer = (
-          await api.post<Customer>('/customers', {
-            fullName: form.fullName.trim(),
-            phone,
-            nationalId,
-            idDocumentType: form.idDocumentType,
-            address: form.address.trim(),
-          })
-        ).data;
+      let created: Customer = existing
+        ? (await api.patch<Customer>(`/customers/${existing.id}`, base)).data
+        : (await api.post<Customer>('/customers', { ...base, phone })).data;
+
+      if (customer.photo) {
+        const body = new FormData();
+        body.append('photo', customer.photo);
+        created = (await api.post<Customer>(`/customers/${created.id}/photos`, body)).data;
       }
 
-      if (photo) {
+      // Re-read how many guardians are saved (a previous attempt may have added some).
+      const saved = (await api.get<Customer>(`/customers/${created.id}`)).data.guardians ?? [];
+      const remaining = Math.max(REQUIRED_GUARDIANS - saved.length, 0);
+      const toCreate = guardians.slice(0, neededGuardians).slice(neededGuardians - remaining);
+      for (const g of toCreate) {
         const body = new FormData();
-        body.append('photo', photo);
-        customer = (
-          await api.post<Customer>(`/customers/${customer.id}/photos`, body)
-        ).data;
+        body.append('fullName', g.fullName.trim());
+        body.append('relationship', g.relationship);
+        body.append('phone', g.phone.trim());
+        body.append('idDocumentType', g.idDocumentType);
+        body.append('nationalId', g.nationalId.trim());
+        body.append('address', g.address.trim());
+        body.append('photo', g.photo as File);
+        await api.post<Guardian>(`/customers/${created.id}/guardians`, body);
       }
 
       const registered = (
         await api.post<{ device: Device; enrollmentToken: string }>('/devices', {
-          imei: form.imei.trim(),
-          customerId: customer.id,
-          ...(form.make.trim() ? { make: form.make.trim() } : {}),
-          ...(form.model.trim() ? { model: form.model.trim() } : {}),
+          imei: sale.imei.trim(),
+          customerId: created.id,
+          ...(sale.make.trim() ? { make: sale.make.trim() } : {}),
+          ...(sale.model.trim() ? { model: sale.model.trim() } : {}),
         })
       ).data;
 
       const loan = (
         await api.post<Loan>('/loans', {
-          customerId: customer.id,
+          customerId: created.id,
           deviceId: registered.device.id,
-          principal: Number(form.principal),
-          downPayment: form.downPayment ? Number(form.downPayment) : 0,
-          interestRate: form.interestRate ? Number(form.interestRate) : 0,
-          frequency: form.frequency,
-          termPeriods: Number(form.termPeriods),
+          principal: Number(sale.principal),
+          downPayment: sale.downPayment ? Number(sale.downPayment) : 0,
+          interestRate: sale.interestRate ? Number(sale.interestRate) : 0,
+          frequency: sale.frequency,
+          termPeriods: Number(sale.termPeriods),
           currency: 'TZS',
-          startDate: new Date(form.startDate).toISOString(),
+          startDate: new Date(sale.startDate).toISOString(),
         })
       ).data;
 
@@ -301,37 +328,31 @@ export default function Sales() {
         loanId: loan.id,
         language: 'en',
         termsVersion: TERMS_VERSION,
-        termsText: buildTerms(form, totalRepayable),
+        termsText: buildTerms(customer, sale, totalRepayable),
         metadata: {
           acceptedFrom: 'dashboard-sale-wizard',
-          customerPhone: form.phone,
-          deviceImei: form.imei,
-          idDocumentType: form.idDocumentType,
-          nationalId,
-          principal: Number(form.principal),
-          downPayment: form.downPayment ? Number(form.downPayment) : 0,
-          interestRate: form.interestRate ? Number(form.interestRate) : 0,
-          frequency: form.frequency,
-          termPeriods: Number(form.termPeriods),
+          customerPhone: phone,
+          deviceImei: sale.imei,
+          idDocumentType: customer.idDocumentType,
+          nationalId: base.nationalId,
+          principal: Number(sale.principal),
+          downPayment: sale.downPayment ? Number(sale.downPayment) : 0,
+          interestRate: sale.interestRate ? Number(sale.interestRate) : 0,
+          frequency: sale.frequency,
+          termPeriods: Number(sale.termPeriods),
         },
       });
 
       return {
-        customer,
-        device: {
-          ...registered.device,
-          enrollmentToken: registered.enrollmentToken,
-        },
+        customer: created,
+        device: { ...registered.device, enrollmentToken: registered.enrollmentToken },
         loan,
       } satisfies SaleResult;
     },
     onSuccess: (data) => {
       setResult(data);
       setOpen(false);
-      setForm(initialForm);
-      setPhoto(null);
-      setStep(0);
-      setShowErrors(false);
+      resetAll();
       qc.invalidateQueries({ queryKey: ['customers'] });
       qc.invalidateQueries({ queryKey: ['devices'] });
       qc.invalidateQueries({ queryKey: ['loans'] });
@@ -358,8 +379,7 @@ export default function Sales() {
         <Button
           onClick={() => {
             createSale.reset();
-            setStep(0);
-            setShowErrors(false);
+            resetAll();
             setOpen(true);
           }}
         >
@@ -521,384 +541,388 @@ export default function Sales() {
         open={open}
         onClose={closeModal}
         title="New credit sale"
-        className="w-[min(96vw,44rem)] max-w-none"
+        className="w-[min(96vw,48rem)] max-w-none"
         bodyClassName="flex flex-col overflow-hidden !p-0"
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (step < STEPS.length - 1) next();
+            if (step < LAST_STEP) next();
             else createSale.mutate();
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          {/* Progress */}
-          <ol className="flex shrink-0 items-center gap-2 border-b border-line px-6 py-3">
-            {STEPS.map((label, i) => (
-              <li key={label} className="flex flex-1 items-center gap-2">
-                <span
-                  className={cn(
-                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                    i < step
-                      ? 'bg-brand-600 text-white'
-                      : i === step
-                        ? 'bg-brand-100 text-brand-700 ring-2 ring-brand-400'
-                        : 'bg-canvas text-muted',
-                  )}
-                >
-                  {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
-                </span>
-                <span
-                  className={cn(
-                    'hidden text-xs font-medium sm:inline',
-                    i === step ? 'text-ink' : 'text-muted',
-                  )}
-                >
-                  {label}
-                </span>
-                {i < STEPS.length - 1 ? (
-                  <span className="h-px flex-1 bg-line" />
-                ) : null}
-              </li>
-            ))}
-          </ol>
+          {/* Stepper */}
+          <div className="shrink-0 border-b border-line bg-canvas/40 px-4 py-3 sm:px-6">
+            <ol className="flex items-center gap-2">
+              {STEPS.map((s, i) => (
+                <li key={s.label} className="flex flex-1 items-center gap-2 last:flex-none">
+                  <span
+                    className={cn(
+                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                      i < step
+                        ? 'bg-brand-600 text-white'
+                        : i === step
+                          ? 'bg-brand-600 text-white ring-4 ring-brand-100'
+                          : 'border border-line bg-surface text-muted',
+                    )}
+                  >
+                    {i < step ? <Check className="h-4 w-4" /> : i + 1}
+                  </span>
+                  <span
+                    className={cn(
+                      'hidden text-xs font-medium md:inline',
+                      i === step ? 'text-ink' : 'text-muted',
+                    )}
+                  >
+                    {s.label}
+                  </span>
+                  {i < LAST_STEP ? (
+                    <span className={cn('h-px flex-1', i < step ? 'bg-brand-300' : 'bg-line')} />
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+            <p className="mt-2 text-xs text-muted">
+              Step {step + 1} of {STEPS.length} · <span className="font-medium text-ink">{STEPS[step].label}</span>
+              {' — '}
+              {STEPS[step].hint}
+            </p>
+          </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
             {step === 0 ? (
-              <section className="space-y-4">
-                <SectionTitle
-                  icon={UserRound}
-                  title="Customer"
-                  subtitle="All fields are required"
+              <FormSection
+                icon={UserRound}
+                title="Customer details"
+                description="Phone, photo, ID and address are all required."
+              >
+                <PersonFields
+                  kind="customer"
+                  value={customer}
+                  onChange={setCustomer}
+                  errors={personErrors('c')}
+                  existingPhoto={existingPhotoOk}
+                  photoLabel="Customer photo"
+                  afterPhone={
+                    matched ? (
+                      <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>
+                          Existing customer <b>{matched.fullName}</b> ({haveGuardians} of{' '}
+                          {REQUIRED_GUARDIANS} guardians on file). Details are filled in below;
+                          changes you make update their record.
+                        </span>
+                      </p>
+                    ) : null
+                  }
                 />
-                <Field label="Phone / mobile money" required error={err('phone')}>
-                  <Input
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="+255 7XX XXX XXX"
-                    inputMode="tel"
-                    autoFocus
-                  />
-                </Field>
-                {matched ? (
-                  <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>
-                      Existing customer <b>{matched.fullName}</b>. Their details are
-                      filled in below; any change you make will update their record.
-                    </span>
-                  </p>
-                ) : null}
-                <Field label="Full name" required error={err('fullName')}>
-                  <Input
-                    value={form.fullName}
-                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                    placeholder="Asha Mwakalinga"
-                  />
-                </Field>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="ID type" required>
-                    <Select
-                      value={form.idDocumentType}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          idDocumentType: e.target.value as IdDocumentType,
-                        })
-                      }
-                    >
-                      {ID_TYPES.map((t) => (
-                        <option key={t.value} value={t.value}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label="ID number" required error={err('nationalId')}>
-                    <Input
-                      value={form.nationalId}
-                      onChange={(e) =>
-                        setForm({ ...form, nationalId: e.target.value })
-                      }
-                      placeholder={idPlaceholder}
-                    />
-                  </Field>
-                </div>
-                <Field label="Physical address" required error={err('address')}>
-                  <Input
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    placeholder="Street, ward, city"
-                  />
-                </Field>
-                <PhotoCapture
-                  url={photoUrl}
-                  hasExisting={existingPhotoOk}
-                  error={err('photo')}
-                  onChange={setPhoto}
-                />
-              </section>
+              </FormSection>
             ) : null}
 
             {step === 1 ? (
-              <section className="space-y-4">
-                <SectionTitle
-                  icon={Smartphone}
-                  title="Phone being financed"
-                  subtitle="Dial *#06# on the phone to see its IMEI"
-                />
-                <Field label="IMEI / device ID" required error={err('imei')}>
-                  <Input
-                    value={form.imei}
-                    onChange={(e) => setForm({ ...form, imei: e.target.value })}
-                    placeholder="15-digit IMEI"
-                    inputMode="numeric"
-                    autoFocus
+              neededGuardians === 0 ? (
+                <FormSection
+                  icon={ShieldCheck}
+                  title="Guardians already on file"
+                  description={`${matched?.fullName} already has ${REQUIRED_GUARDIANS} guardians, so nothing to add.`}
+                >
+                  <p className="text-sm text-muted">Continue to the next step.</p>
+                </FormSection>
+              ) : (
+                <FormSection
+                  icon={Users}
+                  title={`Guardian ${activeGuardian + 1} of ${neededGuardians}`}
+                  description="Each guardian needs the same details as the customer, plus their relationship."
+                >
+                  <div role="tablist" className="mb-4 flex flex-wrap gap-2">
+                    {Array.from({ length: neededGuardians }).map((_, i) => {
+                      const done = !Object.keys(errors).some((k) => k.startsWith(`g${i}.`));
+                      const bad = showErrors && !done;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          role="tab"
+                          aria-selected={activeGuardian === i}
+                          onClick={() => setActiveGuardian(i)}
+                          className={cn(
+                            'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm transition',
+                            activeGuardian === i
+                              ? 'border-brand-500 bg-brand-50 font-medium text-brand-800'
+                              : 'border-line bg-surface text-ink hover:bg-canvas',
+                            bad && 'border-rose-300',
+                          )}
+                        >
+                          {done ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : bad ? (
+                            <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+                          ) : (
+                            <span className="h-2 w-2 rounded-full bg-line" />
+                          )}
+                          {guardians[i].fullName.trim().split(' ')[0] || `Guardian ${i + 1}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <PersonFields
+                    key={activeGuardian}
+                    kind="guardian"
+                    value={guardians[activeGuardian]}
+                    onChange={(g) =>
+                      setGuardians((all) => all.map((x, i) => (i === activeGuardian ? g : x)))
+                    }
+                    errors={personErrors(`g${activeGuardian}`)}
+                    photoLabel="Guardian photo"
                   />
-                </Field>
-                <div className="grid gap-3 sm:grid-cols-2">
+                </FormSection>
+              )
+            ) : null}
+
+            {step === 2 ? (
+              <FormSection
+                icon={Smartphone}
+                title="Phone being financed"
+                description="Dial *#06# on the phone to see its IMEI."
+              >
+                <FieldGrid>
+                  <div className="sm:col-span-2">
+                    <Field label="IMEI / device ID" required error={err('imei')}>
+                      <Input
+                        value={sale.imei}
+                        onChange={(e) => setSale({ ...sale, imei: e.target.value })}
+                        placeholder="15-digit IMEI"
+                        inputMode="numeric"
+                        autoFocus
+                      />
+                    </Field>
+                  </div>
                   <Field label="Make">
                     <Input
-                      value={form.make}
-                      onChange={(e) => setForm({ ...form, make: e.target.value })}
+                      value={sale.make}
+                      onChange={(e) => setSale({ ...sale, make: e.target.value })}
                       placeholder="Tecno"
                     />
                   </Field>
                   <Field label="Model">
                     <Input
-                      value={form.model}
-                      onChange={(e) => setForm({ ...form, model: e.target.value })}
+                      value={sale.model}
+                      onChange={(e) => setSale({ ...sale, model: e.target.value })}
                       placeholder="Spark 20"
                     />
                   </Field>
-                </div>
-              </section>
+                </FieldGrid>
+              </FormSection>
             ) : null}
 
-            {step === 2 ? (
-              <section className="space-y-4">
-                <SectionTitle
-                  icon={CreditCard}
-                  title="Repayment plan"
-                  subtitle="Price, deposit and how often the customer pays"
-                />
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <Field label="Phone price (TZS)" required error={err('principal')}>
-                    <Input
-                      type="number"
-                      min="1"
-                      inputMode="numeric"
-                      value={form.principal}
-                      onChange={(e) =>
-                        setForm({ ...form, principal: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Deposit (TZS)" error={err('downPayment')}>
-                    <Input
-                      type="number"
-                      min="0"
-                      inputMode="numeric"
-                      value={form.downPayment}
-                      onChange={(e) =>
-                        setForm({ ...form, downPayment: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Flat interest (%)">
-                    <Input
-                      type="number"
-                      min="0"
-                      inputMode="decimal"
-                      value={form.interestRate}
-                      onChange={(e) =>
-                        setForm({ ...form, interestRate: e.target.value })
-                      }
-                    />
-                  </Field>
-                </div>
+            {step === 3 ? (
+              <>
+                <FormSection icon={CreditCard} title="Price & deposit">
+                  <FieldGrid className="sm:grid-cols-3">
+                    <Field label="Phone price (TZS)" required error={err('principal')}>
+                      <Input
+                        type="number"
+                        min="1"
+                        inputMode="numeric"
+                        value={sale.principal}
+                        onChange={(e) => setSale({ ...sale, principal: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Deposit (TZS)" error={err('downPayment')}>
+                      <Input
+                        type="number"
+                        min="0"
+                        inputMode="numeric"
+                        value={sale.downPayment}
+                        onChange={(e) => setSale({ ...sale, downPayment: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Flat interest (%)">
+                      <Input
+                        type="number"
+                        min="0"
+                        inputMode="decimal"
+                        value={sale.interestRate}
+                        onChange={(e) => setSale({ ...sale, interestRate: e.target.value })}
+                      />
+                    </Field>
+                  </FieldGrid>
+                </FormSection>
 
-                <div>
-                  <span className="mb-1.5 block text-sm font-medium text-ink">
-                    Pays <span className="text-rose-600">*</span>
-                  </span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {FREQUENCIES.map((f) => (
-                      <button
-                        key={f.value}
-                        type="button"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            frequency: f.value,
-                            termPeriods: f.defaultTerm,
-                          })
-                        }
-                        className={cn(
-                          'rounded-xl border px-3 py-2.5 text-sm font-medium transition',
-                          form.frequency === f.value
-                            ? 'border-brand-500 bg-brand-50 text-brand-800 ring-2 ring-brand-200'
-                            : 'border-line bg-surface text-ink hover:bg-canvas',
-                        )}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
+                <FormSection title="Repayment schedule" description="How often the customer pays and for how long.">
+                  <div className="space-y-4">
+                    <div>
+                      <span className="mb-1.5 block text-sm font-medium text-ink">
+                        Pays <span className="text-rose-600">*</span>
+                      </span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {FREQUENCIES.map((f) => (
+                          <button
+                            key={f.value}
+                            type="button"
+                            onClick={() =>
+                              setSale({ ...sale, frequency: f.value, termPeriods: f.defaultTerm })
+                            }
+                            className={cn(
+                              'rounded-xl border px-3 py-2.5 text-sm font-medium transition',
+                              sale.frequency === f.value
+                                ? 'border-brand-500 bg-brand-50 text-brand-800 ring-2 ring-brand-200'
+                                : 'border-line bg-surface text-ink hover:bg-canvas',
+                            )}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="mb-1.5 block text-sm font-medium text-ink">
+                        For how many {freq.unit}? <span className="text-rose-600">*</span>
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {freq.presets.map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setSale({ ...sale, termPeriods: String(n) })}
+                            className={cn(
+                              'rounded-full border px-3.5 py-1.5 text-sm transition',
+                              Number(sale.termPeriods) === n
+                                ? 'border-brand-500 bg-brand-50 font-medium text-brand-800'
+                                : 'border-line bg-surface text-ink hover:bg-canvas',
+                            )}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                        <Input
+                          type="number"
+                          min="1"
+                          inputMode="numeric"
+                          aria-label={`Custom number of ${freq.unit}`}
+                          className="!w-24"
+                          value={sale.termPeriods}
+                          onChange={(e) => setSale({ ...sale, termPeriods: e.target.value })}
+                        />
+                      </div>
+                      {err('termPeriods') ? (
+                        <span className="mt-1 block text-xs text-rose-600">{err('termPeriods')}</span>
+                      ) : null}
+                    </div>
+
+                    <div className="max-w-xs">
+                      <Field label="Counting from" required error={err('startDate')}>
+                        <Input
+                          type="date"
+                          value={sale.startDate}
+                          onChange={(e) => setSale({ ...sale, startDate: e.target.value })}
+                        />
+                      </Field>
+                    </div>
                   </div>
-                </div>
+                </FormSection>
 
-                <div>
-                  <span className="mb-1.5 block text-sm font-medium text-ink">
-                    For how many {freq.unit}? <span className="text-rose-600">*</span>
-                  </span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {freq.presets.map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setForm({ ...form, termPeriods: String(n) })}
-                        className={cn(
-                          'rounded-full border px-3.5 py-1.5 text-sm transition',
-                          Number(form.termPeriods) === n
-                            ? 'border-brand-500 bg-brand-50 font-medium text-brand-800'
-                            : 'border-line bg-surface text-ink hover:bg-canvas',
-                        )}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                    <Input
-                      type="number"
-                      min="1"
-                      inputMode="numeric"
-                      aria-label={`Custom number of ${freq.unit}`}
-                      className="!w-24"
-                      value={form.termPeriods}
-                      onChange={(e) =>
-                        setForm({ ...form, termPeriods: e.target.value })
-                      }
-                    />
-                  </div>
-                  {err('termPeriods') ? (
-                    <span className="mt-1 block text-xs text-rose-600">
-                      {err('termPeriods')}
-                    </span>
-                  ) : null}
-                </div>
-
-                <Field label="First payment counts from" required error={err('startDate')}>
-                  <Input
-                    type="date"
-                    value={form.startDate}
-                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                  />
-                </Field>
-
-                <div className="grid grid-cols-3 gap-2 rounded-xl border border-line bg-surface p-3 text-center">
+                <div className="grid grid-cols-3 gap-2 rounded-2xl border border-line bg-canvas/40 p-3 text-center">
                   <SummaryCell label="Financed" value={money(financed)} />
-                  <SummaryCell
-                    label="Total repayable"
-                    value={money(totalRepayable)}
-                    emphasize
-                  />
+                  <SummaryCell label="Total repayable" value={money(totalRepayable)} emphasize />
                   <SummaryCell
                     label={`Each ${freq.unit.replace(/s$/, '')}`}
                     value={money(perInstallment)}
                   />
                 </div>
-              </section>
+              </>
             ) : null}
 
-            {step === 3 ? (
-              <section className="space-y-4">
-                <SectionTitle
-                  icon={CheckCircle2}
-                  title="Review & confirm"
-                  subtitle="Check everything with the customer before creating the sale"
-                />
-                <div className="flex items-center gap-3 rounded-xl bg-canvas p-3">
-                  {photoUrl ? (
-                    <img
-                      src={photoUrl}
-                      alt="Customer"
-                      className="h-14 w-14 rounded-xl object-cover"
+            {step === 4 ? (
+              <>
+                <FormSection icon={CheckCircle2} title="Review" description="Check everything with the customer before creating the sale.">
+                  <dl className="space-y-3 text-sm">
+                    <ReviewRow
+                      title="Customer"
+                      photo={customer.photo}
+                      lines={[
+                        customer.fullName,
+                        customer.phone,
+                        `${ID_TYPES.find((t) => t.value === customer.idDocumentType)?.label} · ${customer.nationalId}`,
+                        customer.address,
+                      ]}
                     />
-                  ) : null}
-                  <div className="min-w-0 text-sm">
-                    <p className="font-semibold">{form.fullName}</p>
-                    <p className="text-muted">{form.phone}</p>
-                    <p className="truncate text-muted">
-                      {ID_TYPES.find((t) => t.value === form.idDocumentType)?.label}{' '}
-                      · {form.nationalId} · {form.address}
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-xl bg-canvas p-3 text-sm">
-                  <p className="font-semibold">
-                    {[form.make, form.model].filter(Boolean).join(' ') || 'Phone'}
-                  </p>
-                  <p className="text-muted">IMEI {form.imei}</p>
-                </div>
+                    {Array.from({ length: neededGuardians }).map((_, i) => (
+                      <ReviewRow
+                        key={i}
+                        title={`Guardian ${i + 1} · ${guardians[i].relationship}`}
+                        photo={guardians[i].photo}
+                        lines={[
+                          guardians[i].fullName,
+                          guardians[i].phone,
+                          `${ID_TYPES.find((t) => t.value === guardians[i].idDocumentType)?.label} · ${guardians[i].nationalId}`,
+                          guardians[i].address,
+                        ]}
+                      />
+                    ))}
+                    <ReviewRow
+                      title="Phone"
+                      lines={[
+                        [sale.make, sale.model].filter(Boolean).join(' ') || 'Phone',
+                        `IMEI ${sale.imei}`,
+                      ]}
+                    />
+                  </dl>
+                </FormSection>
 
-                <div className="rounded-xl border border-line p-3 text-sm">
-                  <p className="font-semibold">
-                    {money(perInstallment)} {freq.per}, {form.termPeriods} {freq.unit}
+                <FormSection title="Payments">
+                  <p className="text-sm font-semibold">
+                    {money(perInstallment)} {freq.per}, {sale.termPeriods} {freq.unit}
                   </p>
-                  <p className="text-muted">
-                    Total {money(totalRepayable)} · deposit{' '}
-                    {money(Number(form.downPayment) || 0)}
+                  <p className="text-sm text-muted">
+                    Total {money(totalRepayable)} · deposit {money(Number(sale.downPayment) || 0)}
                   </p>
-                  <ul className="mt-2 space-y-0.5 text-xs text-muted">
-                    {previewDates(form).map((row) => (
-                      <li key={row.n} className="flex justify-between">
-                        <span>{row.n === 0 ? '…' : `#${row.n}`}</span>
-                        <span>
-                          {row.n === 0 ? '' : shortDate(row.date.toISOString())}
-                          {row.n === 0 ? '' : ` · ${money(perInstallment)}`}
-                        </span>
+                  <ul className="mt-3 space-y-1 text-xs text-muted">
+                    {previewDates(sale).map((row) => (
+                      <li key={row.n} className="flex justify-between border-b border-line/60 pb-1 last:border-0">
+                        <span>{row.n === 0 ? '…' : `#${row.n} · ${shortDate(row.date.toISOString())}`}</span>
+                        <span>{row.n === 0 ? '' : money(perInstallment)}</span>
                       </li>
                     ))}
                   </ul>
-                </div>
+                </FormSection>
 
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
-                  <li>Reminders are sent before any restriction.</li>
-                  <li>
-                    After a missed payment and grace period, the phone may be
-                    restricted until payment is confirmed.
-                  </li>
-                  <li>
-                    The phone shares its last-known location with the seller while
-                    the loan is active.
-                  </li>
-                  <li>Emergency access remains; personal data is not deleted.</li>
-                  <li>After final settlement, the phone is permanently released.</li>
-                </ul>
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-canvas px-3 py-3 text-sm text-ink">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 rounded border-line accent-brand-600"
-                    checked={form.consentAccepted}
-                    onChange={(e) =>
-                      setForm({ ...form, consentAccepted: e.target.checked })
-                    }
-                  />
-                  <span>
-                    I confirm the customer accepted these SimuLinda credit-sale
-                    terms.
-                  </span>
-                </label>
-              </section>
+                <FormSection title="Consent & fair-use terms">
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
+                    <li>Reminders are sent before any restriction.</li>
+                    <li>
+                      After a missed payment and grace period, the phone may be restricted
+                      until payment is confirmed.
+                    </li>
+                    <li>The phone shares its last-known location with the seller while the loan is active.</li>
+                    <li>Guardians may be contacted if payments are missed.</li>
+                    <li>Emergency access remains; personal data is not deleted.</li>
+                    <li>After final settlement, the phone is permanently released.</li>
+                  </ul>
+                  <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-canvas px-3 py-3 text-sm text-ink">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-line accent-brand-600"
+                      checked={sale.consentAccepted}
+                      onChange={(e) => setSale({ ...sale, consentAccepted: e.target.checked })}
+                    />
+                    <span>I confirm the customer accepted these SimuLinda credit-sale terms.</span>
+                  </label>
+                </FormSection>
+              </>
             ) : null}
 
             {createSale.isError ? (
-              <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <p className="flex items-start gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 {saleErrorMessage(createSale.error)}
               </p>
             ) : null}
           </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line bg-surface px-6 py-4">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line bg-surface px-4 py-3.5 sm:px-6">
             <Button
               type="button"
               variant="secondary"
@@ -919,18 +943,13 @@ export default function Sales() {
                 </>
               )}
             </Button>
-            {step < STEPS.length - 1 ? (
+            {step < LAST_STEP ? (
               <Button type="submit">
                 Next <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button
-                type="submit"
-                disabled={createSale.isPending || !form.consentAccepted}
-              >
-                {createSale.isPending
-                  ? 'Creating sale…'
-                  : 'Create sale & enrollment token'}
+              <Button type="submit" disabled={createSale.isPending || !sale.consentAccepted}>
+                {createSale.isPending ? 'Creating sale…' : 'Create sale & enrollment token'}
               </Button>
             )}
           </div>
@@ -940,23 +959,28 @@ export default function Sales() {
   );
 }
 
-function SectionTitle({
-  icon: Icon,
+function ReviewRow({
   title,
-  subtitle,
+  lines,
+  photo,
 }: {
-  icon: typeof UserRound;
   title: string;
-  subtitle: string;
+  lines: string[];
+  photo?: File | null;
 }) {
+  const url = useObjectUrl(photo);
   return (
-    <div className="flex items-start gap-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-        <Icon className="h-4 w-4" />
-      </span>
-      <div>
-        <p className="font-semibold text-ink">{title}</p>
-        <p className="text-xs text-muted">{subtitle}</p>
+    <div className="flex items-center gap-3 rounded-xl bg-canvas p-3">
+      {url ? <img src={url} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" /> : null}
+      <div className="min-w-0">
+        <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</dt>
+        <dd className="mt-0.5 space-y-0.5">
+          {lines.map((l, i) => (
+            <p key={i} className={cn('truncate', i === 0 ? 'font-semibold text-ink' : 'text-muted')}>
+              {l}
+            </p>
+          ))}
+        </dd>
       </div>
     </div>
   );
@@ -1016,79 +1040,3 @@ function previewDates(form: { startDate: string; frequency: Frequency; termPerio
   return rows;
 }
 
-function PhotoCapture({
-  url,
-  hasExisting,
-  error,
-  onChange,
-}: {
-  url: string | null;
-  hasExisting: boolean;
-  error?: string;
-  onChange: (f: File | null) => void;
-}) {
-  const accept = 'image/jpeg,image/png,image/webp';
-  return (
-    <div>
-      <span className="mb-1.5 block text-sm font-medium text-ink">
-        Customer photo <span className="text-rose-600">*</span>
-      </span>
-      <div
-        className={cn(
-          'flex flex-col items-center gap-3 rounded-2xl border border-dashed p-4 sm:flex-row',
-          error ? 'border-rose-300 bg-rose-50/50' : 'border-line bg-canvas/40',
-        )}
-      >
-        {url ? (
-          <img
-            src={url}
-            alt="Customer preview"
-            className="h-32 w-32 rounded-2xl object-cover"
-          />
-        ) : (
-          <span className="flex h-32 w-32 items-center justify-center rounded-2xl bg-canvas text-muted">
-            <Camera className="h-8 w-8" />
-          </span>
-        )}
-        <div className="flex flex-1 flex-col items-center gap-2 sm:items-start">
-          <p className="text-xs text-muted">
-            {url
-              ? 'Looks good? You can retake it.'
-              : hasExisting
-                ? 'A photo is already on file for this customer. Add a new one only if needed.'
-                : 'Face clearly visible, good light.'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
-              {url ? <RefreshCw className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
-              {url ? 'Retake' : 'Take photo'}
-              <input
-                type="file"
-                accept={accept}
-                capture="user"
-                className="sr-only"
-                onChange={(e) => {
-                  onChange(e.target.files?.[0] ?? null);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-canvas">
-              <Upload className="h-4 w-4" /> Upload
-              <input
-                type="file"
-                accept={accept}
-                className="sr-only"
-                onChange={(e) => {
-                  onChange(e.target.files?.[0] ?? null);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-      {error ? <span className="mt-1 block text-xs text-rose-600">{error}</span> : null}
-    </div>
-  );
-}
