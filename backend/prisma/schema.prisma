@@ -238,8 +238,69 @@ model Tenant {
   collectionsInvoices     CollectionsInvoice[]
   demoRequests            DemoRequest[]
   guardians               Guardian[]
+  serviceAgreements       ServiceAgreement[]
 
   @@index([isActive])
+}
+
+enum AgreementStatus {
+  DRAFT // admin is preparing it; client cannot see it yet
+  SENT // issued to the client, awaiting their signature
+  CLIENT_SIGNED // client signed, awaiting platform countersignature
+  ACTIVE // fully executed
+  VOID // withdrawn or superseded
+}
+
+/// Service agreement between the platform operator and a client company (tenant).
+/// `content` is a frozen snapshot of the rendered terms; `contentHash` is its SHA-256.
+model ServiceAgreement {
+  id           String          @id @default(uuid())
+  tenantId     String
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status       AgreementStatus @default(DRAFT)
+  termsVersion String          @default("service-agreement-v1")
+  content      Json
+  contentHash  String
+  feePerDevice Int             @default(5000)
+
+  providerName    String
+  providerAddress String
+  clientName      String
+  clientAddress   String
+  clientEmail     String
+  clientPhone     String?
+  providerEmail   String?
+  providerPhone   String?
+
+  sentAt      DateTime?
+  activatedAt DateTime?
+  voidedAt    DateTime?
+  voidReason  String?
+  createdById String?
+
+  clientSignatoryName    String?
+  clientSignatoryTitle   String?
+  clientSignature        String?   @db.Text
+  clientSignedAt         DateTime?
+  clientSignedById       String?
+  clientSignedIp         String?
+  clientSignedAgent      String?
+  clientWitnessName      String?
+  clientWitnessSignature String?   @db.Text
+
+  providerSignatoryName    String?
+  providerSignatoryTitle   String?
+  providerSignature        String?   @db.Text
+  providerSignedAt         DateTime?
+  providerSignedById       String?
+  providerWitnessName      String?
+  providerWitnessSignature String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([status])
 }
 
 /// Inbound sales lead from the public marketing site demo form.

@@ -14,6 +14,7 @@ import LoanDetail from './pages/LoanDetail';
 import Payments from './pages/Payments';
 import Staff from './pages/Staff';
 import Billing from './pages/Billing';
+import Agreement from './pages/Agreement';
 import CollectionsService from './pages/CollectionsService';
 import Profile from '@/shared/pages/Profile';
 import Settings from '@/shared/pages/Settings';
@@ -70,6 +71,16 @@ export default function ClientApp() {
           <Shell>
             <RequireRole allow={SELLER_ADMIN_ROLES}>
               <Staff />
+            </RequireRole>
+          </Shell>
+        }
+      />
+      <Route
+        path="/agreement"
+        element={
+          <Shell>
+            <RequireRole allow={['OWNER', 'MANAGER']}>
+              <Agreement />
             </RequireRole>
           </Shell>
         }

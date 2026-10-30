@@ -20,6 +20,7 @@ import { EmptyState, Center, Spinner } from '@/shared/components/ui/misc';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { money, shortDate } from '@/shared/lib/format';
+import { AgreementCard } from '../components/AgreementCard';
 
 type PackageDef = {
   code: string;
@@ -241,6 +242,8 @@ export default function CompanyDetail() {
           tone="brand"
         />
       </div>
+
+      {id ? <AgreementCard tenantId={id} companyName={name} /> : null}
 
       <Card>
         <div className="border-b border-line px-4 py-4 sm:px-5">

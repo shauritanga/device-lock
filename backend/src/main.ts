@@ -1,10 +1,11 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Allow dashboard consoles + local marketing site (localhost and 127.0.0.1).
   const corsOrigins = (
@@ -21,6 +22,9 @@ async function bootstrap() {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
+
+  // Signature images arrive as PNG data URLs; the 100kb default is too small.
+  app.useBodyParser('json', { limit: '1mb' });
 
   app.enableCors({
     origin: corsOrigins,

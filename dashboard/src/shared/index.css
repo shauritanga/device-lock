@@ -90,3 +90,33 @@ body {
 *::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
 }
+
+/* Agreement: print only the document (browser "Save as PDF" produces the signed copy). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #agreement-print,
+  #agreement-print * {
+    visibility: visible;
+  }
+  /* Modals are fixed + overflow-clipped on screen; unclip them so the whole document prints. */
+  .fixed {
+    position: static !important;
+  }
+  body *:has(#agreement-print) {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  #agreement-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    padding: 0;
+  }
+  @page {
+    margin: 18mm 16mm;
+  }
+}

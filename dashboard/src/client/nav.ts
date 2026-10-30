@@ -1,5 +1,6 @@
 import {
   CreditCard,
+  FileSignature,
   FileText,
   Headphones,
   LayoutDashboard,
@@ -84,6 +85,13 @@ export const CLIENT_NAV: NavGroup[] = [
         label: 'Billing',
         icon: WalletCards,
         subtitle: 'Subscription plan, usage bundles, and monthly invoices',
+      },
+      {
+        to: '/agreement',
+        label: 'Agreement',
+        icon: FileSignature,
+        subtitle: 'Your service agreement with the platform — review and sign',
+        roles: ['OWNER', 'MANAGER'],
       },
       {
         to: '/staff',

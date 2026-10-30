@@ -30,6 +30,7 @@ import { CallCentreModule } from './call-centre/call-centre.module';
 import { BillingModule } from './billing/billing.module';
 import { CollectionsModule } from './collections/collections.module';
 import { DemoRequestsModule } from './demo-requests/demo-requests.module';
+import { AgreementsModule } from './agreements/agreements.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { DemoRequestsModule } from './demo-requests/demo-requests.module';
     BillingModule,
     CollectionsModule,
     DemoRequestsModule,
+    AgreementsModule,
   ],
   controllers: [HealthController],
   providers: [
