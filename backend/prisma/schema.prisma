@@ -239,6 +239,7 @@ model Tenant {
   demoRequests            DemoRequest[]
   guardians               Guardian[]
   serviceAgreements       ServiceAgreement[]
+  apiClientGrants         ApiClientGrant[]
 
   @@index([isActive])
 }
@@ -954,22 +955,27 @@ model BillingInvoice {
 // ---------------------------------------------------------------------------
 
 model DeviceCommand {
-  id         String        @id @default(uuid())
-  tenantId   String
-  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deviceId   String
-  device     Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  type       CommandType
-  status     CommandStatus @default(QUEUED)
-  reason     String? // e.g. "installment #3 overdue"
-  issuedById String?
-  issuedBy   User?         @relation("CommandIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
-  sentAt     DateTime?
-  ackedAt    DateTime?
-  expiresAt  DateTime?
+  id             String        @id @default(uuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deviceId       String
+  device         Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  type           CommandType
+  status         CommandStatus @default(QUEUED)
+  reason         String? // e.g. "installment #3 overdue"
+  issuedById     String?
+  issuedBy       User?         @relation("CommandIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+  // Set when a partner system issued the command through the public API.
+  apiClientId    String?
+  apiClient      ApiClient?    @relation(fields: [apiClientId], references: [id], onDelete: SetNull)
+  idempotencyKey String?
+  sentAt         DateTime?
+  ackedAt        DateTime?
+  expiresAt      DateTime?
 
   createdAt DateTime @default(now())
 
+  @@unique([tenantId, apiClientId, idempotencyKey])
   @@index([tenantId, deviceId, status])
 }
 
@@ -985,4 +991,97 @@ model DeviceEvent {
   createdAt DateTime @default(now())
 
   @@index([tenantId, deviceId, createdAt])
+}
+
+enum ApiClientStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED // gave up after the retry budget
+}
+
+/// A third-party system allowed to call the public partner API. Platform-level (not tenant
+/// scoped): it reaches a company's devices only through an ApiClientGrant.
+model ApiClient {
+  id              String          @id @default(uuid())
+  name            String
+  contactEmail    String
+  status          ApiClientStatus @default(ACTIVE)
+  /// First characters of the key, shown in the console to tell keys apart.
+  keyPrefix       String
+  /// SHA-256 of the full key; the key itself is shown once and never stored.
+  keyHash         String          @unique
+  webhookUrl      String?
+  /// HMAC secret used to sign webhook deliveries (must be stored to sign).
+  webhookSecret   String
+  rateLimitPerMin Int             @default(60)
+  /// Set for keys a company created itself in the Developers page: the key can only ever act
+  /// on that company. Null for partner keys the platform admin issued.
+  ownerTenantId   String?
+  /// Read-only keys may call GET endpoints but never lock or unlock.
+  readOnly        Boolean         @default(false)
+  createdById     String?
+  lastUsedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  grants     ApiClientGrant[]
+  commands   DeviceCommand[]
+  deliveries WebhookDelivery[]
+  requests   ApiRequestLog[]
+
+  @@index([ownerTenantId, status])
+}
+
+/// A company (tenant) that has authorized an ApiClient to act on its devices.
+model ApiClientGrant {
+  id          String    @id @default(uuid())
+  apiClientId String
+  apiClient   ApiClient @relation(fields: [apiClientId], references: [id], onDelete: Cascade)
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([apiClientId, tenantId])
+  @@index([tenantId])
+}
+
+/// Outbound webhook queue with retry state.
+model WebhookDelivery {
+  id            String                @id @default(uuid())
+  apiClientId   String
+  apiClient     ApiClient             @relation(fields: [apiClientId], references: [id], onDelete: Cascade)
+  eventType     String
+  payload       Json
+  status        WebhookDeliveryStatus @default(PENDING)
+  attempts      Int                   @default(0)
+  nextAttemptAt DateTime              @default(now())
+  lastError     String?
+  lastStatus    Int?
+  deliveredAt   DateTime?
+  createdAt     DateTime              @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@index([apiClientId, createdAt])
+}
+
+/// One row per authenticated partner-API request, for the Developers request log.
+model ApiRequestLog {
+  id          String    @id @default(uuid())
+  apiClientId String
+  apiClient   ApiClient @relation(fields: [apiClientId], references: [id], onDelete: Cascade)
+  tenantId    String?
+  method      String
+  path        String
+  status      Int
+  durationMs  Int
+  createdAt   DateTime  @default(now())
+
+  @@index([apiClientId, createdAt])
+  @@index([tenantId, createdAt])
 }

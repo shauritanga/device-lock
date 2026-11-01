@@ -3,6 +3,7 @@ import {
   Building2,
   Headphones,
   Inbox,
+  KeyRound,
   LayoutDashboard,
   Smartphone,
   PhoneCall,
@@ -72,6 +73,13 @@ export const ADMIN_NAV: NavGroup[] = [
         label: 'Devices',
         icon: Smartphone,
         subtitle: 'Phones handed over for follow-up — status, location, lock and unlock',
+      },
+      {
+        to: '/partners',
+        label: 'API partners',
+        icon: KeyRound,
+        subtitle: 'Third-party systems allowed to lock and unlock devices through the API',
+        roles: ['SUPER_ADMIN'],
       },
       {
         to: '/collectors',

@@ -10,6 +10,7 @@ import CollectionsReports from './pages/CollectionsReports';
 import CallCentre from './pages/CallCentre';
 import Devices from './pages/Devices';
 import Companies from './pages/Companies';
+import Partners from './pages/Partners';
 import CompanyDetail from './pages/CompanyDetail';
 import Collectors from './pages/Collectors';
 import DemoRequests from './pages/DemoRequests';
@@ -83,6 +84,16 @@ export default function AdminApp() {
           <Shell>
             <RequireRole allow={PLATFORM_ADMIN_ROLES}>
               <CompanyDetail />
+            </RequireRole>
+          </Shell>
+        }
+      />
+      <Route
+        path="/partners"
+        element={
+          <Shell>
+            <RequireRole allow={['SUPER_ADMIN']}>
+              <Partners />
             </RequireRole>
           </Shell>
         }

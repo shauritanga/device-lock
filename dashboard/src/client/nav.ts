@@ -2,6 +2,7 @@ import {
   CreditCard,
   FileSignature,
   FileText,
+  Code2,
   Headphones,
   LayoutDashboard,
   ReceiptText,
@@ -92,6 +93,12 @@ export const CLIENT_NAV: NavGroup[] = [
         icon: FileSignature,
         subtitle: 'Your service agreement with the platform — review and sign',
         roles: ['OWNER', 'MANAGER'],
+      },
+      {
+        to: '/developers',
+        label: 'Developers',
+        icon: Code2,
+        subtitle: 'API keys, webhooks, request log and integration docs',
       },
       {
         to: '/staff',

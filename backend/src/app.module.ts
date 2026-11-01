@@ -31,6 +31,7 @@ import { BillingModule } from './billing/billing.module';
 import { CollectionsModule } from './collections/collections.module';
 import { DemoRequestsModule } from './demo-requests/demo-requests.module';
 import { AgreementsModule } from './agreements/agreements.module';
+import { PartnersModule } from './partners/partners.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { AgreementsModule } from './agreements/agreements.module';
     CollectionsModule,
     DemoRequestsModule,
     AgreementsModule,
+    PartnersModule,
   ],
   controllers: [HealthController],
   providers: [

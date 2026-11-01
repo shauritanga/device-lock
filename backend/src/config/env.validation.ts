@@ -56,6 +56,8 @@ export const envSchema = z.object({
   // Public base URL of THIS backend, used to build the APK download link the
   // setup wizard fetches (must be reachable by a factory-fresh device).
   PUBLIC_BASE_URL: z.string().optional(),
+  // Dev/test only: let partner webhooks target http/private addresses ('true').
+  WEBHOOK_ALLOW_PRIVATE: z.string().optional(),
   // The DeviceAdminReceiver the setup wizard makes device-owner.
   PROVISIONING_ADMIN_COMPONENT: z
     .string()

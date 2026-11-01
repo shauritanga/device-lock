@@ -15,6 +15,8 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { PushService } from '../notifications/push.service';
 import { SmsService } from '../notifications/sms.service';
 import { CollectionsService } from '../collections/collections.service';
+import type { PartnerEvent } from '../outbound-webhooks/outbound-webhooks.service';
+import { OutboundWebhooksService } from '../outbound-webhooks/outbound-webhooks.service';
 
 /** Commands the agent must execute, with their resulting device state. */
 const STATUS_AFTER_ACK: Partial<Record<CommandType, DeviceStatus>> = {
@@ -32,13 +34,19 @@ export class CommandsService {
     private readonly push: PushService,
     private readonly sms: SmsService,
     private readonly collections: CollectionsService,
+    private readonly webhooks: OutboundWebhooksService,
   ) {}
 
   /** Queue a command for a device and attempt instant push (fallback: check-in). */
   async queue(
     deviceId: string,
     type: CommandType,
-    opts: { reason?: string; issuedById?: string } = {},
+    opts: {
+      reason?: string;
+      issuedById?: string;
+      apiClientId?: string;
+      idempotencyKey?: string;
+    } = {},
   ) {
     const device = await this.prisma.scoped.device.findFirst({
       where: { id: deviceId },
@@ -60,6 +68,8 @@ export class CommandsService {
         type,
         reason: opts.reason,
         issuedById: opts.issuedById,
+        apiClientId: opts.apiClientId,
+        idempotencyKey: opts.idempotencyKey,
         status: CommandStatus.QUEUED,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
@@ -193,6 +203,26 @@ export class CommandsService {
           metadata: detail ? ({ detail } as Prisma.InputJsonValue) : undefined,
         },
       });
+
+      // Tell the partner that issued this command what the device actually did.
+      const event = partnerEventFor(command.type, ok);
+      if (command.apiClientId && event) {
+        await this.webhooks.enqueue(
+          command.apiClientId,
+          event,
+          {
+            commandId: command.id,
+            deviceId,
+            commandType: command.type,
+            result: ok ? 'DONE' : 'FAILED',
+            deviceStatus: newStatus ?? null,
+            detail: detail ?? null,
+            idempotencyKey: command.idempotencyKey,
+            occurredAt: now.toISOString(),
+          },
+          tx as unknown as Pick<PrismaService, 'webhookDelivery'>,
+        );
+      }
     });
 
     // A confirmed release may close the collection case (fully-paid loan +
@@ -216,3 +246,10 @@ const SMS_COMMAND_TYPES = new Set<CommandType>([
   CommandType.UNLOCK,
   CommandType.RELEASE,
 ]);
+
+function partnerEventFor(type: CommandType, ok: boolean): PartnerEvent | null {
+  if (!ok) return type === CommandType.LOCK || type === CommandType.UNLOCK ? 'command.failed' : null;
+  if (type === CommandType.LOCK) return 'device.locked';
+  if (type === CommandType.UNLOCK) return 'device.unlocked';
+  return null;
+}
