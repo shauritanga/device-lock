@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, Clock } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
-import { Card, CardHeader } from '@/shared/components/ui/Card';
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import { Card } from '@/shared/components/ui/Card';
+import { FigureStrip } from '@/shared/components/FigureStrip';
+import { PanelEmpty, PanelHeader, useAccent } from '@/shared/components/Panel';
+import { Row, Table } from '@/shared/components/ui/Table';
+import { Tabs } from '@/shared/components/Tabs';
 import { Button } from '@/shared/components/ui/Button';
-import { StatusPill } from '@/shared/components/ui/Pill';
+import { StatusDot } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { money, shortDate } from '@/shared/lib/format';
@@ -90,13 +94,19 @@ type PromiseRow = {
   createdBy?: { fullName: string } | null;
 };
 
+/** yyyy-mm-dd in the user's local time (toISOString would shift the day across midnight UTC). */
+function localIso(d: Date) {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 function monthStartIso() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return localIso(new Date(d.getFullYear(), d.getMonth(), 1));
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return localIso(new Date());
 }
 
 type PerfRow = {
@@ -143,19 +153,41 @@ function formatHours(sec: number) {
   return `${h}h ${m}m`;
 }
 
+type ReportTab = 'overview' | 'collectors' | 'paid' | 'promises';
+
 export default function CollectionsReports() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const accent = useAccent();
+  const [params, setParams] = useSearchParams();
   const [from, setFrom] = useState(monthStartIso());
   const [to, setTo] = useState(todayIso());
   const [ptpStatus, setPtpStatus] = useState('');
   const [perfPeriod, setPerfPeriod] = useState<'day' | 'month' | 'year'>('month');
+  const [csvError, setCsvError] = useState<string | null>(null);
 
   const range = { from: new Date(from).toISOString(), to: new Date(to + 'T23:59:59').toISOString() };
   const isCollector =
     user?.role === 'COLLECTOR' ||
     user?.role === 'COLLECTIONS_ADMIN' ||
     user?.role === 'SUPER_ADMIN';
+  const canSeePaid = user?.role !== 'COLLECTOR';
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'COLLECTIONS_ADMIN';
+
+  const tabs: { id: ReportTab; label: string }[] = [
+    { id: 'overview', label: 'Overview' },
+    ...(isCollector ? [{ id: 'collectors' as const, label: 'Collectors' }] : []),
+    ...(canSeePaid ? [{ id: 'paid' as const, label: 'Paid cases' }] : []),
+    { id: 'promises', label: 'Promises' },
+  ];
+  const requested = params.get('tab') as ReportTab | null;
+  const tab: ReportTab = tabs.some((t) => t.id === requested) ? requested! : 'overview';
+  const goTab = (t: ReportTab) => {
+    const next = new URLSearchParams(params);
+    if (t === 'overview') next.delete('tab');
+    else next.set('tab', t);
+    setParams(next, { replace: true });
+  };
 
   const stats = useQuery({
     queryKey: ['collections', 'reports', 'stats', from, to],
@@ -167,7 +199,7 @@ export default function CollectionsReports() {
     queryKey: ['collections', 'reports', 'paid', from, to],
     queryFn: async () =>
       (await api.get<PaidRow[]>('/collections/reports/paid-cases', { params: range })).data,
-    enabled: user?.role !== 'COLLECTOR',
+    enabled: canSeePaid,
   });
 
   const promises = useQuery({
@@ -216,398 +248,309 @@ export default function CollectionsReports() {
       qc.invalidateQueries({ queryKey: ['collections', 'reports', 'collector-performance'] }),
   });
 
+  const exportCsv = (path: string, q: Record<string, string>) => {
+    setCsvError(null);
+    downloadCsv(path, q).catch(() => setCsvError('The download failed. Try again.'));
+  };
+
   const s = stats.data?.summary;
+  const pct = (v: number | null | undefined) => (v != null ? `${(v * 100).toFixed(1)}%` : '—');
+  const dateFilters = (
+    <div className="flex flex-wrap items-end justify-end gap-3">
+      <div className="w-40">
+        <Field label="From">
+          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+      </div>
+      <div className="w-40">
+        <Field label="To">
+          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </Field>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-brand-600" />
-          <div>
-            <h2 className="text-lg font-bold">Collections reports</h2>
-            <p className="text-sm text-muted">
-              Paid cases, payment progress, promises — always with company context
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Field label="From">
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </Field>
-          <Field label="To">
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </Field>
-        </div>
-      </div>
+      <Tabs label="Report sections" tabs={tabs} value={tab} onChange={goTab} />
 
-      {isCollector ? (
-        <Card className="p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-brand-600" />
-              <div>
-                <p className="font-semibold">Work session</p>
-                <p className="text-sm text-muted">
-                  Hours worked use clock-in/out (talk time is separate)
-                </p>
-              </div>
+      {csvError ? <p className="text-sm text-rose-600 dark:text-rose-400">{csvError}</p> : null}
+
+      {tab === 'overview' ? (
+        <>
+          {dateFilters}
+          {stats.isLoading ? (
+            <Center><Spinner /></Center>
+          ) : s ? (
+            <div className="space-y-4">
+              <FigureStrip
+                items={[
+                  { label: 'Open cases', value: s.openCases },
+                  { label: 'Overdue book', value: money(s.overdueBook) },
+                  { label: 'Collected in period', value: money(s.collectedInPeriod) },
+                  { label: 'Recovery rate', value: pct(s.recoveryRate) },
+                ]}
+              />
+              <FigureStrip
+                items={[
+                  { label: 'Promises kept', value: `${s.ptpKept}/${s.ptpDueInPeriod}`, hint: s.ptpKeepRate != null ? pct(s.ptpKeepRate) : undefined },
+                  { label: 'Contacts', value: s.contactSessions },
+                  { label: 'Verified / attempted', value: s.verifiedOrAttemptedContacts },
+                  { label: 'Avg call', value: s.avgCallSeconds != null ? `${s.avgCallSeconds}s` : '—' },
+                ]}
+              />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm tabular-nums text-muted">
-                Today: {formatHours(work.data?.todayWorkedSeconds ?? 0)}
-                {work.data?.open
-                  ? ` · clocked in since ${shortDate(work.data.open.startedAt)}`
-                  : ' · not clocked in'}
-              </span>
-              {work.data?.open ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => clockOut.mutate()}
-                  disabled={clockOut.isPending}
-                >
-                  Clock out
-                </Button>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <Card>
+              <PanelHeader title="By company" sub="Overdue book against what was collected" />
+              {(stats.data?.byCompany ?? []).length === 0 ? (
+                <PanelEmpty>No company data in this range.</PanelEmpty>
               ) : (
-                <Button onClick={() => clockIn.mutate()} disabled={clockIn.isPending}>
-                  Clock in
-                </Button>
+                <Table columns={['Company', 'Open cases', 'Overdue', 'Collected']}>
+                  {stats.data!.byCompany.map((r) => (
+                    <Row key={r.tenantId}>
+                      <td className="py-3 font-medium text-ink">{r.companyName}</td>
+                      <td className="py-3 tabular-nums text-muted">{r.openCases}</td>
+                      <td className="py-3 tabular-nums text-muted">{money(r.overdueBook)}</td>
+                      <td className="py-3 text-right font-semibold tabular-nums text-ink">{money(r.collected)}</td>
+                    </Row>
+                  ))}
+                </Table>
               )}
-              {user?.role === 'SUPER_ADMIN' || user?.role === 'COLLECTIONS_ADMIN' ? (
-                <Button
-                  variant="ghost"
-                  onClick={() => rollDaily.mutate()}
-                  disabled={rollDaily.isPending}
-                >
-                  Refresh daily stats
-                </Button>
-              ) : null}
-            </div>
+            </Card>
+
+            <Card>
+              <PanelHeader title="By collector" sub="Contacts in this range" />
+              {(stats.data?.byCollector ?? []).length === 0 ? (
+                <PanelEmpty>No collector activity in this range.</PanelEmpty>
+              ) : (
+                <Table columns={['Collector', 'Contacts', 'Verified', 'Avg call', 'Talk time']}>
+                  {stats.data!.byCollector.map((r) => (
+                    <Row key={r.collectorId}>
+                      <td className="py-3 font-medium text-ink">{r.collectorName}</td>
+                      <td className="py-3 tabular-nums text-muted">{r.contacts}</td>
+                      <td className="py-3 tabular-nums text-muted">{r.verified}</td>
+                      <td className="py-3 tabular-nums text-muted">{r.avgCallSeconds}s</td>
+                      <td className="py-3 text-right tabular-nums text-muted">{Math.round(r.talkSeconds / 60)} min</td>
+                    </Row>
+                  ))}
+                </Table>
+              )}
+            </Card>
           </div>
-        </Card>
+        </>
       ) : null}
 
-      {isCollector && perf.data ? (
-        <Card>
-          <CardHeader
-            title="Collector performance"
-            subtitle="Daily / monthly / annual history (hours + calls + follow-ups)"
-            action={
-              <div className="flex flex-wrap gap-2">
-                <Select
-                  className="w-36"
-                  value={perfPeriod}
-                  onChange={(e) =>
-                    setPerfPeriod(e.target.value as 'day' | 'month' | 'year')
-                  }
-                >
+      {tab === 'collectors' && isCollector ? (
+        <>
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-ink">Work session</h3>
+                <p className="mt-0.5 text-xs text-muted">
+                  Today {formatHours(work.data?.todayWorkedSeconds ?? 0)}
+                  {work.data?.open
+                    ? ` · clocked in since ${shortDate(work.data.open.startedAt)}`
+                    : ' · not clocked in'}
+                  . Hours use clock-in and clock-out; talk time is counted separately.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {isAdmin ? (
+                  <Button variant="ghost" onClick={() => rollDaily.mutate()} disabled={rollDaily.isPending}>
+                    Refresh daily stats
+                  </Button>
+                ) : null}
+                {work.data?.open ? (
+                  <Button variant="secondary" onClick={() => clockOut.mutate()} disabled={clockOut.isPending}>
+                    Clock out
+                  </Button>
+                ) : (
+                  <Button onClick={() => clockIn.mutate()} disabled={clockIn.isPending}>
+                    Clock in
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          <div className="flex flex-wrap items-end justify-end gap-3">
+            <div className="w-40">
+              <Field label="Period">
+                <Select value={perfPeriod} onChange={(e) => setPerfPeriod(e.target.value as 'day' | 'month' | 'year')}>
                   <option value="day">Today</option>
                   <option value="month">This month</option>
                   <option value="year">This year</option>
                 </Select>
+              </Field>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => exportCsv('/collections/reports/collector-performance.csv', { period: perfPeriod })}
+            >
+              Export CSV
+            </Button>
+          </div>
+
+          {perf.isLoading ? (
+            <Center><Spinner /></Center>
+          ) : perf.data ? (
+            <>
+              <FigureStrip
+                items={[
+                  { label: 'Hours worked', value: Number((perf.data.totals.hoursWorkedSeconds / 3600).toFixed(2)) },
+                  { label: 'Follow-ups', value: perf.data.totals.followUpsCount },
+                  { label: 'Calls', value: perf.data.totals.callsCount },
+                  { label: 'Talk hours', value: Number((perf.data.totals.talkSeconds / 3600).toFixed(2)) },
+                  { label: 'Promises logged', value: perf.data.totals.ptpCount },
+                ]}
+              />
+
+              <Card>
+                <PanelHeader title="Performance by collector" sub="Hours, calls and follow-ups" />
+                {perf.data.byCollector.length === 0 ? (
+                  <PanelEmpty>No collector activity in this period.</PanelEmpty>
+                ) : (
+                  <Table columns={['Collector', 'Hours', 'Follow-ups', 'Calls', 'Avg call', 'SMS', 'WhatsApp', 'Promises']}>
+                    {perf.data.byCollector.map((r) => (
+                      <Row key={r.collectorId}>
+                        <td className="py-3 font-medium text-ink">{r.collectorName}</td>
+                        <td className="py-3 tabular-nums text-muted">{r.hoursWorked}</td>
+                        <td className="py-3 tabular-nums text-muted">{r.followUpsCount}</td>
+                        <td className="py-3 tabular-nums text-muted">{r.callsCount}</td>
+                        <td className="py-3 tabular-nums text-muted">{r.avgCallSeconds != null ? `${r.avgCallSeconds}s` : '—'}</td>
+                        <td className="py-3 tabular-nums text-muted">{r.smsCount}</td>
+                        <td className="py-3 tabular-nums text-muted">{r.whatsappCount}</td>
+                        <td className="py-3 text-right tabular-nums text-muted">{r.ptpCount}</td>
+                      </Row>
+                    ))}
+                  </Table>
+                )}
+              </Card>
+
+              {(perf.data.series?.length ?? 0) > 0 ? (
+                <Card>
+                  <PanelHeader title="Follow-ups over time" sub={`Per ${perfPeriod === 'day' ? 'hour' : perfPeriod === 'month' ? 'day' : 'month'}`} />
+                  <div className="h-52 px-3 pb-4 pt-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={perf.data.series} barCategoryGap={20}>
+                        <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }} />
+                        <Tooltip
+                          cursor={{ fill: 'var(--hover)' }}
+                          formatter={(v: number) => [v, 'Follow-ups']}
+                          contentStyle={{
+                            borderRadius: 10,
+                            border: '1px solid var(--line)',
+                            background: 'var(--surface)',
+                            color: 'var(--ink)',
+                            fontSize: 13,
+                          }}
+                        />
+                        <Bar dataKey="followUpsCount" fill={accent} radius={[6, 6, 0, 0]} maxBarSize={48} isAnimationActive={false} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      ) : null}
+
+      {tab === 'paid' && canSeePaid ? (
+        <>
+          {dateFilters}
+          <Card>
+            <PanelHeader
+              title="Paid cases"
+              sub="Confirmed payments with company and payment date"
+              right={
                 <Button
                   variant="secondary"
-                  onClick={() =>
-                    downloadCsv('/collections/reports/collector-performance.csv', {
-                      period: perfPeriod,
-                    }).catch(() => alert('CSV download failed'))
-                  }
+                  className="shrink-0"
+                  onClick={() => exportCsv('/collections/reports/paid-cases.csv', { from: range.from, to: range.to })}
                 >
                   Export CSV
                 </Button>
-              </div>
-            }
-          />
-          <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-5">
-            <Stat
-              label="Hours worked"
-              value={String(
-                Number((perf.data.totals.hoursWorkedSeconds / 3600).toFixed(2)),
-              )}
+              }
             />
-            <Stat label="Follow-ups" value={String(perf.data.totals.followUpsCount)} />
-            <Stat label="Calls" value={String(perf.data.totals.callsCount)} />
-            <Stat
-              label="Talk hours"
-              value={String(Number((perf.data.totals.talkSeconds / 3600).toFixed(2)))}
-            />
-            <Stat label="PTPs logged" value={String(perf.data.totals.ptpCount)} />
-          </div>
-          <div className="overflow-x-auto px-2 pb-3">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-3 py-2 font-medium">Collector</th>
-                  <th className="px-3 py-2 font-medium">Hours</th>
-                  <th className="px-3 py-2 font-medium">Follow-ups</th>
-                  <th className="px-3 py-2 font-medium">Calls</th>
-                  <th className="px-3 py-2 font-medium">Avg call</th>
-                  <th className="px-3 py-2 font-medium">SMS</th>
-                  <th className="px-3 py-2 font-medium">WhatsApp</th>
-                  <th className="px-3 py-2 font-medium">PTP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {perf.data.byCollector.map((r) => (
-                  <tr key={r.collectorId} className="border-t border-line">
-                    <td className="px-3 py-3 font-medium">{r.collectorName}</td>
-                    <td className="px-3 py-3 tabular-nums">{r.hoursWorked}</td>
-                    <td className="px-3 py-3 tabular-nums">{r.followUpsCount}</td>
-                    <td className="px-3 py-3 tabular-nums">{r.callsCount}</td>
-                    <td className="px-3 py-3 tabular-nums">
-                      {r.avgCallSeconds != null ? `${r.avgCallSeconds}s` : '—'}
+            {paid.isLoading ? (
+              <Center><Spinner /></Center>
+            ) : !paid.data?.length ? (
+              <PanelEmpty>No confirmed payments in this range.</PanelEmpty>
+            ) : (
+              <Table columns={['Date', 'Company', 'Customer', 'Method', 'Collector', 'Amount']}>
+                {paid.data.map((r) => (
+                  <Row key={r.paymentId}>
+                    <td className="py-3 tabular-nums text-muted">{shortDate(r.receivedAt)}</td>
+                    <td className="py-3 font-medium text-ink">{r.companyName}</td>
+                    <td className="py-3">
+                      {r.caseId ? (
+                        <Link to={`/cases/${r.caseId}`} className="text-brand-600 hover:underline">
+                          {r.customerName}
+                        </Link>
+                      ) : (
+                        <span className="text-ink">{r.customerName}</span>
+                      )}
+                      <p className="text-[11.5px] text-muted">{r.customerPhone}</p>
                     </td>
-                    <td className="px-3 py-3 tabular-nums">{r.smsCount}</td>
-                    <td className="px-3 py-3 tabular-nums">{r.whatsappCount}</td>
-                    <td className="px-3 py-3 tabular-nums">{r.ptpCount}</td>
-                  </tr>
+                    <td className="py-3 text-muted">{r.method}</td>
+                    <td className="py-3 text-muted">{r.collectorName ?? '—'}</td>
+                    <td className="py-3 text-right font-semibold tabular-nums text-ink">{money(r.amount)}</td>
+                  </Row>
                 ))}
-              </tbody>
-            </table>
+              </Table>
+            )}
+          </Card>
+        </>
+      ) : null}
+
+      {tab === 'promises' ? (
+        <>
+          <div className="flex justify-end">
+            <div className="w-44">
+              <Field label="Status">
+                <Select value={ptpStatus} onChange={(e) => setPtpStatus(e.target.value)}>
+                  <option value="">All statuses</option>
+                  <option value="OPEN">Open</option>
+                  <option value="KEPT">Kept</option>
+                  <option value="BROKEN">Broken</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </Select>
+              </Field>
+            </div>
           </div>
-          {(perf.data.series?.length ?? 0) > 0 ? (
-            <div className="border-t border-line p-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                Trend ({perfPeriod})
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {perf.data.series.map((b) => (
-                  <div
-                    key={b.bucket}
-                    className="rounded-xl bg-canvas px-3 py-2 text-xs"
-                  >
-                    <p className="font-semibold">{b.bucket}</p>
-                    <p className="text-muted">
-                      {b.followUpsCount} FU · {b.hoursWorked}h ·{' '}
-                      {b.avgCallSeconds != null ? `${b.avgCallSeconds}s avg` : '—'}
-                    </p>
-                  </div>
+          <Card>
+            <PanelHeader title="Promises to pay" sub="Payment commitments from customers" />
+            {promises.isLoading ? (
+              <Center><Spinner /></Center>
+            ) : !promises.data?.length ? (
+              <PanelEmpty>No promises.</PanelEmpty>
+            ) : (
+              <Table columns={['Company', 'Amount', 'Due', 'Recorded by', 'Status', '']}>
+                {promises.data.map((p) => (
+                  <Row key={p.id}>
+                    <td className="py-3 font-medium text-ink">{p.tenant.name}</td>
+                    <td className="py-3 tabular-nums text-ink">{money(p.promisedAmount)}</td>
+                    <td className="py-3 tabular-nums text-muted">{shortDate(p.dueDate)}</td>
+                    <td className="py-3 text-muted">
+                      {[p.createdBy?.fullName, p.notes].filter(Boolean).join(' · ') || '—'}
+                    </td>
+                    <td className="py-3"><StatusDot status={p.status} /></td>
+                    <td className="py-3 text-right">
+                      <Link to={`/cases/${p.case.id}`} className="text-[13px] font-medium text-brand-600 hover:underline">
+                        Open case
+                      </Link>
+                    </td>
+                  </Row>
                 ))}
-              </div>
-            </div>
-          ) : null}
-        </Card>
-      ) : null}
-
-      {stats.isLoading ? (
-        <Center><Spinner /></Center>
-      ) : s ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat label="Open cases" value={String(s.openCases)} />
-          <Stat label="Overdue book" value={money(s.overdueBook)} />
-          <Stat label="Collected (period)" value={money(s.collectedInPeriod)} />
-          <Stat
-            label="Recovery rate"
-            value={
-              s.recoveryRate != null
-                ? `${(s.recoveryRate * 100).toFixed(1)}%`
-                : '—'
-            }
-          />
-          <Stat label="PTP due" value={`${s.ptpKept}/${s.ptpDueInPeriod} kept`} />
-          <Stat label="Contacts" value={String(s.contactSessions)} />
-          <Stat
-            label="Verified / attempted"
-            value={String(s.verifiedOrAttemptedContacts)}
-          />
-          <Stat
-            label="Avg call (sec)"
-            value={s.avgCallSeconds != null ? String(s.avgCallSeconds) : '—'}
-          />
-        </div>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="By company" subtitle="Overdue book vs collected" />
-          <div className="max-h-80 space-y-2 overflow-y-auto p-5">
-            {(stats.data?.byCompany ?? []).length === 0 ? (
-              <EmptyState title="No company data in range" />
-            ) : (
-              stats.data!.byCompany.map((r) => (
-                <div
-                  key={r.tenantId}
-                  className="flex items-center justify-between rounded-xl bg-canvas px-4 py-3 text-sm"
-                >
-                  <div>
-                    <p className="font-semibold">{r.companyName}</p>
-                    <p className="text-xs text-muted">
-                      {r.openCases} open cases · overdue {money(r.overdueBook)}
-                    </p>
-                  </div>
-                  <p className="font-semibold tabular-nums text-emerald-700">
-                    {money(r.collected)}
-                  </p>
-                </div>
-              ))
+              </Table>
             )}
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="By collector" subtitle="Contacts in period" />
-          <div className="max-h-80 space-y-2 overflow-y-auto p-5">
-            {(stats.data?.byCollector ?? []).length === 0 ? (
-              <EmptyState title="No collector activity in range" />
-            ) : (
-              stats.data!.byCollector.map((r) => (
-                <div
-                  key={r.collectorId}
-                  className="flex items-center justify-between rounded-xl bg-canvas px-4 py-3 text-sm"
-                >
-                  <div>
-                    <p className="font-semibold">{r.collectorName}</p>
-                    <p className="text-xs text-muted">
-                      {r.contacts} contacts · {r.verified} verified/attempted · avg{' '}
-                      {r.avgCallSeconds}s
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted tabular-nums">
-                    talk {Math.round(r.talkSeconds / 60)}m
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-      </div>
-
-      {user?.role !== 'COLLECTOR' ? (
-        <Card>
-          <CardHeader
-            title="Paid cases"
-            subtitle="Confirmed payments with company and payment date"
-            action={
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  downloadCsv('/collections/reports/paid-cases.csv', {
-                    from: range.from,
-                    to: range.to,
-                  }).catch(() => alert('CSV download failed'))
-                }
-              >
-                Export CSV
-              </Button>
-            }
-          />
-          {paid.isLoading ? (
-            <Center><Spinner /></Center>
-          ) : !paid.data?.length ? (
-            <div className="p-5">
-              <EmptyState title="No confirmed payments in this range" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto px-2 pb-3">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                    <th className="px-3 py-2 font-medium">Date</th>
-                    <th className="px-3 py-2 font-medium">Company</th>
-                    <th className="px-3 py-2 font-medium">Customer</th>
-                    <th className="px-3 py-2 font-medium">Method</th>
-                    <th className="px-3 py-2 font-medium">Collector</th>
-                    <th className="px-3 py-2 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paid.data.map((r) => (
-                    <tr key={r.paymentId} className="border-t border-line">
-                      <td className="px-3 py-3 tabular-nums text-muted">
-                        {shortDate(r.receivedAt)}
-                      </td>
-                      <td className="px-3 py-3 font-medium">{r.companyName}</td>
-                      <td className="px-3 py-3">
-                        {r.caseId ? (
-                          <Link
-                            to={`/cases/${r.caseId}`}
-                            className="text-brand-700 hover:underline"
-                          >
-                            {r.customerName}
-                          </Link>
-                        ) : (
-                          r.customerName
-                        )}
-                        <p className="text-xs text-muted">{r.customerPhone}</p>
-                      </td>
-                      <td className="px-3 py-3 text-muted">{r.method}</td>
-                      <td className="px-3 py-3 text-muted">
-                        {r.collectorName ?? '—'}
-                      </td>
-                      <td className="px-3 py-3 text-right font-semibold tabular-nums">
-                        {money(r.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+          </Card>
+        </>
       ) : null}
-
-      <Card>
-        <CardHeader
-          title="Promises to pay"
-          subtitle="Client payment commitments"
-          action={
-            <Select
-              className="w-40"
-              value={ptpStatus}
-              onChange={(e) => setPtpStatus(e.target.value)}
-            >
-              <option value="">All statuses</option>
-              <option value="OPEN">OPEN</option>
-              <option value="KEPT">KEPT</option>
-              <option value="BROKEN">BROKEN</option>
-              <option value="CANCELLED">CANCELLED</option>
-            </Select>
-          }
-        />
-        {promises.isLoading ? (
-          <Center><Spinner /></Center>
-        ) : !promises.data?.length ? (
-          <div className="p-5">
-            <EmptyState title="No promises" />
-          </div>
-        ) : (
-          <div className="divide-y divide-line px-2 pb-2">
-            {promises.data.map((p) => (
-              <div
-                key={p.id}
-                className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 text-sm"
-              >
-                <div>
-                  <p className="font-semibold">
-                    {p.tenant.name} · {money(p.promisedAmount)} by{' '}
-                    {shortDate(p.dueDate)}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {p.createdBy?.fullName ?? '—'}
-                    {p.notes ? ` · ${p.notes}` : ''}
-                    {' · '}
-                    <Link
-                      to={`/cases/${p.case.id}`}
-                      className="text-brand-700 hover:underline"
-                    >
-                      Open case
-                    </Link>
-                  </p>
-                </div>
-                <StatusPill status={p.status} />
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
     </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="p-4">
-      <p className="text-xs font-medium text-muted">{label}</p>
-      <p className="mt-1 text-xl font-bold tracking-tight tabular-nums">{value}</p>
-    </Card>
   );
 }
