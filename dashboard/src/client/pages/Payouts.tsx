@@ -154,7 +154,11 @@ export default function Payouts() {
         onClose={() => setEditOpen(false)}
         initial={{ phone: s?.tenant.payoutPhone ?? '', name: s?.tenant.payoutName ?? '' }}
         requirePassword
-        holdNotice="After you change the number, payouts pause for 24 hours as a safety measure, then continue to the new number. We'll alert the owners by email."
+        holdNotice={
+          s?.holdHours
+            ? `After you change the number, payouts pause for ${s.holdHours} hours as a safety measure, then continue to the new number. We'll alert the owners by email.`
+            : "We'll alert the owners by email when the payout number is changed."
+        }
         pending={save.isPending}
         error={save.error}
         onSubmit={(f) => save.mutate(f)}

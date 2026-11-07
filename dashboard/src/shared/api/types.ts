@@ -170,6 +170,8 @@ export interface PayoutSummary {
   };
   /** Payouts are paused until this time after a number change (null = no hold). */
   holdUntil: string | null;
+  /** Hours payouts pause after a number change (0 = no pause). */
+  holdHours: number;
   lastChange: { changedByName: string; changedByRole: string; createdAt: string } | null;
   gatewayConfigured: boolean;
   minimumPayout: number;
