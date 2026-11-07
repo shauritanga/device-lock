@@ -9,7 +9,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'agreement', label: 'Agreement' },
 ];
 
-/** Breadcrumb, company name, and plain section tabs. */
+/** Breadcrumb (it carries the company name) and plain section tabs. */
 export function CompanyHeader({
   name,
   tab,
@@ -24,8 +24,6 @@ export function CompanyHeader({
   return (
     <header className="space-y-4">
       <Breadcrumbs items={[{ label: 'Companies', to: '/companies' }, { label: name }]} />
-
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">{name}</h1>
 
       <nav
         className="-mx-1 flex gap-6 overflow-x-auto overflow-y-hidden border-b border-line px-1"

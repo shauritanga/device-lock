@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppGuard, RequireRole } from '@/shared/auth/guards';
 import { PLATFORM_ADMIN_ROLES, STAFFING_ADMIN_ROLES } from '@/shared/auth/roles';
-import { AppShell } from '@/shared/layout/AppShell';
+import { FlatShell } from '@/shared/layout/FlatShell';
 import Login from '@/shared/pages/Login';
 import { ADMIN_BRAND, ADMIN_NAV } from './nav';
 import Collections from './pages/Collections';
@@ -21,9 +21,9 @@ import Settings from '@/shared/pages/Settings';
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <AppGuard app="admin">
-      <AppShell brand={ADMIN_BRAND} navGroups={ADMIN_NAV}>
+      <FlatShell brand={ADMIN_BRAND} navGroups={ADMIN_NAV}>
         {children}
-      </AppShell>
+      </FlatShell>
     </AppGuard>
   );
 }

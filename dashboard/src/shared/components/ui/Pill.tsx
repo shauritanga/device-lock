@@ -1,14 +1,16 @@
 import { cn } from '../../lib/cn';
+import { IS_ADMIN_APP } from '../../config';
 
 type Tone = 'green' | 'red' | 'amber' | 'gray' | 'brand' | 'blue';
 
+// Translucent tints with saturated text: readable on light and dark surfaces.
 const tones: Record<Tone, string> = {
-  green: 'bg-emerald-50 text-emerald-700',
-  red: 'bg-rose-50 text-rose-600',
-  amber: 'bg-amber-50 text-amber-700',
-  gray: 'bg-slate-100 text-slate-600',
-  brand: 'bg-brand-100 text-brand-700',
-  blue: 'bg-sky-50 text-sky-700',
+  green: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+  red: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  amber: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+  gray: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
+  brand: 'bg-brand-600/10 text-brand-700',
+  blue: 'bg-sky-500/10 text-sky-700 dark:text-sky-400',
 };
 
 export function Pill({ tone = 'gray', children }: { tone?: Tone; children: React.ReactNode }) {
@@ -16,9 +18,13 @@ export function Pill({ tone = 'gray', children }: { tone?: Tone; children: React
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
+        'admin:gap-1.5 admin:px-2 admin:py-[3px] admin:text-[11.5px]',
         tones[tone],
       )}
     >
+      {IS_ADMIN_APP ? (
+        <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-current" aria-hidden />
+      ) : null}
       {children}
     </span>
   );
@@ -59,6 +65,7 @@ export function statusTone(status: string): Tone {
     case 'EXPIRED':
     case 'CLOSED':
     case 'INACTIVE':
+    case 'NONE':
       return 'gray';
     default:
       return 'brand';

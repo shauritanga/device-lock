@@ -16,3 +16,7 @@ export const APP_LABELS: Record<AppId, string> = {
   client: `${BRAND_NAME} — Seller console`,
   admin: `${BRAND_NAME} — Admin console`,
 };
+
+/** True inside the admin console (<html data-app="admin">). Constant for a page load. */
+export const IS_ADMIN_APP =
+  typeof document !== 'undefined' && document.documentElement.dataset.app === 'admin';

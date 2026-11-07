@@ -24,6 +24,9 @@ export default defineConfig({
   // static files (logos, favicon) live in dashboard/public.
   publicDir: resolve(__dirname, 'public'),
   plugins: [react()],
+  // The two consoles run as separate dev servers. Sharing one dependency cache made
+  // them delete each other's pre-bundled files (blank page, 504 "Outdated Optimize Dep").
+  cacheDir: resolve(__dirname, 'node_modules', `.vite-${app}`),
   resolve: {
     alias: { '@': resolve(__dirname, 'src') },
   },

@@ -31,7 +31,7 @@ export function Field({
 }
 
 const base =
-  'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-faint focus:border-brand-400 focus:ring-4 focus:ring-brand-100';
+  'w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-faint focus:border-brand-400 focus:ring-4 focus:ring-brand-100 admin:rounded-lg admin:bg-elevated admin:py-2 admin:text-[13.5px] admin:focus:border-brand-600 admin:focus:ring-[3px] admin:focus:ring-brand-600/15';
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(base, className)} {...props} />;
