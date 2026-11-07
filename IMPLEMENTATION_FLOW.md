@@ -130,7 +130,7 @@ Purpose: make payments reliable and auditable.
 
 Deliverables:
 
-- Complete ClickPesa/Selcom/mobile-money integration configuration.
+- Complete Snippe mobile-money integration configuration.
 - Webhook verification and idempotency.
 - Provider status query fallback.
 - Reversal/refund handling.
@@ -528,7 +528,7 @@ Summary:
 
 Notes:
 
-- In development, if ClickPesa credentials are not configured, the backend records the payment intent and returns a pending status without sending a real USSD push.
+- In development, if Snippe credentials are not configured, the backend records the payment intent and returns a pending status without sending a real USSD push.
 - Automatic unlock after real payment confirmation depends on provider webhook/status confirmation, which is covered further under `Mobile-Money Reconciliation`.
 
 ### Completed: Complete Reminder Engine
@@ -999,7 +999,7 @@ Summary:
   - Provisioning signature checksum.
 - Readiness also reports optional integration configuration:
   - Public base URL.
-  - ClickPesa credentials.
+  - Snippe credentials (API key + webhook secret) and each seller's payout account.
   - Beem SMS credentials.
   - Voice/IVR provider credentials.
   - Firebase/FCM service account.

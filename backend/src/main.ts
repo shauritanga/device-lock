@@ -5,7 +5,10 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Webhook signatures are computed over the exact bytes Snippe sent.
+    rawBody: true,
+  });
 
   // Allow dashboard consoles + local marketing site (localhost and 127.0.0.1).
   const corsOrigins = (

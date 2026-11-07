@@ -181,6 +181,13 @@ enum PaymentStatus {
   REVERSED
 }
 
+enum PayoutStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
 enum CommandType {
   LOCK
   UNLOCK
@@ -214,6 +221,10 @@ model Tenant {
   lockOnSimChange    Boolean  @default(true)
   billingPlan        String   @default("STARTER")
   subscriptionStatus String   @default("ACTIVE")
+  // Where collected instalments are disbursed (mobile money, 255XXXXXXXXX).
+  payoutPhone        String?
+  // Registered name on that mobile-money account.
+  payoutName         String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -224,6 +235,7 @@ model Tenant {
   contracts               Contract[]
   installments            Installment[]
   payments                Payment[]
+  payouts                 Payout[]
   callFollowUps           CallFollowUp[]
   callAttempts            CallAttempt[]
   billingInvoices         BillingInvoice[]
@@ -913,14 +925,52 @@ model Payment {
   amount         Decimal       @db.Decimal(14, 2)
   method         PaymentMethod
   status         PaymentStatus @default(PENDING)
-  // Our unique reference sent to ClickPesa; matched back on the webhook.
+  // Our unique reference (also sent to Snippe as the idempotency key and in metadata).
   orderReference String?       @unique
   phoneNumber    String? // payer mobile-money number (mobile money only)
-  providerRef    String?       @unique // ClickPesa transaction id (idempotency)
+  providerRef    String?       @unique // Snippe payment reference (idempotency)
+  // Gateway that collected the money ("SNIPPE"); null for manual/cash entries.
+  provider       String?
+  // What the gateway actually settled to us after its collection fee. This is
+  // the amount owed onward to the seller; null until the payment completes.
+  netAmount      Decimal?      @db.Decimal(14, 2)
+  feeAmount      Decimal?      @db.Decimal(14, 2)
+  // The disbursement that paid this out to the seller (null = still owed).
+  payoutId       String?
+  payout         Payout?       @relation(fields: [payoutId], references: [id])
   rawPayload     Json? // original webhook body for audit/reconciliation
   receivedAt     DateTime      @default(now())
 
   createdAt DateTime @default(now())
+
+  @@index([tenantId, status])
+  @@index([payoutId])
+}
+
+/// A disbursement of collected instalments from the gateway balance to the
+/// seller (phone owner). We never hold cash: money is paid out as it clears.
+model Payout {
+  id             String       @id @default(uuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status         PayoutStatus @default(PENDING)
+  // Amount sent to the seller (after the payout fee is deducted).
+  amount         Decimal      @db.Decimal(14, 2)
+  feeAmount      Decimal      @default(0) @db.Decimal(14, 2)
+  // Sum of the collected payments this payout settles (amount + feeAmount).
+  grossAmount    Decimal      @db.Decimal(14, 2)
+  currency       String       @default("TZS")
+  recipientPhone String
+  recipientName  String
+  // Snippe payout reference; unique so a webhook can never double-apply.
+  providerRef    String?      @unique
+  failureReason  String?
+  rawPayload     Json?
+  completedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  payments Payment[]
 
   @@index([tenantId, status])
 }

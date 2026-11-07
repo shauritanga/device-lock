@@ -19,7 +19,13 @@ import {
 import { ClsService } from 'nestjs-cls';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CommandsService } from '../commands/commands.service';
-import { ClickPesaService } from '../integrations/clickpesa/clickpesa.service';
+import {
+  SNIPPE_MIN_COLLECTION,
+  SnippePayment,
+  SnippeRejectedError,
+  SnippeService,
+} from '../integrations/snippe/snippe.service';
+import { PayoutsService } from './payouts.service';
 import { TENANT_ID_KEY } from '../common/tenant/tenant-context';
 import { randomToken } from '../common/crypto.util';
 import {
@@ -40,7 +46,8 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commands: CommandsService,
-    private readonly clickpesa: ClickPesaService,
+    private readonly snippe: SnippeService,
+    private readonly payouts: PayoutsService,
     private readonly cls: ClsService,
     @Inject(forwardRef(() => CollectionsService))
     private readonly collections: CollectionsService,
@@ -142,43 +149,118 @@ export class PaymentsService {
     return { payment, installment: updated };
   }
 
-  /** Start a ClickPesa USSD-push collection; payment confirmed later by webhook. */
+  /**
+   * Start a Snippe USSD-push collection. The payment stays PENDING until Snippe
+   * reports it completed (webhook, or the reconcile poller as a fallback).
+   */
   async initiateMobileMoney(dto: InitiatePaymentDto) {
-    const loan = await this.requireLoan(dto.loanId);
-    const orderReference = `DL${randomToken(8)}`.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const loan = await this.prisma.scoped.loan.findFirst({
+      where: { id: dto.loanId },
+      select: {
+        id: true,
+        tenantId: true,
+        customer: { select: { id: true, fullName: true } },
+      },
+    });
+    if (!loan) throw new NotFoundException('Loan not found');
+
+    // Snippe takes whole shillings only.
+    const amount = Math.round(dto.amount);
+    if (amount < SNIPPE_MIN_COLLECTION) {
+      throw new BadRequestException(
+        `Mobile-money payments must be at least ${SNIPPE_MIN_COLLECTION} TZS`,
+      );
+    }
+
+    const orderReference = `DL${randomToken(8)}`
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
 
     const payment = await this.prisma.scoped.payment.create({
       data: {
         tenantId: loan.tenantId,
         loanId: loan.id,
-        amount: dto.amount,
-        method: PaymentMethod.MPESA, // actual channel returned by webhook
+        amount,
+        method: PaymentMethod.MPESA, // refined from the gateway channel on completion
         status: PaymentStatus.PENDING,
+        provider: 'SNIPPE',
         orderReference,
         phoneNumber: dto.phoneNumber,
       },
     });
 
-    if (!this.clickpesa.configured) {
-      // No credentials (dev): record the intent; the USSD push isn't sent, but
-      // the webhook can still confirm this orderReference.
+    if (!this.snippe.configured) {
       this.logger.warn(
-        `ClickPesa not configured; recorded intent ${orderReference} without push`,
+        `Snippe not configured; recorded intent ${orderReference} without push`,
       );
       return { paymentId: payment.id, orderReference, status: 'PENDING' };
     }
 
-    const res = await this.clickpesa.initiateUssdPush({
-      amount: fromCents(toCents(dto.amount)),
-      orderReference,
-      phoneNumber: dto.phoneNumber,
-    });
+    const [firstname, ...rest] = loan.customer.fullName.trim().split(/\s+/);
+    try {
+      const res = await this.snippe.createPayment({
+        amount,
+        phone: dto.phoneNumber,
+        // Snippe requires an email; customers don't have one, so use a stable placeholder.
+        customer: {
+          firstname: firstname || 'Customer',
+          lastname: rest.join(' ') || firstname || 'Customer',
+          email: `${loan.customer.id}@customers.linda.co.tz`,
+        },
+        idempotencyKey: orderReference,
+        webhookUrl: this.webhookUrl(),
+        metadata: {
+          order_reference: orderReference,
+          payment_id: payment.id,
+          loan_id: loan.id,
+          tenant_id: loan.tenantId,
+        },
+      });
+      await this.prisma.scoped.payment.update({
+        where: { id: payment.id },
+        data: { providerRef: res.reference },
+      });
+      return { paymentId: payment.id, orderReference, status: res.status };
+    } catch (e) {
+      // The push definitively did not go out (4xx) — don't leave a phantom
+      // PENDING payment. On an ambiguous network failure keep it: the
+      // reconcile poller resolves it through the idempotent order reference.
+      if (e instanceof SnippeRejectedError) {
+        await this.prisma.scoped.payment.update({
+          where: { id: payment.id },
+          data: { status: PaymentStatus.FAILED },
+        });
+        throw new BadRequestException(`Payment rejected: ${e.message}`);
+      }
+      throw e;
+    }
+  }
 
-    await this.prisma.scoped.payment.update({
-      where: { id: payment.id },
-      data: { providerRef: res.id },
-    });
-    return { paymentId: payment.id, orderReference, status: res.status };
+  /** Webhook URL for Snippe — HTTPS only, so unset on a local machine. */
+  private webhookUrl(): string | undefined {
+    const base = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, '');
+    return base?.startsWith('https://')
+      ? `${base}/v1/webhooks/snippe`
+      : undefined;
+  }
+
+  /**
+   * Resolve a PENDING Snippe payment against Snippe's own record. Used by the
+   * webhook (so a forged body can't confirm anything) and by the poller.
+   */
+  async syncSnippePayment(snippe: SnippePayment, raw: Prisma.InputJsonValue) {
+    const outcome = SnippeService.paymentOutcome(snippe.status);
+    if (outcome === 'pending') return 'ignored' as const;
+    const orderReference =
+      typeof snippe.metadata?.order_reference === 'string'
+        ? snippe.metadata.order_reference
+        : undefined;
+    return this.confirmFromWebhook(
+      { orderReference, providerRef: snippe.reference },
+      outcome,
+      raw,
+      snippe,
+    );
   }
 
   list() {
@@ -195,19 +277,21 @@ export class PaymentsService {
    *  - 'failed'   -> mark failed (only if not already confirmed).
    */
   async confirmFromWebhook(
-    orderReference: string,
-    providerRef: string | undefined,
+    lookup: { orderReference?: string; providerRef?: string },
     outcome: 'received' | 'failed' | 'reversed',
     raw: Prisma.InputJsonValue,
+    snippe?: SnippePayment,
   ): Promise<'applied' | 'reversed' | 'duplicate' | 'unmatched' | 'failed'> {
     // Unscoped lookup (no tenant context on a public webhook).
-    const payment = await this.prisma.payment.findUnique({
-      where: { orderReference },
-    });
+    const or: Prisma.PaymentWhereInput[] = [];
+    if (lookup.providerRef) or.push({ providerRef: lookup.providerRef });
+    if (lookup.orderReference) {
+      or.push({ orderReference: lookup.orderReference });
+    }
+    if (or.length === 0) return 'unmatched';
+    const payment = await this.prisma.payment.findFirst({ where: { OR: or } });
     if (!payment) return 'unmatched';
-
-    // Make subsequent scoped writes operate within this payment's tenant.
-    this.cls.set(TENANT_ID_KEY, payment.tenantId);
+    const providerRef = lookup.providerRef;
 
     if (outcome === 'reversed') {
       if (payment.status === PaymentStatus.REVERSED) return 'duplicate';
@@ -238,13 +322,18 @@ export class PaymentsService {
       return 'failed';
     }
 
-    const channel = (raw as { channel?: string } | null)?.channel;
+    // What Snippe actually settled to us (after its collection fee) is what we
+    // owe onward to the seller. Fall back to the full amount if not reported.
+    const gross = Number(payment.amount);
+    const net = snippe?.settlement?.net?.value ?? gross;
     await this.prisma.scoped.payment.update({
       where: { id: payment.id },
       data: {
         status: PaymentStatus.CONFIRMED,
         providerRef: providerRef ?? payment.providerRef,
-        method: this.mapChannel(channel) ?? payment.method,
+        method: this.mapChannel(snippe?.channel?.provider) ?? payment.method,
+        netAmount: net,
+        feeAmount: Math.max(0, gross - net),
         rawPayload: raw,
       },
     });
@@ -255,15 +344,26 @@ export class PaymentsService {
       payment.id,
       Number(payment.amount),
     );
+    // We don't hold cash: pass the money on to the seller as soon as it clears.
+    // Best-effort — failures are retried by the payouts sweep.
+    this.payouts.disburseTenant(payment.tenantId).catch((e) =>
+      this.logger.warn(
+        `Payout for tenant ${payment.tenantId} failed: ${(e as Error).message}`,
+      ),
+    );
     return 'applied';
   }
 
-  /** Map a ClickPesa channel string (e.g. "M-PESA") to our PaymentMethod. */
-  private mapChannel(channel?: string): PaymentMethod | undefined {
-    if (!channel) return undefined;
-    const c = channel.toUpperCase();
-    if (c.includes('MPESA') || c.includes('M-PESA')) return PaymentMethod.MPESA;
-    if (c.includes('TIGO')) return PaymentMethod.TIGOPESA;
+  /** Map a Snippe channel provider (e.g. "airtel", "mpesa", "mixx") to our PaymentMethod. */
+  private mapChannel(provider?: string): PaymentMethod | undefined {
+    if (!provider) return undefined;
+    const c = provider.toUpperCase();
+    if (c.includes('MPESA') || c.includes('M-PESA') || c.includes('VODACOM')) {
+      return PaymentMethod.MPESA;
+    }
+    if (c.includes('TIGO') || c.includes('MIXX') || c.includes('YAS')) {
+      return PaymentMethod.TIGOPESA;
+    }
     if (c.includes('AIRTEL')) return PaymentMethod.AIRTELMONEY;
     if (c.includes('CARD')) return PaymentMethod.CARD;
     return undefined;

@@ -1,28 +1,31 @@
 import {
   Body,
   Controller,
+  Headers,
   HttpCode,
   Logger,
   Post,
+  RawBodyRequest,
+  Req,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { Request } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { PaymentsService } from '../payments/payments.service';
-import { ClickPesaService } from '../integrations/clickpesa/clickpesa.service';
+import { PayoutsService } from '../payments/payouts.service';
+import {
+  SnippePayment,
+  SnippePayout,
+  SnippeService,
+} from '../integrations/snippe/snippe.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 
-interface ClickPesaWebhook {
-  event?: string;
+interface SnippeWebhook {
+  id?: string;
+  type?: string;
   data?: Record<string, any>;
 }
-
-/** Per docs: a successful collection webhook is event "PAYMENT RECEIVED". */
-const SUCCESS_EVENT = 'PAYMENT RECEIVED';
-
-/** What to do with the webhook once its outcome is trusted. */
-type Applied = 'received' | 'failed' | 'reversed';
-type Outcome = Applied | 'reject' | 'ignore';
 
 @Public()
 @Controller('webhooks')
@@ -31,7 +34,8 @@ export class WebhooksController {
 
   constructor(
     private readonly payments: PaymentsService,
-    private readonly clickpesa: ClickPesaService,
+    private readonly payouts: PayoutsService,
+    private readonly snippe: SnippeService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -59,87 +63,110 @@ export class WebhooksController {
   }
 
   /**
-   * ClickPesa payment callback (docs.clickpesa.com/home/webhooks).
+   * Snippe callback (docs.snippe.sh/docs/2026-01-25/webhooks) for both
+   * collections (payment.*) and disbursements (payout.*).
    *
-   * A webhook body is untrusted, so we never unlock on it alone. When ClickPesa
-   * is configured, we confirm the outcome straight from its API; otherwise we
-   * require a valid checksum. Only then is the payment applied idempotently
-   * (which may auto-unlock the device).
+   * Trust model: the HMAC signature gates the request (mandatory in
+   * production), and the outcome is then re-read from Snippe's own API so a
+   * forged or replayed body can never confirm money or unlock a phone. Only if
+   * that lookup fails do we fall back to the (signed) body itself.
    */
-  @Post('clickpesa')
+  @Post('snippe')
   @HttpCode(200)
-  async handleClickPesa(@Body() body: ClickPesaWebhook) {
-    const data = body?.data;
-    if (!data?.orderReference) {
-      // Nothing actionable; ack so ClickPesa doesn't retry forever.
-      return { received: true, result: 'ignored' };
+  async handleSnippe(
+    @Req() req: RawBodyRequest<Request>,
+    @Body() body: SnippeWebhook,
+    @Headers('x-webhook-signature') signature?: string,
+    @Headers('x-webhook-timestamp') timestamp?: string,
+    @Headers('x-webhook-event') eventHeader?: string,
+  ) {
+    const signed = this.snippe.verifyWebhook(req.rawBody, timestamp, signature);
+    if (this.snippe.hasWebhookSecret) {
+      if (!signed) throw new UnauthorizedException('Bad webhook signature');
+    } else if (process.env.NODE_ENV === 'production') {
+      throw new UnauthorizedException('Webhook secret not configured');
+    } else {
+      this.logger.warn(
+        'SNIPPE_WEBHOOK_SECRET not set — relying on API lookup only (dev)',
+      );
     }
 
-    const outcome = await this.resolveOutcome(body);
-    if (outcome === 'reject') {
-      throw new UnauthorizedException('Unverified ClickPesa webhook');
-    }
-    if (outcome === 'ignore') {
-      return { received: true, result: 'ignored' };
+    const type = String(body?.type ?? eventHeader ?? '');
+    const data = body?.data ?? {};
+    const reference = typeof data.reference === 'string' ? data.reference : '';
+    if (!reference) return { received: true, result: 'ignored' };
+
+    if (type.startsWith('payment.')) {
+      const payment = await this.resolvePayment(type, reference, data, signed);
+      if (!payment) return { received: true, result: 'unverified' };
+      const result = await this.payments.syncSnippePayment(
+        payment,
+        body as unknown as Prisma.InputJsonValue,
+      );
+      this.logger.log(`Snippe ${type} ${reference} -> ${result}`);
+      return { received: true, result };
     }
 
-    const result = await this.payments.confirmFromWebhook(
-      data.orderReference,
-      data.id,
-      outcome,
-      data as Prisma.InputJsonValue,
-    );
-    this.logger.log(
-      `ClickPesa webhook ${data.orderReference} -> ${result} ` +
-        `(event=${body.event}, outcome=${outcome})`,
-    );
-    return { received: true, result };
+    if (type.startsWith('payout.')) {
+      const payout = await this.resolvePayout(type, reference, data, signed);
+      if (!payout) return { received: true, result: 'unverified' };
+      const result = await this.payouts.syncByReference(
+        payout,
+        body as unknown as Prisma.InputJsonValue,
+      );
+      this.logger.log(`Snippe ${type} ${reference} -> ${result}`);
+      return { received: true, result };
+    }
+
+    return { received: true, result: 'ignored' };
   }
 
-  /**
-   * Decide the true payment outcome from a trusted source:
-   *  1. ClickPesa configured -> its API is authoritative (immune to forged
-   *     webhooks). A valid checksum is only a fallback if the API is unreachable.
-   *  2. Not configured but a checksum is present -> verify the HMAC.
-   *  3. Dev only (no API, no checksum) -> accept the body with a loud warning.
-   * Non-final states resolve to 'ignore' (ack, do nothing).
-   */
-  private async resolveOutcome(body: ClickPesaWebhook): Promise<Outcome> {
-    const data = body.data!;
-    const orderReference = String(data.orderReference);
-
-    if (this.clickpesa.configured) {
-      const outcome = await this.clickpesa.queryOutcome(orderReference);
-      if (outcome !== null) return outcome === 'pending' ? 'ignore' : outcome;
-      // API unreachable: fall back to a cryptographically valid body only.
-      if (this.clickpesa.verifyWebhookData(data)) return this.classifyBody(body);
-      return 'reject';
+  private async resolvePayment(
+    type: string,
+    reference: string,
+    data: Record<string, any>,
+    signed: boolean,
+  ): Promise<SnippePayment | null> {
+    try {
+      if (this.snippe.configured) return await this.snippe.getPayment(reference);
+    } catch (e) {
+      this.logger.warn(
+        `Could not verify payment ${reference} with Snippe: ${(e as Error).message}`,
+      );
     }
-
-    if (this.clickpesa.hasChecksum(data)) {
-      if (!this.clickpesa.verifyWebhookData(data)) return 'reject';
-      return this.classifyBody(body);
-    }
-
-    this.logger.warn(
-      `Accepting unverified ClickPesa webhook ${orderReference} ` +
-        `(dev only: ClickPesa not configured and no checksum)`,
-    );
-    return this.classifyBody(body);
+    if (!signed) return null; // never act on an unsigned, unverifiable body
+    const statusByEvent: Record<string, SnippePayment['status']> = {
+      'payment.completed': 'completed',
+      'payment.failed': 'failed',
+      'payment.voided': 'voided',
+      'payment.expired': 'expired',
+    };
+    const status = statusByEvent[type];
+    if (!status) return null;
+    return { ...(data as object), reference, status } as SnippePayment;
   }
 
-  /** Classify a (verified) webhook body into an applied outcome. */
-  private classifyBody(body: ClickPesaWebhook): Applied {
-    const status = String(body.data?.status ?? '');
-    if (
-      body.event === SUCCESS_EVENT ||
-      ClickPesaService.RECEIVED_STATUSES.includes(status)
-    ) {
-      return 'received';
+  private async resolvePayout(
+    type: string,
+    reference: string,
+    data: Record<string, any>,
+    signed: boolean,
+  ): Promise<SnippePayout | null> {
+    try {
+      if (this.snippe.configured) return await this.snippe.getPayout(reference);
+    } catch (e) {
+      this.logger.warn(
+        `Could not verify payout ${reference} with Snippe: ${(e as Error).message}`,
+      );
     }
-    if (ClickPesaService.REVERSED_STATUSES.includes(status.toUpperCase())) {
-      return 'reversed';
-    }
-    return 'failed';
+    if (!signed) return null;
+    const statusByEvent: Record<string, SnippePayout['status']> = {
+      'payout.completed': 'completed',
+      'payout.failed': 'failed',
+      'payout.reversed': 'reversed',
+    };
+    const status = statusByEvent[type];
+    if (!status) return null;
+    return { ...(data as object), reference, status } as SnippePayout;
   }
 }

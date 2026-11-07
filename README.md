@@ -26,7 +26,7 @@ Device Lock is a multi-tenant phone-financing platform for businesses that sell 
 - Device-facing agent API for enrollment, check-ins, and command acknowledgements.
 - Remote lock, unlock, release, reminder, policy sync, and wipe command lifecycle.
 - Flat-interest loan schedules and overdue evaluation jobs.
-- ClickPesa payment integration hooks and webhook handling.
+- Snippe mobile-money collections (USSD push) with automatic disbursement of cleared instalments to the seller — the platform never holds cash.
 - Beem SMS provider hooks for reminders and warnings.
 - Optional Firebase Cloud Messaging for fast device sync, with periodic check-ins as fallback.
 
@@ -57,7 +57,7 @@ The backend has two API surfaces:
 | Backend | NestJS 10, TypeScript, Prisma, PostgreSQL, Zod config validation, `nestjs-cls`, Nest schedule |
 | Dashboard | React 18, Vite, TypeScript, Tailwind CSS, TanStack Query, Axios, Recharts, React Router |
 | Android Agent | Kotlin, Android Gradle Plugin, AndroidX, WorkManager, Firebase Messaging, Security Crypto |
-| Integrations | ClickPesa, Beem SMS, Firebase Admin/FCM |
+| Integrations | Snippe (collect + disburse), Beem SMS, Firebase Admin/FCM |
 
 ## Prerequisites
 
@@ -67,7 +67,7 @@ The backend has two API surfaces:
 - Java 17 for Android builds.
 - Android Studio or Android SDK if building `android-dpc/`.
 - Firebase project/config only if you want FCM push delivery.
-- ClickPesa and Beem credentials only if testing live payments/SMS.
+- Snippe and Beem credentials only if testing live payments/SMS.
 
 ## Backend Setup
 
@@ -92,9 +92,8 @@ Optional but supported:
 ```env
 RLS_DATABASE_URL=postgresql://devicelock_app:app_password@localhost:5432/devicelock?schema=public
 REDIS_URL=redis://localhost:6379
-CLICKPESA_CLIENT_ID=
-CLICKPESA_API_KEY=
-CLICKPESA_CHECKSUM_KEY=
+SNIPPE_API_KEY=            # snp_… with collection:read/create + disbursement:read/create
+SNIPPE_WEBHOOK_SECRET=     # whsec_… (Snippe dashboard > Settings > Webhook Secret)
 BEEM_API_KEY=
 BEEM_SECRET_KEY=
 BEEM_SENDER_ID=INFO
@@ -131,6 +130,30 @@ npm run start:dev
 ```
 
 The API listens on `http://localhost:3000` by default. The health endpoint is available at `GET /health`; versioned API endpoints are under `/v1`.
+
+## Payments: collect and disburse (Snippe)
+
+Customers pay instalments by mobile money (`POST /v1/payments/mobile` sends a USSD push).
+Snippe settles the money to the platform balance; as soon as a payment clears it is
+passed on to the seller, so **we never hold cash**:
+
+1. `payment.completed` (webhook, or the 1-minute poller as a fallback) marks the payment
+   `CONFIRMED`, credits the instalment, and records what Snippe settled (`netAmount`,
+   after its collection fee).
+2. Everything owed to a seller is claimed into a `Payout` and sent to the seller's
+   mobile-money number (`Tenant.payoutPhone` / `payoutName`, set via `PATCH /v1/tenants/:id`).
+   Snippe's payout fee is deducted from the seller's share. Payments are claimed
+   atomically, so none can be paid out twice.
+3. Snippe's minimum payout is 5,000 TZS: smaller amounts accumulate until they clear it.
+   Failed or reversed payouts return their payments to the owed pool and are retried
+   by the 5-minute sweep. Cash/manual payments are never disbursed.
+
+Webhooks need a public HTTPS `PUBLIC_BASE_URL`; without one (local dev) the pollers
+reconcile instead. Webhook signatures are mandatory in production, and outcomes are
+re-read from Snippe's API before anything is applied.
+
+Verify the flow against a fake gateway (no real money) with a throwaway database:
+`TEST_DATABASE_URL=…/linda_test npm run test:snippe` (after `npm run build`).
 
 ## Dashboard Setup
 
@@ -214,7 +237,7 @@ All staff endpoints are prefixed with `/v1`.
 | Payments | `POST /payments`, `POST /payments/mobile`, `GET /payments` |
 | Dashboard | `GET /dashboard/summary` |
 | Jobs | `POST /jobs/run-overdue` |
-| Webhooks | `POST /webhooks/clickpesa` |
+| Webhooks | `POST /webhooks/snippe` (payment.* and payout.* events, HMAC-signed) |
 | Provisioning | `GET /provisioning/agent.apk` |
 
 Device-agent endpoints are also under `/v1`:
@@ -263,7 +286,7 @@ cd android-dpc
 - PostgreSQL Row-Level Security migrations provide a defense-in-depth layer.
 - Device agents authenticate separately from staff users using per-device tokens.
 - Local `.env`, `.env.local`, service-account JSON files, build outputs, and `node_modules` are ignored by git.
-- Do not commit production secrets, Firebase service-account files, ClickPesa keys, Beem keys, signing keys, or real customer data.
+- Do not commit production secrets, Firebase service-account files, Snippe keys, Beem keys, signing keys, or real customer data.
 
 ## Project Docs
 

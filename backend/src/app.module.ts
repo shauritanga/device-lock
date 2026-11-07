@@ -20,7 +20,7 @@ import { ContractsModule } from './contracts/contracts.module';
 import { CommandsModule } from './commands/commands.module';
 import { AgentModule } from './agent/agent.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { ClickPesaModule } from './integrations/clickpesa/clickpesa.module';
+import { SnippeModule } from './integrations/snippe/snippe.module';
 import { PaymentsModule } from './payments/payments.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { JobsModule } from './jobs/jobs.module';
@@ -54,7 +54,7 @@ import { PartnersModule } from './partners/partners.module';
     CommandsModule,
     AgentModule,
     NotificationsModule,
-    ClickPesaModule,
+    SnippeModule,
     PaymentsModule,
     WebhooksModule,
     JobsModule,

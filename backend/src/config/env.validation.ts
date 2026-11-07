@@ -21,14 +21,12 @@ export const envSchema = z.object({
 
   REDIS_URL: z.string().optional(),
 
-  // ClickPesa (mobile money)
-  CLICKPESA_BASE_URL: z
-    .string()
-    .url()
-    .default('https://api.clickpesa.com/third-parties'),
-  CLICKPESA_CLIENT_ID: z.string().optional(),
-  CLICKPESA_API_KEY: z.string().optional(),
-  CLICKPESA_CHECKSUM_KEY: z.string().optional(),
+  // Snippe (mobile-money collections + disbursements). Scopes needed on the
+  // key: collection:read, collection:create, disbursement:read, disbursement:create.
+  SNIPPE_BASE_URL: z.string().url().default('https://api.snippe.sh'),
+  SNIPPE_API_KEY: z.string().optional(),
+  // whsec_... signing secret (Snippe dashboard > Settings > Webhook Secret).
+  SNIPPE_WEBHOOK_SECRET: z.string().optional(),
 
   // Beem (SMS)
   BEEM_SEND_URL: z.string().url().default('https://apisms.beem.africa/v1/send'),
