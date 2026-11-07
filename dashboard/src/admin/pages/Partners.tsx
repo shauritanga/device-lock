@@ -142,7 +142,7 @@ export default function Partners() {
         open={!!reveal}
         onClose={() => setReveal(null)}
         title={reveal?.title ?? ''}
-        className="max-w-xl"
+       
       >
         <div className="space-y-4">
           <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -237,7 +237,7 @@ function CreatePartner({
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   return (
-    <Modal open={open} onClose={onClose} title="New API partner" className="max-w-xl">
+    <Modal open={open} onClose={onClose} title="New API partner">
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -330,7 +330,7 @@ function PartnerDetailModal({
   const url = webhookUrl ?? p?.webhookUrl ?? '';
 
   return (
-    <Modal open onClose={onClose} title={p?.name ?? 'Partner'} className="max-w-3xl">
+    <Modal open onClose={onClose} title={p?.name ?? 'Partner'} size="lg">
       {!p ? (
         <Center>
           <Spinner />

@@ -178,7 +178,7 @@ export function AgreementCard({ tenantId, companyName }: { tenantId: string; com
         open={formOpen}
         onClose={() => setFormOpen(false)}
         title={editing ? 'Edit agreement details' : 'Prepare service agreement'}
-        className="max-w-2xl"
+        size="lg"
       >
         <form
           className="space-y-5"
@@ -253,7 +253,7 @@ export function AgreementCard({ tenantId, companyName }: { tenantId: string; com
           setCountersigning(false);
         }}
         title="Service agreement"
-        className="max-w-4xl"
+        size="xl"
       >
         {a ? (
           <div className="space-y-4">

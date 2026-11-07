@@ -386,7 +386,7 @@ export default function DemoRequests() {
         open={!!selected}
         onClose={() => setSelectedId(null)}
         title={selected?.companyName ?? 'Lead'}
-        className="max-w-xl"
+       
       >
         {selected ? (
           <div className="space-y-5">

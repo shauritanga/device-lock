@@ -210,7 +210,7 @@ export default function CompanyDetail() {
         open={activateOpen}
         onClose={() => setActivateOpen(false)}
         title={sub ? 'Update package' : 'Activate subscription'}
-        className="max-w-lg"
+       
       >
         <form
           className="space-y-4"

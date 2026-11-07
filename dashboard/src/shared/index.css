@@ -117,6 +117,29 @@
   padding-right: 20px;
 }
 
+/* Dialog motion (rucky-rentals): backdrop fades, the card rises and settles. */
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-overlay-in { animation: modalOverlayIn 0.2s ease both; }
+.modal-in { animation: modalIn 0.24s cubic-bezier(0.22, 0.85, 0.32, 1) both; }
+@media (max-width: 639px) {
+  /* Bottom sheet slides up instead of scaling. */
+  .modal-in { animation-name: sheetIn; }
+}
+@keyframes sheetIn {
+  from { transform: translateY(24px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay-in, .modal-in { animation: none; }
+}
+
 html,
 body,
 #root {

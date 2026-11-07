@@ -89,6 +89,7 @@ export default function Staff() {
           <Field label="Email">
             <Input
               type="email"
+              autoComplete="off"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
@@ -98,6 +99,7 @@ export default function Staff() {
             <Field label="Password">
               <Input
                 type="password"
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 required

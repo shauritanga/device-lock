@@ -223,19 +223,19 @@ export function PhotoCapture({
 
   return (
     <div>
-      <span className="mb-1.5 block text-sm font-medium text-ink">
+      <span className="mb-1.5 block text-sm font-medium text-ink flat:mb-1 flat:text-xs flat:text-muted">
         {label} <span className="text-rose-600">*</span>
       </span>
       <div
         className={cn(
-          'flex flex-col items-center gap-4 rounded-2xl border border-dashed p-4 sm:flex-row',
-          error ? 'border-rose-300 bg-rose-50/50' : 'border-line bg-canvas/40',
+          'flex flex-col items-center gap-4 rounded-xl border border-dashed p-3.5 sm:flex-row',
+          error ? 'border-rose-400/60 bg-rose-500/5' : 'border-line bg-canvas/40',
         )}
       >
         {url ? (
-          <img src={url} alt={`${label} preview`} className="h-28 w-28 shrink-0 rounded-2xl object-cover" />
+          <img src={url} alt={`${label} preview`} className="h-24 w-24 shrink-0 rounded-xl object-cover" />
         ) : (
-          <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-canvas text-muted">
+          <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-elevated text-muted">
             <Camera className="h-8 w-8" />
           </span>
         )}

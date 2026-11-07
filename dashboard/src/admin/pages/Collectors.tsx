@@ -464,7 +464,7 @@ export default function Collectors() {
           createStaff.reset();
         }}
         title={isMaster ? 'Add collector' : 'Add account'}
-        className="max-w-lg"
+       
       >
         {createStaff.isSuccess && createStaff.data ? (
           <div className="space-y-4">
@@ -636,7 +636,7 @@ export default function Collectors() {
         open={assignOpen}
         onClose={() => setAssignOpen(false)}
         title="Assign master collector"
-        className="max-w-md"
+        size="sm"
       >
         {assignTarget ? (
           <form

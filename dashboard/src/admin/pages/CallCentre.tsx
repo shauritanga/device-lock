@@ -361,7 +361,7 @@ export default function CallCentre() {
         open={!!selected}
         onClose={() => setSelectedId(null)}
         title={selected?.collectorName ?? 'Collector'}
-        className="max-w-lg"
+       
       >
         {selected ? (
           <div className="space-y-4">

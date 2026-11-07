@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Copy,
   CreditCard,
+  Loader2,
   Plus,
   QrCode,
   ShieldCheck,
@@ -373,6 +374,61 @@ export default function Sales() {
     );
   }
 
+  // Anything typed (or any step past the first) counts as work worth protecting.
+  const hasUnsavedInput =
+    open &&
+    !createSale.isSuccess &&
+    (step > 0 ||
+      !!customer.phone ||
+      !!customer.fullName ||
+      !!customer.photo ||
+      !!sale.imei ||
+      guardians.some((g) => g.fullName || g.phone));
+
+  const modalFooter = (
+    <>
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() => {
+          if (step === 0) closeModal();
+          else {
+            setShowErrors(false);
+            setStep(step - 1);
+          }
+        }}
+        disabled={createSale.isPending}
+      >
+        {step === 0 ? (
+          'Cancel'
+        ) : (
+          <>
+            <ArrowLeft className="h-4 w-4" /> Back
+          </>
+        )}
+      </Button>
+      {step < LAST_STEP ? (
+        <Button type="submit" form="credit-sale-form">
+          Next <ArrowRight className="h-4 w-4" />
+        </Button>
+      ) : (
+        <Button
+          type="submit"
+          form="credit-sale-form"
+          disabled={createSale.isPending || !sale.consentAccepted}
+        >
+          {createSale.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Creating sale…
+            </>
+          ) : (
+            'Create sale'
+          )}
+        </Button>
+      )}
+    </>
+  );
+
   return (
     <div className="space-y-5">
       <div className="flex justify-end gap-2">
@@ -429,10 +485,10 @@ export default function Sales() {
               </p>
             </div>
           </div>
-          <div className="mt-4 rounded-xl border border-dashed border-brand-300 bg-brand-50 p-4">
+          <div className="mt-4 rounded-xl border border-dashed border-brand-300/60 bg-brand-600/10 p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="flex items-center gap-2 text-sm font-semibold text-brand-800">
+                <p className="flex items-center gap-2 text-sm font-semibold text-brand-700">
                   <QrCode className="h-4 w-4" /> Enrollment token
                 </p>
                 <code className="mt-2 block break-all rounded-lg bg-elevated px-3 py-2 text-sm text-ink">
@@ -541,56 +597,23 @@ export default function Sales() {
         open={open}
         onClose={closeModal}
         title="New credit sale"
-        className="w-[min(96vw,48rem)] max-w-none"
-        bodyClassName="flex flex-col overflow-hidden !p-0"
+        subtitle={`Step ${step + 1} of ${STEPS.length} · ${STEPS[step].label}`}
+        size="lg"
+        dirty={hasUnsavedInput}
+        footer={modalFooter}
       >
         <form
+          id="credit-sale-form"
           onSubmit={(e) => {
             e.preventDefault();
             if (step < LAST_STEP) next();
             else createSale.mutate();
           }}
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex flex-col gap-6"
         >
-          {/* Stepper */}
-          <div className="shrink-0 border-b border-line bg-canvas/40 px-4 py-3 sm:px-6">
-            <ol className="flex items-center gap-2">
-              {STEPS.map((s, i) => (
-                <li key={s.label} className="flex flex-1 items-center gap-2 last:flex-none">
-                  <span
-                    className={cn(
-                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                      i < step
-                        ? 'bg-brand-600 text-white'
-                        : i === step
-                          ? 'bg-brand-600 text-white ring-4 ring-brand-100'
-                          : 'border border-line bg-surface text-muted',
-                    )}
-                  >
-                    {i < step ? <Check className="h-4 w-4" /> : i + 1}
-                  </span>
-                  <span
-                    className={cn(
-                      'hidden text-xs font-medium md:inline',
-                      i === step ? 'text-ink' : 'text-muted',
-                    )}
-                  >
-                    {s.label}
-                  </span>
-                  {i < LAST_STEP ? (
-                    <span className={cn('h-px flex-1', i < step ? 'bg-brand-300' : 'bg-line')} />
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-            <p className="mt-2 text-xs text-muted">
-              Step {step + 1} of {STEPS.length} · <span className="font-medium text-ink">{STEPS[step].label}</span>
-              {' — '}
-              {STEPS[step].hint}
-            </p>
-          </div>
+          <StepBar step={step} />
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+          <div className="space-y-6">
             {step === 0 ? (
               <FormSection
                 icon={UserRound}
@@ -606,7 +629,7 @@ export default function Sales() {
                   photoLabel="Customer photo"
                   afterPhone={
                     matched ? (
-                      <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <p className="flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                         <span>
                           Existing customer <b>{matched.fullName}</b> ({haveGuardians} of{' '}
@@ -649,7 +672,7 @@ export default function Sales() {
                           className={cn(
                             'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm transition',
                             activeGuardian === i
-                              ? 'border-brand-500 bg-brand-50 font-medium text-brand-800'
+                              ? 'border-brand-500 bg-brand-600/10 font-medium text-brand-700'
                               : 'border-line bg-surface text-ink hover:bg-canvas',
                             bad && 'border-rose-300',
                           )}
@@ -767,7 +790,7 @@ export default function Sales() {
                             className={cn(
                               'rounded-xl border px-3 py-2.5 text-sm font-medium transition',
                               sale.frequency === f.value
-                                ? 'border-brand-500 bg-brand-50 text-brand-800 ring-2 ring-brand-200'
+                                ? 'border-brand-500 bg-brand-600/10 text-brand-700 ring-2 ring-brand-600/20'
                                 : 'border-line bg-surface text-ink hover:bg-canvas',
                             )}
                           >
@@ -790,7 +813,7 @@ export default function Sales() {
                             className={cn(
                               'rounded-full border px-3.5 py-1.5 text-sm transition',
                               Number(sale.termPeriods) === n
-                                ? 'border-brand-500 bg-brand-50 font-medium text-brand-800'
+                                ? 'border-brand-500 bg-brand-600/10 font-medium text-brand-700'
                                 : 'border-line bg-surface text-ink hover:bg-canvas',
                             )}
                           >
@@ -915,47 +938,42 @@ export default function Sales() {
             ) : null}
 
             {createSale.isError ? (
-              <p className="flex items-start gap-2 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <p className="flex items-start gap-2 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 {saleErrorMessage(createSale.error)}
               </p>
             ) : null}
           </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line bg-surface px-4 py-3.5 sm:px-6">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                if (step === 0) closeModal();
-                else {
-                  setShowErrors(false);
-                  setStep(step - 1);
-                }
-              }}
-              disabled={createSale.isPending}
-            >
-              {step === 0 ? (
-                'Cancel'
-              ) : (
-                <>
-                  <ArrowLeft className="h-4 w-4" /> Back
-                </>
-              )}
-            </Button>
-            {step < LAST_STEP ? (
-              <Button type="submit">
-                Next <ArrowRight className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button type="submit" disabled={createSale.isPending || !sale.consentAccepted}>
-                {createSale.isPending ? 'Creating sale…' : 'Create sale & enrollment token'}
-              </Button>
-            )}
-          </div>
         </form>
       </Modal>
     </div>
+  );
+}
+
+/** Slim 5-segment progress with labels — replaces the numbered-circle stepper. */
+function StepBar({ step }: { step: number }) {
+  return (
+    <ol className="grid grid-cols-5 gap-1.5" aria-label="Progress">
+      {STEPS.map((s, i) => (
+        <li key={s.label} aria-current={i === step ? 'step' : undefined}>
+          <span
+            className={cn(
+              'block h-1 rounded-full transition-colors',
+              i <= step ? 'bg-brand-600' : 'bg-line',
+            )}
+          />
+          <span
+            className={cn(
+              'mt-1.5 hidden text-[11px] sm:block',
+              i === step ? 'font-medium text-ink' : i < step ? 'text-muted' : 'text-faint',
+            )}
+          >
+            {s.label}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

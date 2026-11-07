@@ -16,13 +16,13 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-ink">
+      <span className="mb-1.5 block text-sm font-medium text-ink flat:mb-1 flat:text-xs flat:text-muted">
         {label}
         {required ? <span className="ml-0.5 text-rose-600">*</span> : null}
       </span>
       {children}
       {error ? (
-        <span className="mt-1 block text-xs text-rose-600">{error}</span>
+        <span className="mt-1 block text-xs text-rose-600 dark:text-rose-400 flat:text-[11.5px]">{error}</span>
       ) : hint ? (
         <span className="mt-1 block text-xs text-muted">{hint}</span>
       ) : null}

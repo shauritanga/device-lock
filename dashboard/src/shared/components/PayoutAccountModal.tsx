@@ -57,7 +57,7 @@ export function PayoutAccountModal({
     phoneOk && form.name.trim().length >= 2 && (!requirePassword || form.password.length > 0);
 
   return (
-    <Modal open={open} onClose={onClose} title="Payout account" className="max-w-md">
+    <Modal open={open} onClose={onClose} title="Payout account" size="sm">
       <form
         className="space-y-4"
         onSubmit={(e) => {

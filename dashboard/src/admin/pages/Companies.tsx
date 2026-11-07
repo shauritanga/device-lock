@@ -343,7 +343,7 @@ export default function Companies() {
         open={activateOpen}
         onClose={() => setActivateOpen(false)}
         title="Activate subscription"
-        className="max-w-lg"
+       
       >
         <form
           className="space-y-4"

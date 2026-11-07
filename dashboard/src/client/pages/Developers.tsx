@@ -96,7 +96,7 @@ export default function Developers() {
       {tab === 'logs' ? <LogsTab /> : null}
       {tab === 'docs' ? <DeveloperDocs companyId={overview.data?.company.id} /> : null}
 
-      <Modal open={!!reveal} onClose={() => setReveal(null)} title={reveal?.title ?? ''} className="max-w-xl">
+      <Modal open={!!reveal} onClose={() => setReveal(null)} title={reveal?.title ?? ''}>
         <div className="space-y-4">
           <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
             Copy this now — it is shown only once. Store it in your server's secret manager, never
@@ -250,7 +250,7 @@ function KeysTab({ onReveal }: { onReveal: (r: Reveal) => void }) {
         )}
       </Card>
 
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create API key" className="max-w-md">
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create API key" size="sm">
         <form
           className="space-y-4"
           onSubmit={(e) => {
