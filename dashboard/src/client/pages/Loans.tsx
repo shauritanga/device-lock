@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Loan } from '@/shared/api/types';
 import { Card } from '@/shared/components/ui/Card';

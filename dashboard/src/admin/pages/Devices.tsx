@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { AlertTriangle, ExternalLink, List, Map as MapIcon, MapPin, Search } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ExternalLink, List, Map as MapIcon, MapPin, Search } from '@/shared/icons';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/shared/api/client';
 import { Card } from '@/shared/components/ui/Card';
@@ -374,10 +374,10 @@ export default function Devices() {
             {selected.loan?.collectionCase ? (
               <button
                 type="button"
-                className="text-sm font-medium text-brand-700 hover:underline"
+                className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline"
                 onClick={() => navigate(`/cases/${selected.loan!.collectionCase!.id}`)}
               >
-                Open collections case →
+                Open collections case <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : null}
           </div>

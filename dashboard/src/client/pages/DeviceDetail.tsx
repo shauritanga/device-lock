@@ -14,7 +14,7 @@ import {
   Unlock,
   X,
   XCircle,
-} from 'lucide-react';
+} from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Device, DeviceCommand } from '@/shared/api/types';
 import { Card, CardHeader } from '@/shared/components/ui/Card';

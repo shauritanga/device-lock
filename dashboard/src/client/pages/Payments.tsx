@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Smartphone } from 'lucide-react';
+import { Plus, Smartphone } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Loan, Payment } from '@/shared/api/types';
 import { Card } from '@/shared/components/ui/Card';

@@ -10,7 +10,7 @@ import {
   UserPlus,
   Users,
   X,
-} from 'lucide-react';
+} from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { PLATFORM_ADMIN_ROLES, roleAllowed } from '@/shared/auth/roles';

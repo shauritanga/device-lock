@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Camera, RefreshCw, Upload } from 'lucide-react';
+import { Camera, RefreshCw, Upload } from '@/shared/icons';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { FieldGrid } from '@/shared/components/ui/FormSection';
 import { cn } from '@/shared/lib/cn';

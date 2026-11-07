@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, type LucideIcon } from 'lucide-react';
+import { Eye, EyeOff, type AppIcon } from '@/shared/icons';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Field, Input } from '../components/ui/Field';
@@ -19,7 +19,7 @@ export default function Login({
   brand,
 }: {
   app: AppId;
-  brand: { name: string; tag: string; icon: LucideIcon };
+  brand: { name: string; tag: string; icon: AppIcon };
 }) {
   const { login } = useAuth();
   const navigate = useNavigate();

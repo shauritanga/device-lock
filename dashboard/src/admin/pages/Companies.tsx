@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, FileText, Package, Search, Wallet, X } from 'lucide-react';
+import { Building2, FileText, Package, Search, Wallet, X } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { StatCard } from '@/shared/components/StatCard';
 import { Card } from '@/shared/components/ui/Card';

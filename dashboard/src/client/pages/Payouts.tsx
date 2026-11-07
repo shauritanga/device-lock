@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Clock, Hourglass, Pencil, ShieldAlert, Smartphone } from 'lucide-react';
+import { Banknote, Clock, Hourglass, Pencil, ShieldAlert, Smartphone } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Payout, PayoutAccountChange, PayoutSummary } from '@/shared/api/types';
 import { useAuth } from '@/shared/auth/AuthContext';

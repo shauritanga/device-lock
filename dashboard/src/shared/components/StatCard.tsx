@@ -1,5 +1,5 @@
-import { type LucideIcon } from 'lucide-react';
-import { IS_ADMIN_APP } from '../config';
+import { type AppIcon } from '@/shared/icons';
+import { IS_FLAT_THEME } from '../config';
 import { Card } from './ui/Card';
 
 export function StatCard({
@@ -9,13 +9,13 @@ export function StatCard({
   hint,
   tone = 'brand',
 }: {
-  icon: LucideIcon;
+  icon: AppIcon;
   label: string;
   value: string | number;
   hint?: string;
   tone?: 'brand' | 'green' | 'red' | 'amber';
 }) {
-  if (IS_ADMIN_APP) {
+  if (IS_FLAT_THEME) {
     const tint = {
       brand: 'bg-brand-600/10 text-brand-600',
       green: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',

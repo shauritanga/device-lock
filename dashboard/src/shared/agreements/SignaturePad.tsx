@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Eraser } from 'lucide-react';
+import { Eraser } from '@/shared/icons';
 import { cn } from '../lib/cn';
 
 const W = 480;

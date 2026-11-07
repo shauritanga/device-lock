@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Settings, User } from 'lucide-react';
+import { LogOut, Settings, User } from '@/shared/icons';
 import { useAuth } from '../auth/AuthContext';
 import { cn } from '../lib/cn';
 

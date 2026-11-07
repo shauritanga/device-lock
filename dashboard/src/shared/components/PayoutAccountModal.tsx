@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from '@/shared/icons';
 import { Button } from '@/shared/components/ui/Button';
 import { Field, Input } from '@/shared/components/ui/Field';
 import { Modal } from '@/shared/components/ui/Modal';

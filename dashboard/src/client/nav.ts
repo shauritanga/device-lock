@@ -12,7 +12,7 @@ import {
   UserCog,
   Users,
   WalletCards,
-} from 'lucide-react';
+} from '@/shared/icons';
 import type { NavGroup, ShellBrand } from '@/shared/layout/AppShell';
 import { SELLER_ADMIN_ROLES } from '@/shared/auth/roles';
 import { BRAND_NAME } from '@/shared/config';

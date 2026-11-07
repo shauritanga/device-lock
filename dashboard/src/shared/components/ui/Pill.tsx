@@ -1,5 +1,5 @@
 import { cn } from '../../lib/cn';
-import { IS_ADMIN_APP } from '../../config';
+import { IS_FLAT_THEME } from '../../config';
 
 type Tone = 'green' | 'red' | 'amber' | 'gray' | 'brand' | 'blue';
 
@@ -18,11 +18,11 @@ export function Pill({ tone = 'gray', children }: { tone?: Tone; children: React
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-        'admin:gap-1.5 admin:px-2 admin:py-[3px] admin:text-[11.5px]',
+        'flat:gap-1.5 flat:px-2 flat:py-[3px] flat:text-[11.5px]',
         tones[tone],
       )}
     >
-      {IS_ADMIN_APP ? (
+      {IS_FLAT_THEME ? (
         <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-current" aria-hidden />
       ) : null}
       {children}

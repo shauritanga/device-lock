@@ -15,26 +15,27 @@ import {
   CalendarClock,
   Smartphone,
   Wallet,
-} from 'lucide-react';
+} from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type {
   DashboardInstallmentRow,
   DashboardSummary,
   Payment,
 } from '@/shared/api/types';
-import { Card, CardHeader } from '@/shared/components/ui/Card';
+import { Card } from '@/shared/components/ui/Card';
+import { PanelEmpty, PanelHeader, useAccent } from '@/shared/components/Panel';
+import { Table, Row } from '@/shared/components/ui/Table';
 import { StatCard } from '@/shared/components/StatCard';
 import { StatusPill } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { money, shortDate } from '@/shared/lib/format';
 
-const DONUT_COLORS = ['#4f46e5', '#f43f5e', '#f59e0b', '#94a3b8'];
-
 /**
- * Seller home: one KPI per signal, work lists for action, charts for trend —
- * no duplicate locked / due / overdue / collections blocks.
+ * Seller home — rucky-rentals layout: KPI tiles, the work that needs doing
+ * (overdue table + due-today list), then trend and mix charts and recent payments.
  */
 export default function Dashboard() {
+  const accent = useAccent();
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () =>
@@ -53,11 +54,12 @@ export default function Dashboard() {
     );
   }
 
+  // Active follows the theme accent; the rest are fixed semantic colours.
   const donut = [
-    { name: 'Active', value: data.devices.active },
-    { name: 'Locked', value: data.devices.locked },
-    { name: 'Pending', value: data.devices.pending },
-    { name: 'Released', value: data.devices.released },
+    { name: 'Active', value: data.devices.active, color: accent },
+    { name: 'Locked', value: data.devices.locked, color: '#ef4444' },
+    { name: 'Pending', value: data.devices.pending, color: '#f59e0b' },
+    { name: 'Released', value: data.devices.released, color: '#8b8d96' },
   ].filter((d) => d.value > 0);
 
   return (
@@ -68,7 +70,7 @@ export default function Dashboard() {
           label="Active devices"
           value={data.devices.active}
           hint={`${data.devices.total} total`}
-          tone="green"
+          tone="brand"
         />
         <StatCard
           icon={CalendarClock}
@@ -87,39 +89,80 @@ export default function Dashboard() {
           icon={Wallet}
           label="Collected this month"
           value={money(data.collectionsThisMonth)}
-          tone="brand"
+          tone="green"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <WorkList
-          title="Due today"
-          subtitle="Remind these customers before close of business"
-          rows={data.dueToday}
-          empty="Nothing due today"
-          href="/loans"
-        />
-        <WorkList
-          title="Overdue"
-          subtitle="Priority follow-up — unlock risk if unpaid"
-          rows={data.overdueAccounts}
-          empty="No overdue accounts"
-          href="/loans"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title="Collections trend"
-            subtitle="Confirmed payments over the last 6 months"
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
+        <Card>
+          <PanelHeader
+            title="Overdue"
+            sub="Priority follow-up — unlock risk if unpaid"
+            to="/loans"
+            action="Open loans"
           />
-          <div className="h-52 px-3 pb-4 pt-6 sm:h-72">
+          {data.overdueAccounts.length === 0 ? (
+            <PanelEmpty>No overdue accounts</PanelEmpty>
+          ) : (
+            <Table columns={['Customer', 'Device', 'Due', 'Amount']}>
+              {data.overdueAccounts.map((row) => (
+                <Row key={row.id}>
+                  <td className="py-3">
+                    <p className="font-medium text-ink">{row.customerName ?? 'Unknown customer'}</p>
+                    <p className="text-[11.5px] text-muted">{row.customerPhone ?? 'No phone'}</p>
+                  </td>
+                  <td className="py-3 font-mono text-xs text-muted">{row.deviceImei ?? '—'}</td>
+                  <td className="py-3 text-rose-600 dark:text-rose-400">{shortDate(row.dueDate)}</td>
+                  <td className="py-3 text-right font-semibold tabular-nums text-ink">
+                    {money(row.amountDue)}
+                  </td>
+                </Row>
+              ))}
+            </Table>
+          )}
+        </Card>
+
+        <Card>
+          <PanelHeader
+            title="Due today"
+            sub="Remind these customers before close of business"
+            to="/loans"
+            action="Open loans"
+          />
+          {data.dueToday.length === 0 ? (
+            <PanelEmpty>Nothing due today</PanelEmpty>
+          ) : (
+            <ul>
+              {data.dueToday.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex items-center justify-between gap-3 border-b border-line-soft px-5 py-3 last:border-b-0"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium text-ink">
+                      {row.customerName ?? 'Unknown customer'}
+                    </p>
+                    <p className="truncate text-[11.5px] text-muted">
+                      {row.customerPhone ?? 'No phone'}
+                      {row.deviceImei ? ` · ${row.deviceImei}` : ''}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-[13px] font-semibold tabular-nums text-ink">
+                    {money(row.amountDue)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
+        <Card>
+          <PanelHeader title="Collections trend" sub="Confirmed payments over the last 6 months" />
+          <div className="h-56 px-3 pb-4 pt-4">
             {data.series.every((s) => s.amount === 0) ? (
-              <EmptyState
-                title="No collections yet"
-                hint="Confirmed payments will show up here."
-              />
+              <EmptyState title="No collections yet" hint="Confirmed payments will show up here." />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.series} barCategoryGap={24}>
@@ -130,10 +173,10 @@ export default function Dashboard() {
                     tick={{ fill: 'var(--muted)', fontSize: 12 }}
                   />
                   <Tooltip
-                    cursor={{ fill: 'var(--canvas)' }}
+                    cursor={{ fill: 'var(--hover)' }}
                     formatter={(v: number) => money(v)}
                     contentStyle={{
-                      borderRadius: 12,
+                      borderRadius: 10,
                       border: '1px solid var(--line)',
                       background: 'var(--surface)',
                       color: 'var(--ink)',
@@ -142,8 +185,8 @@ export default function Dashboard() {
                   />
                   <Bar
                     dataKey="amount"
-                    radius={[8, 8, 8, 8]}
-                    fill="#4f46e5"
+                    radius={[6, 6, 0, 0]}
+                    fill={accent}
                     isAnimationActive={false}
                     maxBarSize={64}
                   />
@@ -154,11 +197,13 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader
+          <PanelHeader
             title="Device mix"
-            subtitle={`${data.devices.total} enrolled`}
+            sub={`${data.devices.total} enrolled`}
+            to={data.devices.locked > 0 ? '/devices' : undefined}
+            action={data.devices.locked > 0 ? `${data.devices.locked} locked` : undefined}
           />
-          <div className="flex h-72 flex-col px-4 pb-4">
+          <div className="flex h-56 flex-col px-4 pb-4 pt-3">
             {donut.length === 0 ? (
               <EmptyState title="No devices yet" hint="Enroll phones from Devices or Sales." />
             ) : (
@@ -170,35 +215,32 @@ export default function Dashboard() {
                         data={donut}
                         dataKey="value"
                         nameKey="name"
-                        innerRadius={55}
-                        outerRadius={90}
+                        innerRadius={45}
+                        outerRadius={72}
                         paddingAngle={3}
                         isAnimationActive={false}
                         stroke="none"
                       >
-                        {donut.map((_, i) => (
-                          <Cell
-                            key={donut[i]!.name}
-                            fill={DONUT_COLORS[i % DONUT_COLORS.length]}
-                          />
+                        {donut.map((d) => (
+                          <Cell key={d.name} fill={d.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 10,
+                          border: '1px solid var(--line)',
+                          background: 'var(--surface)',
+                          color: 'var(--ink)',
+                          fontSize: 13,
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-2 flex flex-wrap justify-center gap-3">
-                  {donut.map((d, i) => (
-                    <span
-                      key={d.name}
-                      className="flex items-center gap-1.5 text-xs text-muted"
-                    >
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{
-                          background: DONUT_COLORS[i % DONUT_COLORS.length],
-                        }}
-                      />
+                  {donut.map((d) => (
+                    <span key={d.name} className="flex items-center gap-1.5 text-xs text-muted">
+                      <span className="h-2 w-2 rounded-full" style={{ background: d.color }} />
                       {d.name} ({d.value})
                     </span>
                   ))}
@@ -206,123 +248,33 @@ export default function Dashboard() {
               </>
             )}
           </div>
-          {data.devices.locked > 0 ? (
-            <div className="border-t border-line px-5 py-3">
-              <Link
-                to="/devices"
-                className="text-sm font-medium text-brand-700 hover:underline"
-              >
-                View {data.devices.locked} locked device
-                {data.devices.locked === 1 ? '' : 's'} →
-              </Link>
-            </div>
-          ) : null}
         </Card>
       </div>
 
       <Card>
-        <CardHeader
+        <PanelHeader
           title="Recent payments"
-          subtitle="Latest confirmed collections"
+          sub="Latest confirmed collections"
+          to="/payments"
+          action="All payments"
         />
-        <div className="overflow-x-auto px-3 pb-3 pt-2">
-          {!payments || payments.length === 0 ? (
-            <EmptyState
-              title="No payments yet"
-              hint="Record a payment from the Payments page."
-            />
-          ) : (
-            <table className="w-full min-w-[28rem]">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-3 py-2 font-medium sm:px-4">Method</th>
-                  <th className="px-3 py-2 font-medium sm:px-4">Status</th>
-                  <th className="px-3 py-2 font-medium sm:px-4">Date</th>
-                  <th className="px-3 py-2 text-right font-medium sm:px-4">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.slice(0, 6).map((p) => (
-                  <tr key={p.id} className="border-t border-line text-sm">
-                    <td className="px-3 py-3 font-medium sm:px-4">{p.method}</td>
-                    <td className="px-3 py-3 sm:px-4">
-                      <StatusPill status={p.status} />
-                    </td>
-                    <td className="px-3 py-3 tabular-nums text-muted sm:px-4">
-                      {shortDate(p.receivedAt)}
-                    </td>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums sm:px-4">
-                      {money(p.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        {payments && payments.length > 0 ? (
-          <div className="border-t border-line px-5 py-3">
-            <Link
-              to="/payments"
-              className="text-sm font-medium text-brand-700 hover:underline"
-            >
-              All payments →
-            </Link>
-          </div>
-        ) : null}
+        {!payments || payments.length === 0 ? (
+          <PanelEmpty>No payments yet. Record one from the Payments page.</PanelEmpty>
+        ) : (
+          <Table columns={['Method', 'Status', 'Date', 'Amount']}>
+            {payments.slice(0, 6).map((p) => (
+              <Row key={p.id}>
+                <td className="py-3 font-medium text-ink">{p.method}</td>
+                <td className="py-3">
+                  <StatusPill status={p.status} />
+                </td>
+                <td className="py-3 tabular-nums text-muted">{shortDate(p.receivedAt)}</td>
+                <td className="py-3 text-right font-semibold tabular-nums text-ink">{money(p.amount)}</td>
+              </Row>
+            ))}
+          </Table>
+        )}
       </Card>
     </div>
-  );
-}
-
-function WorkList({
-  title,
-  subtitle,
-  rows,
-  empty,
-  href,
-}: {
-  title: string;
-  subtitle: string;
-  rows: DashboardInstallmentRow[];
-  empty: string;
-  href: string;
-}) {
-  return (
-    <Card>
-      <CardHeader title={title} subtitle={subtitle} />
-      <div className="divide-y divide-line px-5 pb-1">
-        {rows.length === 0 ? (
-          <div className="py-8">
-            <EmptyState title={empty} />
-          </div>
-        ) : (
-          rows.map((row) => (
-            <div key={row.id} className="flex items-start justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="truncate font-medium text-ink">
-                  {row.customerName ?? 'Unknown customer'}
-                </p>
-                <p className="truncate text-xs text-muted">
-                  {row.customerPhone ?? 'No phone'}
-                  {row.deviceImei ? ` · ${row.deviceImei}` : ''}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="font-semibold tabular-nums text-ink">
-                  {money(row.amountDue)}
-                </p>
-                <p className="text-xs text-muted">Due {shortDate(row.dueDate)}</p>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-      <div className="border-t border-line px-5 py-3">
-        <Link to={href} className="text-sm font-medium text-brand-700 hover:underline">
-          Open loans →
-        </Link>
-      </div>
-    </Card>
   );
 }

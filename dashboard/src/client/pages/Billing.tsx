@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MessagesSquare, ReceiptText, Smartphone, WalletCards } from 'lucide-react';
+import { MessagesSquare, ReceiptText, Smartphone, WalletCards } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { BillingInvoice, BillingSummary } from '@/shared/api/types';
 import { Card, CardHeader } from '@/shared/components/ui/Card';

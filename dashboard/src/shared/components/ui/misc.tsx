@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '@/shared/icons';
 import { cn } from '../../lib/cn';
 
 export function Spinner({ className }: { className?: string }) {

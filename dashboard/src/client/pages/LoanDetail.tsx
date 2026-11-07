@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Installment, Loan } from '@/shared/api/types';
 import { Card, CardHeader } from '@/shared/components/ui/Card';

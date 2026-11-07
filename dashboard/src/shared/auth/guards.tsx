@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { ExternalLink, ShieldAlert } from 'lucide-react';
+import { ExternalLink, ShieldAlert } from '@/shared/icons';
 import type { Role } from '../api/types';
 import { APP_LABELS, APP_URLS, type AppId } from '../config';
 import { Button } from '../components/ui/Button';

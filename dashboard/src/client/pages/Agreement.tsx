@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, FileSignature, Printer } from 'lucide-react';
+import { CheckCircle2, FileSignature, Printer } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { AgreementDocument } from '@/shared/agreements/AgreementDocument';

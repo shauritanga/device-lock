@@ -53,7 +53,8 @@ export default {
     },
   },
   plugins: [
-    // `admin:` utilities apply only inside the admin console (<html data-app="admin">).
-    ({ addVariant }) => addVariant('admin', '[data-app="admin"] &'),
+    // `flat:` utilities apply only under the flat dashboard theme copied from
+    // rucky-rentals (<html data-design="flat">, set by both consoles).
+    ({ addVariant }) => addVariant('flat', '[data-design="flat"] &'),
   ],
 };

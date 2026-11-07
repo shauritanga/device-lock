@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { ArrowRight, Plus } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Device } from '@/shared/api/types';
 import { Card } from '@/shared/components/ui/Card';
@@ -63,8 +63,10 @@ export default function Devices() {
                 <td className="px-4 py-3 text-muted">
                   {shortDate(d.lastCheckInAt)}
                 </td>
-                <td className="px-4 py-3 text-right text-xs text-brand-700">
-                  Manage →
+                <td className="px-4 py-3 text-right text-xs text-brand-600">
+                  <span className="inline-flex items-center gap-1">
+                    Manage <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
                 </td>
               </Row>
             ))}

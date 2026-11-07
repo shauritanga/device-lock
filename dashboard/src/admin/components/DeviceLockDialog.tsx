@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { AlertCircle, Lock, LockOpen } from 'lucide-react';
+import { AlertCircle, Lock, LockOpen } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';

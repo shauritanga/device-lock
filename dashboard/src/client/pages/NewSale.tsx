@@ -15,7 +15,7 @@ import {
   Smartphone,
   UserRound,
   Users,
-} from 'lucide-react';
+} from '@/shared/icons';
 import axios from 'axios';
 import { api } from '@/shared/api/client';
 import type { Customer, Device, Guardian, Loan } from '@/shared/api/types';
@@ -435,7 +435,7 @@ export default function Sales() {
                 <p className="flex items-center gap-2 text-sm font-semibold text-brand-800">
                   <QrCode className="h-4 w-4" /> Enrollment token
                 </p>
-                <code className="mt-2 block break-all rounded-lg bg-white px-3 py-2 text-sm text-ink">
+                <code className="mt-2 block break-all rounded-lg bg-elevated px-3 py-2 text-sm text-ink">
                   {result.device.enrollmentToken}
                 </code>
               </div>
@@ -463,9 +463,9 @@ export default function Sales() {
           <div className="mt-3 flex flex-wrap gap-3 text-sm">
             <Link
               to={`/loans/${result.loan.id}`}
-              className="font-medium text-brand-700 hover:underline"
+              className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline"
             >
-              View loan schedule →
+              View loan schedule <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <button
               type="button"

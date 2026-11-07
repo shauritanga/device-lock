@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Bell, Moon, PanelLeft, Sun, X } from 'lucide-react';
+import { Bell, Moon, PanelLeft, Sun, X } from '@/shared/icons';
 import { useAuth } from '../auth/AuthContext';
 import { roleAllowed } from '../auth/roles';
 import { Avatar } from '../components/ui/misc';

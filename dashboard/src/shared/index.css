@@ -48,12 +48,11 @@
 }
 
 /* ------------------------------------------------------------------
-   Admin console theme — copied from the rucky-rentals dashboard:
+   Flat dashboard theme — copied from the rucky-rentals dashboard:
    neutral near-black (not blue-tinted) dark mode, blue accent, DM Sans,
-   12px cards. Scoped to <html data-app="admin">; the seller console
-   keeps the original look.
+   12px cards. Applied to both consoles via <html data-design="flat">.
    ------------------------------------------------------------------ */
-:root[data-app='admin'] {
+:root[data-design='flat'] {
   --font-sans: 'DM Sans';
   --radius-card: 12px;
   --brand-50: 239 246 255;
@@ -80,7 +79,7 @@
   --shadow-pop: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
-:root[data-app='admin'].dark {
+:root[data-design='flat'].dark {
   /* Dark scale: 50-300 are deep blues for tinted backgrounds, 600 is the accent
      (#3b82f6), 700-900 are light blues so brand-coloured text stays readable. */
   --brand-50: 15 27 51;
@@ -107,13 +106,13 @@
   --shadow-pop: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
-:root[data-app='admin'] body {
+:root[data-design='flat'] body {
   font-feature-settings: normal;
 }
 
 /* rucky-rentals tables use 20px horizontal cell padding. */
-:root[data-app='admin'] table th,
-:root[data-app='admin'] table td {
+:root[data-design='flat'] table th,
+:root[data-design='flat'] table td {
   padding-left: 20px;
   padding-right: 20px;
 }

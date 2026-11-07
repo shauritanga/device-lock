@@ -6,8 +6,8 @@ import {
   PanelLeft,
   Sun,
   X,
-  type LucideIcon,
-} from 'lucide-react';
+  type AppIcon,
+} from '@/shared/icons';
 import type { Role } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { roleAllowed } from '../auth/roles';
@@ -19,7 +19,7 @@ import { AccountMenu, formatRole } from './AccountMenu';
 export type NavItem = {
   to: string;
   label: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   /** Exact match only — use for the index route. */
   end?: boolean;
   /** Optional description — not shown in the header. */
@@ -37,7 +37,7 @@ export type NavGroup = {
 export type ShellBrand = {
   name: string;
   tag: string;
-  icon: LucideIcon;
+  icon: AppIcon;
 };
 
 function NavItemLink({

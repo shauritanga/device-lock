@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X } from '@/shared/icons';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
 import { Input, Select } from '@/shared/components/ui/Field';

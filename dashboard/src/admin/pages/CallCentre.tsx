@@ -8,7 +8,7 @@ import {
   Target,
   UserCheck,
   X,
-} from 'lucide-react';
+} from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { StatCard } from '@/shared/components/StatCard';
 import { Card } from '@/shared/components/ui/Card';

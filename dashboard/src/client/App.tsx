@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppGuard, RequireRole } from '@/shared/auth/guards';
 import { SELLER_ADMIN_ROLES } from '@/shared/auth/roles';
-import { AppShell } from '@/shared/layout/AppShell';
+import { FlatShell } from '@/shared/layout/FlatShell';
 import Login from '@/shared/pages/Login';
 import { CLIENT_BRAND, CLIENT_NAV } from './nav';
 import Dashboard from './pages/Dashboard';
@@ -25,10 +25,10 @@ import { AccessBanner } from './components/AccessBanner';
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <AppGuard app="client">
-      <AppShell brand={CLIENT_BRAND} navGroups={CLIENT_NAV}>
+      <FlatShell brand={CLIENT_BRAND} navGroups={CLIENT_NAV}>
         <AccessBanner />
         {children}
-      </AppShell>
+      </FlatShell>
     </AppGuard>
   );
 }

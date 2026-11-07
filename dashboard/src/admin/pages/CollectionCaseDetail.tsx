@@ -6,7 +6,7 @@ import {
   MessageCircle,
   MessageSquare,
   Phone,
-} from 'lucide-react';
+} from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';

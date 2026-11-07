@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Check, Copy, KeyRound, Plus, ScrollText, Webhook } from 'lucide-react';
+import { BookOpen, Check, Copy, KeyRound, Plus, ScrollText, Webhook } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { apiErrorMessage } from '@/shared/agreements/apiError';
 import { Button } from '@/shared/components/ui/Button';

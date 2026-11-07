@@ -9,7 +9,7 @@ import {
   PhoneCall,
   ShieldCheck,
   UserCog,
-} from 'lucide-react';
+} from '@/shared/icons';
 import type { NavGroup, ShellBrand } from '@/shared/layout/AppShell';
 import { PLATFORM_ADMIN_ROLES, STAFFING_ADMIN_ROLES } from '@/shared/auth/roles';
 import { BRAND_NAME } from '@/shared/config';

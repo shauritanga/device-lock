@@ -8,7 +8,7 @@ import {
   Search,
   Sparkles,
   X,
-} from 'lucide-react';
+} from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { StatCard } from '@/shared/components/StatCard';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BarChart3, Clock } from 'lucide-react';
+import { ArrowLeft, BarChart3, Clock } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { Card, CardHeader } from '@/shared/components/ui/Card';

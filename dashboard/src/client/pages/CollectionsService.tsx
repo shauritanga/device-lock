@@ -7,7 +7,7 @@ import {
   PhoneCall,
   Send,
   Wallet,
-} from 'lucide-react';
+} from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Pill, StatusPill } from '@/shared/components/ui/Pill';

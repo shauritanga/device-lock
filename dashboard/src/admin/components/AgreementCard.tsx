@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileSignature, Printer } from 'lucide-react';
+import { FileSignature, Printer } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { AgreementDocument } from '@/shared/agreements/AgreementDocument';
 import { SignForm } from '@/shared/agreements/SignForm';

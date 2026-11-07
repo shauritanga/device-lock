@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Check, Copy, Download } from 'lucide-react';
+import { Check, Copy, Download } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';

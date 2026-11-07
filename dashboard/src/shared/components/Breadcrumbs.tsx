@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight } from '@/shared/icons';
 import { Link } from 'react-router-dom';
 
 export type Crumb = { label: string; to?: string };
