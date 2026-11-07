@@ -32,6 +32,7 @@ const payments = new Map<string, any>();
 const payouts = new Map<string, any>();
 const calls: { method: string; path: string; headers: any; body: any }[] = [];
 let nextPayoutFails: string | null = null;
+let reuseRefNext: string | null = null;
 
 const fake = http.createServer((req, res) => {
   let raw = '';
@@ -47,6 +48,11 @@ const fake = http.createServer((req, res) => {
     if (req.headers.authorization !== 'Bearer snp_test') return send(401, { status: 'error', error_code: 'unauthorized', message: 'bad key' });
 
     if (req.method === 'POST' && url.pathname === '/v1/payments') {
+      if (reuseRefNext) {
+        const existing = payments.get(reuseRefNext);
+        reuseRefNext = null;
+        return send(201, existing); // Snippe answering a repeat request with the reference it already issued
+      }
       const ref = `pay-${payments.size + 1}`;
       const p = {
         reference: ref, status: 'pending', object: 'payment',
@@ -321,6 +327,26 @@ async function main() {
     let last = 0;
     for (let i = 0; i < 6; i++) last = (await put('account', auth, { ...good, password: `bad${i}` })).status;
     check('repeated wrong passwords get locked out (429)', last === 429, last);
+
+    // ---- 2b. customer declines the prompt; duplicate requests
+    console.log('\n# Cancelled prompts and duplicate requests');
+    const pc = await pay(7000);
+    const pcRow = await db.payment.findUnique({ where: { id: pc.json.paymentId } });
+    const cancelledRef = pcRow!.providerRef!;
+    payments.get(cancelledRef).status = 'cancelled';
+    const wc = await webhook('payment.cancelled', payments.get(cancelledRef));
+    check('payment.cancelled webhook accepted', wc.status === 200 && wc.json.result === 'failed', wc);
+    check('cancelled payment is closed as FAILED (not stuck PENDING)', (await db.payment.findUnique({ where: { id: pc.json.paymentId } }))?.status === 'FAILED');
+
+    const pdup = await pay(8000);
+    const pdupRef = (await db.payment.findUnique({ where: { id: pdup.json.paymentId } }))!.providerRef!;
+    reuseRefNext = pdupRef;
+    const dup = await pay(8000);
+    check('repeat request answered with an existing reference -> clear 409, not a server error', dup.status === 409 && /already waiting/.test(JSON.stringify(dup.json)), dup);
+    const dupRows = await db.payment.findMany({ where: { loanId: loan.id, amount: 8000 }, orderBy: { createdAt: 'asc' } });
+    check('original keeps its reference; the duplicate attempt is closed', dupRows.length === 2 && dupRows[0].providerRef === pdupRef && dupRows[0].status === 'PENDING' && dupRows[1].status === 'FAILED' && dupRows[1].providerRef === null, dupRows.map((r) => [r.status, r.providerRef]));
+    payments.get(pdupRef).status = 'expired';
+    await webhook('payment.expired', payments.get(pdupRef));
 
     // ---- 9. cash is never disbursed
     console.log('\n# Cash payments');

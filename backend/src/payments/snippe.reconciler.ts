@@ -28,11 +28,32 @@ export class SnippeReconciler {
     private readonly payouts: PayoutsService,
   ) {}
 
+  /**
+   * Payments that never got a Snippe reference (the request didn't go through),
+   * or are older than any Snippe intent can live, will never complete: close them
+   * so they don't sit as PENDING forever.
+   */
+  private async expireStale() {
+    const closed = await this.prisma.payment.updateMany({
+      where: {
+        provider: 'SNIPPE',
+        status: PaymentStatus.PENDING,
+        OR: [
+          { createdAt: { lt: new Date(Date.now() - POLL_WINDOW_MS) } },
+          { providerRef: null, createdAt: { lt: new Date(Date.now() - 15 * 60_000) } },
+        ],
+      },
+      data: { status: PaymentStatus.FAILED },
+    });
+    if (closed.count) this.logger.log(`Closed ${closed.count} stale pending payment(s)`);
+  }
+
   @Cron(CronExpression.EVERY_MINUTE)
   async reconcilePayments() {
     if (!this.snippe.configured || this.busy.payments) return;
     this.busy.payments = true;
     try {
+      await this.expireStale();
       const pending = await this.prisma.payment.findMany({
         where: {
           provider: 'SNIPPE',

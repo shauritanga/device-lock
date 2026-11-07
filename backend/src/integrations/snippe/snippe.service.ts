@@ -15,7 +15,7 @@ export interface SnippeMoney {
 
 export interface SnippePayment {
   reference: string;
-  status: 'pending' | 'completed' | 'failed' | 'voided' | 'expired';
+  status: 'pending' | 'completed' | 'failed' | 'voided' | 'expired' | 'cancelled';
   amount?: SnippeMoney;
   channel?: { type?: string; provider?: string };
   settlement?: { gross?: SnippeMoney; fees?: SnippeMoney; net?: SnippeMoney };
@@ -131,7 +131,10 @@ export class SnippeService {
     status: string,
   ): 'received' | 'failed' | 'pending' {
     if (status === 'completed') return 'received';
-    if (['failed', 'voided', 'expired'].includes(status)) return 'failed';
+    // 'cancelled'/'canceled': the customer declined the prompt (seen in production).
+    if (['failed', 'voided', 'expired', 'cancelled', 'canceled'].includes(status)) {
+      return 'failed';
+    }
     return 'pending';
   }
 

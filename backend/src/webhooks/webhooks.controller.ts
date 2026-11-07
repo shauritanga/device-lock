@@ -140,6 +140,8 @@ export class WebhooksController {
       'payment.failed': 'failed',
       'payment.voided': 'voided',
       'payment.expired': 'expired',
+      'payment.cancelled': 'cancelled',
+      'payment.canceled': 'cancelled',
     };
     const status = statusByEvent[type];
     if (!status) return null;

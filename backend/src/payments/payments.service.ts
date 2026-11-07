@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -216,6 +217,22 @@ export class PaymentsService {
           tenant_id: loan.tenantId,
         },
       });
+      // Snippe can answer a repeat request (same phone and amount, previous one
+      // still waiting) with the reference it already issued. That reference
+      // belongs to the earlier payment, so don't create a second record for it.
+      const existing = await this.prisma.payment.findUnique({
+        where: { providerRef: res.reference },
+        select: { id: true },
+      });
+      if (existing) {
+        await this.prisma.scoped.payment.update({
+          where: { id: payment.id },
+          data: { status: PaymentStatus.FAILED },
+        });
+        throw new ConflictException(
+          'A payment request for this phone and amount is already waiting for approval. Ask the customer to approve it, or wait for it to expire and try again.',
+        );
+      }
       await this.prisma.scoped.payment.update({
         where: { id: payment.id },
         data: { providerRef: res.reference },
