@@ -1,14 +1,15 @@
+import { type ReactNode } from 'react';
 import { Moon, Sun } from '@/shared/icons';
 import { Card } from '../components/ui/Card';
 import { useTheme } from '../theme/ThemeContext';
 import { cn } from '../lib/cn';
 
 /** App preferences shared by both consoles. */
-export default function Settings() {
+export default function Settings({ children }: { children?: ReactNode }) {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Settings</h1>
         <p className="mt-0.5 text-sm text-muted">Appearance and account preferences.</p>
@@ -46,6 +47,8 @@ export default function Settings() {
           </button>
         </div>
       </Card>
+
+      {children}
     </div>
   );
 }

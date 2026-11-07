@@ -19,6 +19,7 @@ import Agreement from './pages/Agreement';
 import Developers from './pages/Developers';
 import CollectionsService from './pages/CollectionsService';
 import Profile from '@/shared/pages/Profile';
+import { PayoutAccountSection } from './components/PayoutAccountSection';
 import Settings from '@/shared/pages/Settings';
 import { AccessBanner } from './components/AccessBanner';
 
@@ -110,7 +111,7 @@ export default function ClientApp() {
         }
       />
       <Route path="/profile" element={<Shell><Profile /></Shell>} />
-      <Route path="/settings" element={<Shell><Settings /></Shell>} />
+      <Route path="/settings" element={<Shell><Settings><PayoutAccountSection /></Settings></Shell>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
