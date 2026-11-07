@@ -210,7 +210,7 @@ export default function DemoRequests() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Demo requests</h1>
+        <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Requests</h1>
         <p className="mt-0.5 text-sm text-muted">
           Inbound leads from linda.co.tz — triage, follow up, and convert to seller companies.
         </p>
@@ -253,7 +253,7 @@ export default function DemoRequests() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search…"
-                aria-label="Search demo requests"
+                aria-label="Search requests"
               />
             </div>
             <Select
@@ -310,7 +310,7 @@ export default function DemoRequests() {
 
         {filtered.length === 0 ? (
           <EmptyState
-            title={rows.length === 0 ? 'No demo requests yet' : 'No matching leads'}
+            title={rows.length === 0 ? 'No requests yet' : 'No matching leads'}
             hint={
               rows.length === 0
                 ? 'When a dealer submits the website form, it will show up here.'

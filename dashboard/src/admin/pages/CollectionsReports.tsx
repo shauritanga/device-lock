@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BarChart3, Clock } from '@/shared/icons';
+import { BarChart3, Clock } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
@@ -220,13 +220,6 @@ export default function CollectionsReports() {
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/"
-        className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to work queue
-      </Link>
-
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-brand-600" />

@@ -1,5 +1,4 @@
-import { Breadcrumbs } from '@/shared/components/Breadcrumbs';
-import { cn } from '@/shared/lib/cn';
+import { Tabs } from '@/shared/components/Tabs';
 import type { TabId } from './types';
 
 const TABS: { id: TabId; label: string }[] = [
@@ -9,43 +8,22 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'agreement', label: 'Agreement' },
 ];
 
-/** Breadcrumb (it carries the company name) and plain section tabs. */
+/** Section tabs for a company. The breadcrumb (with the name) is in the top bar. */
 export function CompanyHeader({
-  name,
   tab,
   onTab,
   hidden = [],
 }: {
-  name: string;
   tab: TabId;
   onTab: (t: TabId) => void;
   hidden?: TabId[];
 }) {
   return (
-    <header className="space-y-4">
-      <Breadcrumbs items={[{ label: 'Companies', to: '/companies' }, { label: name }]} />
-
-      <nav
-        className="-mx-1 flex gap-6 overflow-x-auto overflow-y-hidden border-b border-line px-1"
-        aria-label="Company sections"
-      >
-        {TABS.filter((t) => !hidden.includes(t.id)).map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onTab(id)}
-            aria-current={tab === id ? 'page' : undefined}
-            className={cn(
-              'shrink-0 border-b-2 pb-3 pt-1 text-sm font-medium transition',
-              tab === id
-                ? 'border-ink text-ink'
-                : 'border-transparent text-muted hover:text-ink',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-    </header>
+    <Tabs
+      label="Company sections"
+      tabs={TABS.filter((t) => !hidden.includes(t.id))}
+      value={tab}
+      onChange={onTab}
+    />
   );
 }

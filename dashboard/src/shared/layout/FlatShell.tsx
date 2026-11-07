@@ -8,6 +8,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { cn } from '../lib/cn';
 import { AccountMenu, formatRole } from './AccountMenu';
 import type { NavGroup, NavItem, ShellBrand } from './AppShell';
+import { Breadcrumbs } from '../components/Breadcrumbs';
+import { PageTrailProvider, usePageTrailValue } from './PageTrail';
 
 function FlatNavLink({
   to,
@@ -44,7 +46,7 @@ function FlatNavLink({
  * rucky-rentals dashboard: full-height 240px sidebar with section labels and a
  * user card, 60px top bar, and a canvas-coloured content area.
  */
-export function FlatShell({
+function FlatShellInner({
   brand,
   navGroups,
   children,
@@ -54,6 +56,7 @@ export function FlatShell({
   children: ReactNode;
 }) {
   const { user } = useAuth();
+  const trail = usePageTrailValue();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -202,14 +205,18 @@ export function FlatShell({
           >
             <PanelLeft className="h-[18px] w-[18px]" />
           </button>
-          <h1 className="flex min-w-0 items-baseline gap-2 truncate text-base font-semibold tracking-tight text-ink">
-            {title}
-            {subtitle ? (
-              <span className="font-serif text-[15px] font-normal italic text-muted" style={{ fontFamily: "'Instrument Serif', serif" }}>
-                {subtitle}
-              </span>
-            ) : null}
-          </h1>
+          {trail ? (
+            <Breadcrumbs items={trail} variant="topbar" />
+          ) : (
+            <h1 className="flex min-w-0 items-baseline gap-2 truncate text-base font-semibold tracking-tight text-ink">
+              {title}
+              {subtitle ? (
+                <span className="font-serif text-[15px] font-normal italic text-muted" style={{ fontFamily: "'Instrument Serif', serif" }}>
+                  {subtitle}
+                </span>
+              ) : null}
+            </h1>
+          )}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button type="button" className={iconBtn} aria-label="Notifications">
               <Bell className="h-4 w-4" />
@@ -228,5 +235,22 @@ export function FlatShell({
         <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-7">{children}</main>
       </div>
     </div>
+  );
+}
+
+/**
+ * Flat dashboard shell used by both consoles — same structure as the
+ * rucky-rentals dashboard. Pages that drill down declare a breadcrumb with
+ * `usePageTrail`, which the top bar shows in place of the title.
+ */
+export function FlatShell(props: {
+  brand: ShellBrand;
+  navGroups: NavGroup[];
+  children: ReactNode;
+}) {
+  return (
+    <PageTrailProvider>
+      <FlatShellInner {...props} />
+    </PageTrailProvider>
   );
 }

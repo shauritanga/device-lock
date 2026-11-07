@@ -5,7 +5,7 @@ import { api } from '@/shared/api/client';
 import type { Payout, PayoutSummary } from '@/shared/api/types';
 import { useAuth } from '@/shared/auth/AuthContext';
 import type { AgreementSummary } from '@/shared/agreements/types';
-import { Breadcrumbs } from '@/shared/components/Breadcrumbs';
+import { usePageTrail } from '@/shared/layout/PageTrail';
 import { Button } from '@/shared/components/ui/Button';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -138,6 +138,7 @@ export default function CompanyDetail() {
   const sub = billing.data?.subscription;
   const invs = invoices.data ?? billing.data?.invoices ?? [];
   const name = tenant.data?.name ?? invs[0]?.tenant?.name ?? 'Company';
+  usePageTrail([{ label: 'Companies', to: '/companies' }, { label: name }]);
   const liveAgreement = (agreements.data ?? []).find((a) => a.status !== 'VOID');
 
   const openActivate = () => {
@@ -159,7 +160,7 @@ export default function CompanyDetail() {
   if (tenant.isError) {
     return (
       <div className="space-y-3">
-        <Breadcrumbs items={[{ label: 'Companies', to: '/companies' }, { label: 'Not found' }]} />
+        <p className="text-sm text-muted">This company could not be loaded.</p>
         <EmptyState title="Company not found" hint="It may have been removed." />
       </div>
     );
@@ -168,7 +169,6 @@ export default function CompanyDetail() {
   return (
     <div className="space-y-8">
       <CompanyHeader
-        name={name}
         tab={tab}
         onTab={goTab}
         hidden={isSuperAdmin ? [] : ['payouts']}

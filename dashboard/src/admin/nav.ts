@@ -58,7 +58,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       {
         to: '/demo-requests',
-        label: 'Demo requests',
+        label: 'Requests',
         icon: Inbox,
         subtitle: 'Inbound leads from the linda.co.tz demo form',
       },

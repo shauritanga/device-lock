@@ -285,7 +285,7 @@ export default function Companies() {
             title={rows.length === 0 ? 'No companies yet' : 'No matching companies'}
             hint={
               rows.length === 0
-                ? 'Convert a demo lead or create a tenant to see companies here.'
+                ? 'Convert a request or create a tenant to see companies here.'
                 : 'Try clearing search or filters.'
             }
           />

@@ -88,7 +88,7 @@ export default function Login({
       </h1>
       <p className={cn('text-sm text-muted', isAdmin ? 'mt-2' : 'mt-1')}>
         {isAdmin
-          ? 'Platform staff — collections, companies, and demo leads.'
+          ? 'Platform staff — collections, companies, and requests.'
           : 'Sign in to manage your financed devices.'}
       </p>
 
@@ -229,7 +229,7 @@ export default function Login({
               Keep every handset honest.
             </h2>
             <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-sky-100/85">
-              Manage seller companies, demo leads, and verified collections from one place.
+              Manage seller companies, requests, and verified collections from one place.
             </p>
           </div>
 

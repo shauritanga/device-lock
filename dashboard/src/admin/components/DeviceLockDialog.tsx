@@ -172,12 +172,17 @@ export function DeviceLockActions({
   return (
     <>
       {canLock(device.status) ? (
-        <Button type="button" variant="danger" onClick={() => onAction('LOCK')}>
+        <Button
+          type="button"
+          variant="secondary"
+          className="text-rose-600 hover:text-rose-600 dark:text-rose-400"
+          onClick={() => onAction('LOCK')}
+        >
           <Lock className="h-4 w-4" /> Lock phone
         </Button>
       ) : null}
       {canUnlock(device.status) ? (
-        <Button type="button" onClick={() => onAction('UNLOCK')}>
+        <Button type="button" variant="secondary" onClick={() => onAction('UNLOCK')}>
           <LockOpen className="h-4 w-4" /> Unlock phone
         </Button>
       ) : null}

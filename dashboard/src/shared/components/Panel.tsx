@@ -8,11 +8,14 @@ export function PanelHeader({
   sub,
   to,
   action,
+  right,
 }: {
   title: string;
   sub?: string;
   to?: string;
   action?: string;
+  /** A custom control (e.g. a button) instead of the quiet text link. */
+  right?: ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-line-soft px-5 pb-3.5 pt-[18px]">
@@ -20,7 +23,8 @@ export function PanelHeader({
         <h3 className="text-sm font-semibold tracking-[-0.2px] text-ink">{title}</h3>
         {sub ? <p className="mt-0.5 text-xs text-faint">{sub}</p> : null}
       </div>
-      {to && action ? (
+      {right ?? null}
+      {!right && to && action ? (
         <Link to={to} className="shrink-0 text-[12.5px] font-medium text-brand-600 hover:underline">
           {action}
         </Link>

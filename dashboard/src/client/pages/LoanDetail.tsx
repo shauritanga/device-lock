@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { usePageTrail } from '@/shared/layout/PageTrail';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { ArrowLeft, CheckCircle2 } from '@/shared/icons';
+import { CheckCircle2 } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Installment, Loan } from '@/shared/api/types';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
@@ -49,6 +50,11 @@ export default function LoanDetail() {
     },
   });
 
+  usePageTrail([
+    { label: 'Loans', to: '/loans' },
+    { label: loan?.customer?.fullName ?? 'Loan' },
+  ]);
+
   if (isLoading || !loan) return <Center><Spinner /></Center>;
 
   const installments = loan.installments ?? [];
@@ -79,10 +85,6 @@ export default function LoanDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/loans" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Back to loans
-      </Link>
-
       <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
         <Metric label="Principal" value={money(loan.principal, loan.currency)} />
         <Metric label="Down payment" value={money(loan.downPayment, loan.currency)} />

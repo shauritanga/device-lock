@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { usePageTrail } from '@/shared/layout/PageTrail';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  ArrowLeft,
   CheckCircle2,
   Loader2,
   Lock,
@@ -129,6 +129,11 @@ export default function DeviceDetail() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['device', id] }),
   });
 
+  usePageTrail([
+    { label: 'Devices', to: '/devices' },
+    { label: device ? `${device.make ?? ''} ${device.model ?? ''}`.trim() || `IMEI ${device.imei}` : 'Device' },
+  ]);
+
   if (isLoading || !device) return <Center><Spinner /></Center>;
   const managementWarning = device.events?.find((e) => e.type === 'MANAGEMENT_HEALTH_WARNING');
   const simWarning = device.events?.find((e) => e.type === 'SIM_CHANGED');
@@ -147,10 +152,7 @@ export default function DeviceDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Link to="/devices" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-          <ArrowLeft className="h-4 w-4" /> Back to devices
-        </Link>
+      <div className="flex items-center justify-end gap-3">
         {device.status === 'PENDING_ENROLLMENT' ? (
           <Button
             variant="ghost"

@@ -117,7 +117,7 @@ function NetworkDashboard({ data }: { data: PlatformDashboard }) {
         <StatCard icon={Wallet} label="Overdue book" value={money(k.overdueBook ?? 0)} tone="red" />
         <StatCard
           icon={Inbox}
-          label="New demo leads"
+          label="New requests"
           value={k.demoNew ?? 0}
           hint={`${k.demoPipeline ?? 0} in pipeline`}
           tone="green"
@@ -144,7 +144,7 @@ function NetworkDashboard({ data }: { data: PlatformDashboard }) {
 
         <div className="space-y-4">
           <Card>
-            <PanelHeader title="Demo requests" sub="Leads waiting on sales" to="/demo-requests" action="View all" />
+            <PanelHeader title="Requests" sub="Waiting on sales" to="/demo-requests" action="View all" />
             {data.recentLeads.length === 0 ? (
               <Empty>No open leads</Empty>
             ) : (
