@@ -667,6 +667,8 @@ model Customer {
   /// Which document `nationalId` refers to.
   idDocumentType IdDocumentType?
   address        String?
+  /// The id this customer has in the partner's own system (API sync).
+  externalId     String?
 
   // KYC / employment info (collections staff app)
   idCardPhotoUrl String?
@@ -689,6 +691,7 @@ model Customer {
   // ContactSession / CommunicationLog / PromiseToPay keyed via case/loan; no reverse needed on Customer for MVP
 
   @@unique([tenantId, phone])
+  @@unique([tenantId, externalId])
   @@index([tenantId])
 }
 
@@ -726,6 +729,8 @@ model Device {
   serialNumber String?
   make         String?
   model        String?
+  /// The id this device has in the partner's own system (API sync).
+  externalId   String?
 
   status         DeviceStatus @default(PENDING_ENROLLMENT)
   // Per-device overrides of the tenant policy (null => inherit tenant).
@@ -765,6 +770,7 @@ model Device {
   collectionCases CollectionCase[]
 
   @@unique([tenantId, imei])
+  @@unique([tenantId, externalId])
   @@index([tenantId, status])
   @@index([lastCheckInAt])
 }

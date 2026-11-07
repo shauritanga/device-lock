@@ -10,7 +10,7 @@
  * at TEST_DATABASE_URL (use a throwaway database), then drives it over HTTP with
  * correctly-signed webhooks.
  */
-import { createHmac } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import { spawn } from 'child_process';
 import http from 'http';
 import * as argon2 from 'argon2';
@@ -407,6 +407,50 @@ async function main() {
     check('manual release while one is waiting is refused (409)', again.status === 409);
     const after = await fetch(`${API}/v1/payments`, { method: 'POST', headers: auth, body: JSON.stringify({ loanId: loan2.id, amount: 1000 }) });
     check('paying a settled loan is rejected (400)', after.status === 400);
+
+    // ---- 11. partner API: sync customers/phones, lock and unlock
+    console.log('\n# Partner API');
+    const key = `dlk_live_test${suffix}`;
+    await db.apiClient.create({ data: { name: `Partner ${suffix}`, contactEmail: 'p@t.test', keyPrefix: key.slice(0, 12), keyHash: createHash('sha256').update(key).digest('hex'), webhookSecret: 'whsec_x', ownerTenantId: tenantId, rateLimitPerMin: 600, grants: { create: { tenantId } } } });
+    const ro = `dlk_live_ro${suffix}`;
+    await db.apiClient.create({ data: { name: `ReadOnly ${suffix}`, contactEmail: 'p@t.test', keyPrefix: ro.slice(0, 12), keyHash: createHash('sha256').update(ro).digest('hex'), webhookSecret: 'whsec_y', ownerTenantId: tenantId, readOnly: true, grants: { create: { tenantId } } } });
+    const P = (path: string, init: any = {}, k = key) => fetch(`${API}/v1/partner${path}`, { ...init, headers: { authorization: `Bearer ${k}`, 'content-type': 'application/json' } });
+    const reg = { customer: { externalId: `c-${suffix}`, fullName: 'Neema Joseph', phone: '255711000111' }, device: { externalId: `d-${suffix}`, imei: `86${Date.now()}`.slice(0, 15), make: 'Tecno', model: 'Spark 10' } };
+    const r1 = await P('/registrations', { method: 'POST', body: JSON.stringify(reg) });
+    const j1 = (await r1.json()) as any;
+    check('registration creates customer + device (201)', r1.status === 201 && j1.created.customer && j1.created.device, j1);
+    check('device comes back with an enrollment QR payload', !!j1.device?.enrollment?.token && !!j1.device?.enrollment?.qr, j1.device);
+    check('both records carry the partner externalId', j1.customer.externalId === reg.customer.externalId && j1.device.externalId === reg.device.externalId);
+    const r2 = await P('/registrations', { method: 'POST', body: JSON.stringify(reg) });
+    const j2 = (await r2.json()) as any;
+    check('same registration again creates nothing (200)', r2.status === 200 && !j2.created.customer && !j2.created.device && j2.device.id === j1.device.id, j2);
+    check('no duplicate rows', (await db.customer.count({ where: { tenantId, phone: '255711000111' } })) === 1 && (await db.device.count({ where: { tenantId, imei: reg.device.imei } })) === 1);
+    const upd = await P('/customers', { method: 'POST', body: JSON.stringify({ externalId: reg.customer.externalId, fullName: 'Neema J. Joseph', phone: '255711000111', address: 'Mwanza' }) });
+    const uj = (await upd.json()) as any;
+    check('customer update by externalId (200)', upd.status === 200 && uj.fullName === 'Neema J. Joseph' && uj.address === 'Mwanza' && uj.id === j1.customer.id, uj);
+    const clash = await P('/customers', { method: 'POST', body: JSON.stringify({ externalId: 'someone-else', fullName: 'Other', phone: '255711000111' }) });
+    check('same phone under another externalId is refused (409)', clash.status === 409);
+    const unknownCust = await P('/devices', { method: 'POST', body: JSON.stringify({ imei: `87${Date.now()}`.slice(0, 15), externalCustomerId: 'nobody' }) });
+    check('device for an unknown customer is refused (404)', unknownCust.status === 404);
+    const lk = await (await P(`/devices/lookup?externalId=${reg.device.externalId}`)).json() as any;
+    check('lookup by externalId', lk.id === j1.device.id, lk);
+    const en = await P(`/devices/${j1.device.id}/enrollment`);
+    check('enrollment payload can be fetched again', en.status === 200 && !!((await en.json()) as any).enrollment?.qr);
+    const roWrite = await P('/registrations', { method: 'POST', body: JSON.stringify(reg) }, ro);
+    check('read-only key cannot register (403)', roWrite.status === 403);
+    const noKey = await fetch(`${API}/v1/partner/registrations`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(reg) });
+    check('no key is refused (401)', noKey.status === 401);
+    const bad = await P('/registrations', { method: 'POST', body: JSON.stringify({ customer: { fullName: 'X' }, device: {} }) });
+    check('invalid body is refused (400)', bad.status === 400);
+    // lock / unlock through the API on an enrolled phone
+    await db.device.update({ where: { id: j1.device.id }, data: { status: 'ACTIVE', lastCheckInAt: new Date() } });
+    const lockRes = await P(`/devices/${j1.device.id}/lock`, { method: 'POST', body: JSON.stringify({ reason: 'overdue in our system', idempotencyKey: `idem-lock-${suffix}` }) });
+    check('partner lock accepted (202)', lockRes.status === 202, await lockRes.clone().text());
+    const lockAgain = await P(`/devices/${j1.device.id}/lock`, { method: 'POST', body: JSON.stringify({ reason: 'overdue in our system', idempotencyKey: `idem-lock-${suffix}` }) });
+    const la = (await lockAgain.json()) as any;
+    check('same idempotency key replays (200)', lockAgain.status === 200 && la.idempotentReplay === true, la);
+    const reenroll = await P(`/devices/${j1.device.id}/enrollment`);
+    check('enrolled phone has no enrollment to fetch (409)', reenroll.status === 409);
   } finally {
     if (tenantId) await db.tenant.deleteMany({ where: { name: { contains: suffix } } }).catch(() => null);
     child.kill();

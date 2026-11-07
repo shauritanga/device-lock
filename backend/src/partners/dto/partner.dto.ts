@@ -1,4 +1,5 @@
 import { Type } from 'class-transformer';
+import { IdDocumentType } from '@prisma/client';
 import {
   ArrayMaxSize,
   IsArray,
@@ -6,6 +7,8 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsDefined,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -14,6 +17,7 @@ import {
   Min,
   MinLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 
 export class CreatePartnerDto {
@@ -120,4 +124,121 @@ export class UpdateApiKeyDto {
   @IsString()
   @MaxLength(500)
   webhookUrl?: string | null;
+}
+
+
+/** A customer as the partner knows them. `externalId` is the partner's own id for them. */
+export class PartnerCustomerDto {
+  /** The customer's id in the partner's system. Makes the call idempotent. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  externalId?: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  fullName!: string;
+
+  @IsString()
+  @MinLength(7)
+  @MaxLength(20)
+  phone!: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(4)
+  @MaxLength(64)
+  nationalId?: string;
+
+  @IsOptional()
+  @IsEnum(IdDocumentType)
+  idDocumentType?: IdDocumentType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  address?: string;
+}
+
+/** A phone as the partner knows it. Give `customerId` or `externalCustomerId` to link it. */
+export class PartnerDeviceDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  externalId?: string;
+
+  @IsString()
+  @MinLength(14)
+  @MaxLength(17)
+  imei!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  serialNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  make?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  model?: string;
+
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  externalCustomerId?: string;
+}
+
+export class PartnerRegistrationDeviceDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  externalId?: string;
+
+  @IsString()
+  @MinLength(14)
+  @MaxLength(17)
+  imei!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  serialNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  make?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  model?: string;
+}
+
+/** Customer and phone in one call: what a partner sends when a sale is made in their system. */
+export class PartnerRegistrationDto {
+  @IsDefined()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PartnerCustomerDto)
+  customer!: PartnerCustomerDto;
+
+  @IsDefined()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PartnerRegistrationDeviceDto)
+  device!: PartnerRegistrationDeviceDto;
 }

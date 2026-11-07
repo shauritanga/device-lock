@@ -20,6 +20,7 @@ import {
   quickstartSnippet,
   requestSnippet,
   samplePath,
+  syncSnippet,
   webhookSnippet,
   type Lang,
 } from '../docs/snippets';
@@ -30,6 +31,7 @@ const BASE = `${API_ROOT}/partner`;
 const SECTIONS = [
   { id: 'overview', label: 'Overview' },
   { id: 'quickstart', label: 'Quickstart' },
+  { id: 'sync', label: 'Keep records in sync' },
   { id: 'authentication', label: 'Authentication' },
   { id: 'concepts', label: 'How locking works' },
   { id: 'reference', label: 'API reference' },
@@ -74,9 +76,11 @@ export function DeveloperDocs({ companyId }: { companyId?: string }) {
 
         <Section id="overview" title="Overview">
           <p>
-            The Device Lock API lets your own system — a loan platform, a CRM, a back office — lock
-            and unlock the phones you finance, and find out when it has happened. You decide when a
-            phone should be locked; we deliver the command to the phone and tell you the result.
+            The Device Lock API lets your own system — a loan platform, a CRM, a back office — do two
+            things. It <b>registers</b> your customers and phones here as you create them there, so
+            nobody enters anything twice. And it <b>locks and unlocks</b> the phones you finance, and
+            tells you when that has happened. You decide when a phone should be locked; we deliver the
+            command to the phone and tell you the result.
           </p>
           <Facts
             rows={[
@@ -127,6 +131,51 @@ export function DeveloperDocs({ companyId }: { companyId?: string }) {
             There is no sandbox yet. Run the quickstart against a spare or staff-owned test phone that
             is enrolled and <Code>ACTIVE</Code> — never a customer's. To check your key without any
             risk, create a <b>read-only</b> key and call only the lookup endpoint.
+          </Callout>
+        </Section>
+
+        <Section id="sync" title="Keep records in sync">
+          <p>
+            If your customers and phones already live in your own system, you should not have to type
+            them in here as well. Send them from your system at the moment you create them, and they
+            appear in this console too — customer, phone and, for a new phone, the QR code to enrol it.
+          </p>
+          <Steps
+            items={[
+              <>
+                <b>When a sale is created in your system</b>, call <Code>POST /registrations</Code> with
+                the customer and the phone. Include <Code>externalId</Code> on both: it is <i>your</i> id for
+                them.
+              </>,
+              <>
+                <b>Save the returned <Code>device.id</Code></b> next to your own record. It is the id you lock
+                and unlock with.
+              </>,
+              <>
+                <b>Enrol the phone.</b> The response includes <Code>device.enrollment.qr</Code>. Encode that
+                object as JSON into a QR code and scan it on the factory-reset phone. You can fetch it again
+                at any time with <Code>GET /devices/&#123;id&#125;/enrollment</Code>.
+              </>,
+              <>
+                <b>Keep it current.</b> When a customer changes their name, number or address in your
+                system, send <Code>POST /customers</Code> with the same <Code>externalId</Code>; it updates
+                the record instead of making a new one.
+              </>,
+            ]}
+          />
+          <CodeBlock code={syncSnippet(lang, BASE)} />
+          <H3>Safe to repeat</H3>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>Customers are matched by <Code>externalId</Code>, then by phone number. Phones are matched by IMEI, then by <Code>externalId</Code>.</li>
+            <li>Sending the same sale twice returns <Code>200</Code> with the existing records and <Code>created</Code> flags set to <Code>false</Code>. Nothing is duplicated, so you can retry after a timeout.</li>
+            <li>A phone number or IMEI that already belongs to a <i>different</i> customer returns <Code>409</Code> — we never silently merge two people.</li>
+            <li>Fields you leave out are not changed on an existing record.</li>
+          </ul>
+          <Callout tone="info" title="What is and is not synced">
+            Customers and phones are created from your side. Loans and instalment schedules are not part
+            of this API: you keep your own, and tell us when to lock or unlock. Your company must have
+            signed its service agreement and have phones left on its plan, or registration returns{' '}
+            <Code>403</Code>.
           </Callout>
         </Section>
 
@@ -352,7 +401,10 @@ export function DeveloperDocs({ companyId }: { companyId?: string }) {
           <H3>Changelog</H3>
           <Table
             head={['Version', 'Date', 'Change']}
-            rows={[['1.0.0', '2026-10-31', 'Initial release: device lookup, lock, unlock, command status, signed webhooks.']]}
+            rows={[
+              ['1.1.0', '2026-11-08', 'Register customers and phones from your system: POST /registrations, /customers, /devices, GET /devices/{id}/enrollment. Look up a device by externalId. Java and Go examples.'],
+              ['1.0.0', '2026-10-31', 'Initial release: device lookup, lock, unlock, command status, signed webhooks.'],
+            ]}
           />
         </Section>
       </div>
@@ -373,7 +425,8 @@ function downloadOpenApi() {
 // ---------------------------------------------------------------------------
 
 function EndpointDoc({ e, lang }: { e: Endpoint; lang: Lang }) {
-  const query = e.query ? Object.fromEntries(e.query.map((q) => [q.name, q.example ?? ''])) : undefined;
+  const withExample = e.query?.filter((q) => q.example);
+  const query = withExample?.length ? Object.fromEntries(withExample.map((q) => [q.name, q.example as string])) : undefined;
   const code = requestSnippet(lang, BASE, {
     method: e.method,
     path: samplePath(e.path, query),

@@ -8,5 +8,6 @@ import { ProvisioningModule } from '../provisioning/provisioning.module';
   imports: [CommandsModule, ProvisioningModule],
   providers: [DevicesService],
   controllers: [DevicesController],
+  exports: [DevicesService],
 })
 export class DevicesModule {}

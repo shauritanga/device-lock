@@ -325,6 +325,15 @@ export class PartnersService {
     return this.deviceView(device);
   }
 
+  async lookupByExternalId(externalId: string) {
+    const device = await this.prisma.scoped.device.findFirst({
+      where: { externalId },
+      select: DEVICE_SELECT,
+    });
+    if (!device) throw new NotFoundException('Device not found');
+    return this.deviceView(device);
+  }
+
   async getDevice(deviceId: string) {
     const device = await this.prisma.scoped.device.findFirst({
       where: { id: deviceId },
@@ -437,6 +446,7 @@ export class PartnersService {
   private deviceView(d: Prisma.DeviceGetPayload<{ select: typeof DEVICE_SELECT }>) {
     return {
       id: d.id,
+      externalId: d.externalId,
       imei: d.imei,
       serialNumber: d.serialNumber,
       make: d.make,
@@ -473,6 +483,7 @@ export class PartnersService {
 
 const DEVICE_SELECT = {
   id: true,
+  externalId: true,
   imei: true,
   serialNumber: true,
   make: true,

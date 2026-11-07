@@ -39,6 +39,10 @@ export type Endpoint = {
   body?: Field[];
   /** Example request body. */
   bodyExample?: Json;
+  /** Component schema name of the request body, for OpenAPI. Defaults to LockRequest. */
+  bodySchema?: string;
+  /** OpenAPI tag. Defaults to Devices (Commands for /commands). */
+  tag?: 'Sync' | 'Devices' | 'Commands';
   responses: ResponseDoc[];
 };
 
@@ -62,6 +66,7 @@ export const COMMAND_STATUSES: { value: string; meaning: string }[] = [
 const deviceExample = {
   id: DEVICE_ID,
   imei: SAMPLE_IMEI,
+  externalId: 'asset-9001',
   serialNumber: 'R58N30ABCDE',
   make: 'Samsung',
   model: 'Galaxy A15',
@@ -82,6 +87,58 @@ const commandExample = {
   ackedAt: null,
   expiresAt: '2026-11-07T09:00:00.000Z',
 };
+
+const CUSTOMER_ID = '3c9a41d7-0e52-4b8f-a6c1-5d7e2f904b18';
+
+const customerExample = {
+  id: CUSTOMER_ID,
+  externalId: 'cust-5521',
+  fullName: 'Neema Joseph',
+  phone: '255711000111',
+  nationalId: '19900412-12345-00001-21',
+  idDocumentType: 'NATIONAL_ID',
+  address: 'Mwanza',
+  createdAt: '2026-10-31T08:55:00.000Z',
+};
+
+const enrollmentExample = {
+  token: '9f1c7a0e5b3d44d28a6e1f0c2b7d9a53c4e8f1a60b2d3c47',
+  expiresAt: '2026-11-07T08:55:00.000Z',
+  qr: {
+    'android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME': 'com.devicelock.agent/.LockAdminReceiver',
+    '…': 'Encode this object as JSON into the QR code exactly as returned.',
+  },
+};
+
+const registeredDeviceExample = {
+  id: DEVICE_ID,
+  externalId: 'asset-9001',
+  imei: SAMPLE_IMEI,
+  serialNumber: null,
+  make: 'Samsung',
+  model: 'Galaxy A15',
+  status: 'PENDING_ENROLLMENT',
+  customerId: CUSTOMER_ID,
+  createdAt: '2026-10-31T08:55:00.000Z',
+  enrollment: enrollmentExample,
+};
+
+const customerBody: Field[] = [
+  { name: 'externalId', type: 'string', description: 'The customer’s id in your system (up to 128 characters). Strongly recommended: it is how a repeat call finds the same customer.', example: 'cust-5521' },
+  { name: 'fullName', type: 'string', required: true, description: '2–160 characters.', example: 'Neema Joseph' },
+  { name: 'phone', type: 'string', required: true, description: 'Mobile number, 7–20 characters. Unique per company; we use the format 255712345678.', example: '255711000111' },
+  { name: 'nationalId', type: 'string', description: 'ID document number.', example: '19900412-12345-00001-21' },
+  { name: 'idDocumentType', type: 'string', description: 'One of NATIONAL_ID, VOTER_ID, DRIVING_LICENSE, PASSPORT.', example: 'NATIONAL_ID' },
+  { name: 'address', type: 'string', description: 'Home address.', example: 'Mwanza' },
+];
+
+const deviceBody: Field[] = [
+  { name: 'externalId', type: 'string', description: 'The phone’s (asset’s) id in your system. Recommended.', example: 'asset-9001' },
+  { name: 'imei', type: 'string', required: true, description: '14 to 17 digits. Unique per company.', example: SAMPLE_IMEI },
+  { name: 'make', type: 'string', description: 'Brand.', example: 'Samsung' },
+  { name: 'model', type: 'string', description: 'Model.', example: 'Galaxy A15' },
+  { name: 'serialNumber', type: 'string', description: 'Serial number, if you have it.' },
+];
 
 const err = (statusCode: number, error: string, message: string | string[]) => ({
   statusCode,
@@ -134,19 +191,155 @@ const lockBody: Field[] = [
 
 export const ENDPOINTS: Endpoint[] = [
   {
+    id: 'register-sale',
+    method: 'POST',
+    path: '/registrations',
+    tag: 'Sync',
+    summary: 'Register a customer and phone together',
+    description:
+      'Call this when a sale is created in your system. It creates the customer and the phone here in one request, so nobody enters them twice. It is safe to call again: customers are matched by `externalId` (then phone number) and phones by IMEI (then `externalId`), so a repeat returns what already exists with `200` and creates nothing. A phone that has not enrolled yet comes back with the `enrollment` payload for the setup QR code. Requires a key that is not read-only.',
+    body: [
+      { name: 'customer', type: 'object', required: true, description: 'The customer. Same fields as Create or update a customer.' },
+      { name: 'device', type: 'object', required: true, description: 'The phone. Same fields as Register a phone, without the customer link (it is made for you).' },
+    ],
+    bodySchema: 'RegistrationRequest',
+    bodyExample: {
+      customer: { externalId: 'cust-5521', fullName: 'Neema Joseph', phone: '255711000111', nationalId: '19900412-12345-00001-21', idDocumentType: 'NATIONAL_ID', address: 'Mwanza' },
+      device: { externalId: 'asset-9001', imei: SAMPLE_IMEI, make: 'Samsung', model: 'Galaxy A15' },
+    },
+    responses: [
+      {
+        status: 201,
+        description: 'Something new was created. `created` says what.',
+        schema: 'Registration',
+        example: { customer: customerExample, device: registeredDeviceExample, created: { customer: true, device: true } },
+      },
+      {
+        status: 200,
+        description: 'Both already existed; nothing was created. The records are returned as they are now.',
+        schema: 'Registration',
+        example: { customer: customerExample, device: { ...registeredDeviceExample, status: 'ACTIVE', enrollment: null }, created: { customer: false, device: false } },
+      },
+      {
+        status: 400,
+        description: 'A field is missing or invalid.',
+        schema: 'Error',
+        example: err(400, 'Bad Request', ['customer.fullName must be longer than or equal to 2 characters', 'device.imei must be longer than or equal to 14 characters']),
+      },
+      {
+        status: 403,
+        description: 'The key is read-only, your company is inactive, or your company may not enrol phones yet (agreement not signed, or no phones left on your plan).',
+        schema: 'Error',
+        example: err(403, 'Forbidden', 'This API key is read-only'),
+      },
+      {
+        status: 409,
+        description: 'A conflict with existing records: that phone number belongs to another customer, or the IMEI is registered to a different customer.',
+        schema: 'Error',
+        example: err(409, 'Conflict', 'That phone number already belongs to a different customer in this company'),
+      },
+      ...commonErrors(),
+    ],
+  },
+  {
+    id: 'upsert-customer',
+    method: 'POST',
+    path: '/customers',
+    tag: 'Sync',
+    summary: 'Create or update a customer',
+    description:
+      'Creates the customer, or updates it when it already exists (matched by `externalId`, then by phone number). Use it on its own when the customer is created or edited before there is a phone, or to keep names and addresses up to date. Fields you leave out are not changed.',
+    body: customerBody,
+    bodySchema: 'CustomerRequest',
+    bodyExample: { externalId: 'cust-5521', fullName: 'Neema Joseph', phone: '255711000111', address: 'Mwanza' },
+    responses: [
+      { status: 201, description: 'Customer created.', schema: 'Customer', example: customerExample },
+      { status: 200, description: 'Customer already existed and was updated.', schema: 'Customer', example: customerExample },
+      {
+        status: 409,
+        description: 'The phone number belongs to a different customer, or that customer already has another `externalId`.',
+        schema: 'Error',
+        example: err(409, 'Conflict', 'A customer with this phone number already exists under a different externalId'),
+      },
+      { status: 400, description: 'A field is missing or invalid.', schema: 'Error', example: err(400, 'Bad Request', ['phone must be longer than or equal to 7 characters']) },
+      { status: 403, description: 'The key is read-only, or your company is inactive.', schema: 'Error', example: err(403, 'Forbidden', 'This API key is read-only') },
+      ...commonErrors(),
+    ],
+  },
+  {
+    id: 'register-device',
+    method: 'POST',
+    path: '/devices',
+    tag: 'Sync',
+    summary: 'Register a phone',
+    description:
+      'Registers a phone, or returns it if the IMEI (or `externalId`) is already known. Link it to a customer with `customerId` (our id) or `externalCustomerId` (yours); the customer must already exist. A phone that has not enrolled yet comes back with an `enrollment` payload: encode `enrollment.qr` as JSON into a QR code and scan it on the factory-reset phone.',
+    body: [
+      ...deviceBody,
+      { name: 'customerId', type: 'string (uuid)', description: 'Our id of an existing customer.', example: CUSTOMER_ID },
+      { name: 'externalCustomerId', type: 'string', description: 'Your id of a customer you already created here. Use this or `customerId`.', example: 'cust-5521' },
+    ],
+    bodySchema: 'DeviceRequest',
+    bodyExample: { externalId: 'asset-9001', imei: SAMPLE_IMEI, make: 'Samsung', model: 'Galaxy A15', externalCustomerId: 'cust-5521' },
+    responses: [
+      { status: 201, description: 'Phone registered.', schema: 'RegisteredDevice', example: registeredDeviceExample },
+      { status: 200, description: 'The phone was already registered; it is returned as it is now.', schema: 'RegisteredDevice', example: registeredDeviceExample },
+      {
+        status: 403,
+        description: 'The key is read-only, your company is inactive, or your company may not enrol phones yet (agreement not signed, or no phones left on your plan).',
+        schema: 'Error',
+        example: err(403, 'Forbidden', 'Sign the service agreement before enrolling devices'),
+      },
+      {
+        status: 404,
+        description: 'The customer you named does not exist here.',
+        schema: 'Error',
+        example: err(404, 'Not Found', 'No customer with that externalCustomerId — create the customer first, or use /partner/registrations'),
+      },
+      {
+        status: 409,
+        description: 'The phone is already registered to a different customer, or the IMEI and `externalId` point at two different phones.',
+        schema: 'Error',
+        example: err(409, 'Conflict', 'This device is already registered to a different customer'),
+      },
+      { status: 400, description: 'A field is missing or invalid.', schema: 'Error', example: err(400, 'Bad Request', ['imei must be longer than or equal to 14 characters']) },
+      ...commonErrors(),
+    ],
+  },
+  {
+    id: 'get-enrollment',
+    method: 'GET',
+    path: '/devices/{id}/enrollment',
+    tag: 'Sync',
+    summary: 'Get the enrollment QR payload again',
+    description:
+      'Returns the setup payload for a phone that has not enrolled yet. If the earlier one expired or was used, a fresh one is issued. Once the phone has enrolled there is nothing to scan and this returns `409`.',
+    pathParams: [idParam('device')],
+    responses: [
+      { status: 200, description: 'The phone with its `enrollment` payload.', schema: 'RegisteredDevice', example: registeredDeviceExample },
+      { status: 404, description: 'No such device in your company.', schema: 'Error', example: err(404, 'Not Found', 'Device not found') },
+      { status: 409, description: 'The phone already enrolled.', schema: 'Error', example: err(409, 'Conflict', 'This device has already enrolled; there is nothing to scan') },
+      ...commonErrors(),
+    ],
+  },
+  {
     id: 'lookup-device',
     method: 'GET',
     path: '/devices/lookup',
-    summary: 'Find a device by IMEI',
+    summary: 'Find a device by IMEI or your own id',
     description:
-      'Returns the phone with this IMEI if it belongs to your company. Use it to map your own loan or customer record to our device id, then store the id.',
+      'Returns the phone with this IMEI — or this `externalId` — if it belongs to your company. Give one of the two. Use it to map your own record to our device id, then store the id.',
     query: [
       {
         name: 'imei',
         type: 'string',
-        required: true,
-        description: '14 to 17 digits.',
+        description: '14 to 17 digits. Give this or `externalId`.',
         example: SAMPLE_IMEI,
+      },
+      {
+        name: 'externalId',
+        type: 'string',
+        description: 'The id you gave the phone when you registered it.',
       },
     ],
     responses: [
@@ -155,7 +348,7 @@ export const ENDPOINTS: Endpoint[] = [
         status: 400,
         description: 'IMEI is not 14–17 digits.',
         schema: 'Error',
-        example: err(400, 'Bad Request', 'imei must be 14-17 digits'),
+        example: err(400, 'Bad Request', 'imei must be 14-17 digits (or pass externalId)'),
       },
       {
         status: 404,
@@ -366,9 +559,9 @@ function webhook(type: string, extra: Json) {
 export const ERROR_TABLE: { status: number; name: string; meaning: string; action: string }[] = [
   { status: 400, name: 'Bad Request', meaning: 'A field is missing or invalid, or an id is not a UUID.', action: 'Fix the request. Do not retry unchanged.' },
   { status: 401, name: 'Unauthorized', meaning: 'No key, wrong key, or the key was revoked or rolled.', action: 'Check the key. Do not retry unchanged.' },
-  { status: 403, name: 'Forbidden', meaning: 'The key is read-only, or your company is inactive.', action: 'Use a full-access key, or contact support.' },
-  { status: 404, name: 'Not Found', meaning: 'The device or command does not exist for your company.', action: 'Check the id. Devices of other companies always appear as 404.' },
-  { status: 409, name: 'Conflict', meaning: 'The device is in a state that does not allow this action, or an idempotency key was reused for a different request.', action: 'Read the message; refresh the device state before deciding what to do.' },
+  { status: 403, name: 'Forbidden', meaning: 'The key is read-only, your company is inactive, or it may not enrol phones yet (agreement not signed, or no phones left on its plan).', action: 'Use a full-access key, or contact support.' },
+  { status: 404, name: 'Not Found', meaning: 'The device, command or customer does not exist for your company.', action: 'Check the id. Records of other companies always appear as 404.' },
+  { status: 409, name: 'Conflict', meaning: 'The device is in a state that does not allow this action, an idempotency key was reused for a different request, or a customer or phone you sent clashes with a different record (same phone number or IMEI, different customer).', action: 'Read the message; refresh the device state before deciding what to do.' },
   { status: 429, name: 'Too Many Requests', meaning: 'You exceeded your per-minute limit.', action: 'Wait for Retry-After seconds, then retry.' },
   { status: 500, name: 'Server Error', meaning: 'Something went wrong on our side.', action: 'Retry with the same idempotencyKey and exponential backoff.' },
 ];
@@ -397,6 +590,7 @@ const SCHEMAS: Record<string, Json> = {
     required: ['id', 'imei', 'status'],
     properties: {
       id: { type: 'string', format: 'uuid' },
+      externalId: nullable('string', { description: 'Your id for the phone, if you gave one.' }),
       imei: { type: 'string' },
       serialNumber: nullable('string'),
       make: nullable('string'),
@@ -408,6 +602,98 @@ const SCHEMAS: Record<string, Json> = {
         type: ['string', 'null'],
         enum: ['ACTIVE', 'COMPLETED', 'DEFAULTED', 'CANCELLED', null],
         description: 'Status of the loan attached to the device, if any.',
+      },
+    },
+  },
+  Customer: {
+    type: 'object',
+    required: ['id', 'fullName', 'phone'],
+    properties: {
+      id: { type: 'string', format: 'uuid' },
+      externalId: nullable('string'),
+      fullName: { type: 'string' },
+      phone: { type: 'string' },
+      nationalId: nullable('string'),
+      idDocumentType: { type: ['string', 'null'], enum: ['NATIONAL_ID', 'VOTER_ID', 'DRIVING_LICENSE', 'PASSPORT', null] },
+      address: nullable('string'),
+      createdAt: { type: 'string', format: 'date-time' },
+    },
+  },
+  CustomerRequest: {
+    type: 'object',
+    required: ['fullName', 'phone'],
+    properties: {
+      externalId: { type: 'string', maxLength: 128 },
+      fullName: { type: 'string', minLength: 2, maxLength: 160 },
+      phone: { type: 'string', minLength: 7, maxLength: 20 },
+      nationalId: { type: 'string' },
+      idDocumentType: { type: 'string', enum: ['NATIONAL_ID', 'VOTER_ID', 'DRIVING_LICENSE', 'PASSPORT'] },
+      address: { type: 'string', maxLength: 300 },
+    },
+  },
+  DeviceRequest: {
+    type: 'object',
+    required: ['imei'],
+    properties: {
+      externalId: { type: 'string', maxLength: 128 },
+      imei: { type: 'string', minLength: 14, maxLength: 17 },
+      serialNumber: { type: 'string' },
+      make: { type: 'string' },
+      model: { type: 'string' },
+      customerId: { type: 'string', format: 'uuid' },
+      externalCustomerId: { type: 'string', maxLength: 128 },
+    },
+  },
+  RegistrationRequest: {
+    type: 'object',
+    required: ['customer', 'device'],
+    properties: {
+      customer: { $ref: '#/components/schemas/CustomerRequest' },
+      device: {
+        type: 'object',
+        required: ['imei'],
+        properties: {
+          externalId: { type: 'string', maxLength: 128 },
+          imei: { type: 'string', minLength: 14, maxLength: 17 },
+          serialNumber: { type: 'string' },
+          make: { type: 'string' },
+          model: { type: 'string' },
+        },
+      },
+    },
+  },
+  Enrollment: {
+    type: 'object',
+    properties: {
+      token: { type: 'string' },
+      expiresAt: { type: 'string', format: 'date-time' },
+      qr: { type: 'object', additionalProperties: true, description: 'Encode this object as JSON into the setup QR code, exactly as returned.' },
+    },
+  },
+  RegisteredDevice: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', format: 'uuid' },
+      externalId: nullable('string'),
+      imei: { type: 'string' },
+      serialNumber: nullable('string'),
+      make: nullable('string'),
+      model: nullable('string'),
+      status: { type: 'string', enum: DEVICE_STATUSES.map((s) => s.value) },
+      customerId: nullable('string', { format: 'uuid' }),
+      createdAt: { type: 'string', format: 'date-time' },
+      enrollment: { oneOf: [{ $ref: '#/components/schemas/Enrollment' }, { type: 'null' }], description: 'Present while the phone has not enrolled yet; null afterwards.' },
+    },
+  },
+  Registration: {
+    type: 'object',
+    properties: {
+      customer: { $ref: '#/components/schemas/Customer' },
+      device: { $ref: '#/components/schemas/RegisteredDevice' },
+      created: {
+        type: 'object',
+        properties: { customer: { type: 'boolean' }, device: { type: 'boolean' } },
+        description: 'Which of the two records this call created. false means it already existed.',
       },
     },
   },
@@ -477,7 +763,7 @@ export function buildOpenApi(baseUrl: string): Json {
       operationId: e.id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase()),
       summary: e.summary,
       description: e.description,
-      tags: [e.path.startsWith('/commands') ? 'Commands' : 'Devices'],
+      tags: [e.tag ?? (e.path.startsWith('/commands') ? 'Commands' : 'Devices')],
       ...(parameters.length ? { parameters } : {}),
       ...(e.body
         ? {
@@ -485,7 +771,7 @@ export function buildOpenApi(baseUrl: string): Json {
               required: true,
               content: {
                 'application/json': {
-                  schema: { $ref: '#/components/schemas/LockRequest' },
+                  schema: { $ref: `#/components/schemas/${e.bodySchema ?? 'LockRequest'}` },
                   example: e.bodyExample,
                 },
               },
@@ -514,13 +800,13 @@ export function buildOpenApi(baseUrl: string): Json {
     openapi: '3.1.0',
     info: {
       title: 'Linda Device Lock — Partner API',
-      version: '1.0.0',
+      version: '1.1.0',
       description:
-        'Lock and unlock financed phones from your own system. Locking is asynchronous: a 202 means the command was accepted; the phone confirms later by webhook.\n\nAuthenticate with `Authorization: Bearer <API key>`. Keys are created under Developers in the seller console and act only on your company.',
+        'Keep your customers and phones in step with this system, and lock and unlock financed phones from your own. Registration calls are idempotent, so you can retry them. Locking is asynchronous: a 202 means the command was accepted; the phone confirms later by webhook.\n\nAuthenticate with `Authorization: Bearer <API key>`. Keys are created under Developers in the seller console and act only on your company.',
     },
     servers: [{ url: baseUrl }],
     security: [{ bearerAuth: [] }],
-    tags: [{ name: 'Devices' }, { name: 'Commands' }],
+    tags: [{ name: 'Sync' }, { name: 'Devices' }, { name: 'Commands' }],
     paths,
     webhooks: Object.fromEntries(
       WEBHOOK_EVENTS.map((w) => [
