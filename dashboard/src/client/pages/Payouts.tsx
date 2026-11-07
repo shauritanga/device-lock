@@ -1,14 +1,26 @@
-import { useQuery } from '@tanstack/react-query';
-import { Banknote, Clock, Hourglass, Smartphone } from 'lucide-react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Banknote, Clock, Hourglass, Pencil, ShieldAlert, Smartphone } from 'lucide-react';
 import { api } from '@/shared/api/client';
-import type { Payout, PayoutSummary } from '@/shared/api/types';
+import type { Payout, PayoutAccountChange, PayoutSummary } from '@/shared/api/types';
+import { useAuth } from '@/shared/auth/AuthContext';
+import { PayoutAccountHistory } from '@/shared/components/PayoutAccountHistory';
+import {
+  PayoutAccountModal,
+  type AccountForm,
+} from '@/shared/components/PayoutAccountModal';
+import { Button } from '@/shared/components/ui/Button';
 import { StatCard } from '@/shared/components/StatCard';
 import { PayoutsTable } from '@/shared/components/PayoutsTable';
 import { Card } from '@/shared/components/ui/Card';
 import { Center, Spinner } from '@/shared/components/ui/misc';
-import { money } from '@/shared/lib/format';
+import { money, shortDate } from '@/shared/lib/format';
 
 export default function Payouts() {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
+  const qc = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
   const summary = useQuery({
     queryKey: ['payouts', 'summary'],
     queryFn: async () => (await api.get<PayoutSummary>('/payouts/summary')).data,
@@ -16,6 +28,22 @@ export default function Payouts() {
   const payouts = useQuery({
     queryKey: ['payouts'],
     queryFn: async () => (await api.get<Payout[]>('/payouts')).data,
+  });
+
+  const history = useQuery({
+    queryKey: ['payouts', 'account-history'],
+    queryFn: async () =>
+      (await api.get<PayoutAccountChange[]>('/payouts/account-history')).data,
+    enabled: isOwner,
+  });
+
+  const save = useMutation({
+    mutationFn: async (f: AccountForm) =>
+      (await api.put('/payouts/account', f)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payouts'] });
+      setEditOpen(false);
+    },
   });
 
   if (summary.isLoading || payouts.isLoading) {
@@ -51,13 +79,38 @@ export default function Payouts() {
               </p>
             )}
           </div>
+          {isOwner ? (
+            <Button
+              type="button"
+              onClick={() => {
+                save.reset();
+                setEditOpen(true);
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+              {hasAccount ? 'Change account' : 'Add account'}
+            </Button>
+          ) : null}
         </div>
+        {s?.holdUntil ? (
+          <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            Payouts are paused until {new Date(s.holdUntil).toLocaleString('en-GB')} because
+            the payout number was changed. This protects your money if an account is ever
+            misused. Collected money is safe and will be sent after that.
+          </p>
+        ) : null}
+        {s?.lastChange ? (
+          <p className="mt-2 text-xs text-muted">
+            Last changed {shortDate(s.lastChange.createdAt)} by {s.lastChange.changedByName}.
+          </p>
+        ) : null}
         <p className="mt-3 border-t border-line pt-3 text-xs text-muted">
           Customer payments are collected for you and sent to this mobile-money
           account as soon as they clear. Payouts of{' '}
           {money(s?.minimumPayout ?? 5000)} or more are sent automatically; smaller
           amounts wait until they add up. A small gateway fee is deducted from each
-          payout. To change the account, contact the platform team.
+          payout. {isOwner ? 'Only the company owner can change the account.' : 'Only the company owner can change the account — ask them to update it.'}
         </p>
       </Card>
 
@@ -86,6 +139,26 @@ export default function Payouts() {
       <Card className="p-3">
         <PayoutsTable payouts={payouts.data ?? []} />
       </Card>
+
+      {isOwner ? (
+        <div className="space-y-2">
+          <h2 className="px-1 text-sm font-semibold text-ink">Account changes</h2>
+          <Card className="p-3">
+            <PayoutAccountHistory changes={history.data ?? []} />
+          </Card>
+        </div>
+      ) : null}
+
+      <PayoutAccountModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        initial={{ phone: s?.tenant.payoutPhone ?? '', name: s?.tenant.payoutName ?? '' }}
+        requirePassword
+        holdNotice="After you change the number, payouts pause for 24 hours as a safety measure, then continue to the new number. We'll alert the owners by email."
+        pending={save.isPending}
+        error={save.error}
+        onSubmit={(f) => save.mutate(f)}
+      />
     </div>
   );
 }

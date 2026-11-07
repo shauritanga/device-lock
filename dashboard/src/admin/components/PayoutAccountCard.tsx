@@ -2,24 +2,19 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Hourglass, Pencil, Send, Smartphone } from 'lucide-react';
 import { api } from '@/shared/api/client';
-import type { Payout, PayoutSummary } from '@/shared/api/types';
+import type { Payout, PayoutAccountChange, PayoutSummary } from '@/shared/api/types';
 import { StatCard } from '@/shared/components/StatCard';
 import { PayoutsTable } from '@/shared/components/PayoutsTable';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
-import { Field, Input } from '@/shared/components/ui/Field';
-import { Modal } from '@/shared/components/ui/Modal';
+import { PayoutAccountHistory } from '@/shared/components/PayoutAccountHistory';
+import {
+  PayoutAccountModal,
+  apiErrorText as errorText,
+  type AccountForm,
+} from '@/shared/components/PayoutAccountModal';
 import { Spinner } from '@/shared/components/ui/misc';
 import { money } from '@/shared/lib/format';
-
-/** Matches the backend rule: 07XXXXXXXX, 255XXXXXXXXX or +255XXXXXXXXX (mobile). */
-const TZ_MOBILE = /^(\+?255|0)[67]\d{8}$/;
-
-function errorText(e: unknown): string {
-  const msg = (e as { response?: { data?: { message?: string | string[] } } })
-    ?.response?.data?.message;
-  return Array.isArray(msg) ? msg.join(', ') : (msg ?? 'Something went wrong.');
-}
 
 /**
  * Where this company's collected instalments are paid out, plus payout history.
@@ -28,8 +23,6 @@ function errorText(e: unknown): string {
 export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [name, setName] = useState('');
 
   const summary = useQuery({
     queryKey: ['payouts', 'summary', tenantId],
@@ -42,19 +35,24 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
       (await api.get<Payout[]>(`/payouts?tenantId=${tenantId}`)).data,
   });
 
+  const history = useQuery({
+    queryKey: ['payouts', 'account-history', tenantId],
+    queryFn: async () =>
+      (await api.get<PayoutAccountChange[]>(`/payouts/account-history?tenantId=${tenantId}`)).data,
+  });
+
   const refresh = () => qc.invalidateQueries({ queryKey: ['payouts'] });
 
   const save = useMutation({
-    mutationFn: async () =>
+    mutationFn: async (f: AccountForm) =>
       (
-        await api.patch(`/tenants/${tenantId}`, {
-          payoutPhone: phone.trim(),
-          payoutName: name.trim(),
+        await api.put(`/payouts/tenants/${tenantId}/account`, {
+          phone: f.phone,
+          name: f.name,
         })
       ).data,
     onSuccess: () => {
       refresh();
-      qc.invalidateQueries({ queryKey: ['tenants', tenantId] });
       setEditOpen(false);
     },
   });
@@ -71,12 +69,12 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
 
   const s = summary.data;
   const hasAccount = !!(s?.tenant.payoutPhone && s.tenant.payoutName);
-  const phoneOk = TZ_MOBILE.test(phone.trim());
   const SKIP_TEXT: Record<string, string> = {
     below_minimum: `Nothing sent — owed amount is below the ${money(s?.minimumPayout ?? 5000)} minimum (after the payout fee).`,
     no_payout_account: 'Nothing sent — set a payout account first.',
     snippe_not_configured: 'Nothing sent — the payment gateway is not configured.',
     already_running: 'A payout run is already in progress.',
+    account_on_hold: 'Nothing sent — payouts are paused after a recent payout-number change.',
   };
 
   return (
@@ -115,8 +113,6 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
             <Button
               type="button"
               onClick={() => {
-                setPhone(s?.tenant.payoutPhone ?? '');
-                setName(s?.tenant.payoutName ?? '');
                 save.reset();
                 setEditOpen(true);
               }}
@@ -136,6 +132,12 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
         ) : null}
         {disburse.isError ? (
           <p className="mt-3 text-sm text-rose-600">{errorText(disburse.error)}</p>
+        ) : null}
+        {s?.holdUntil ? (
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Payouts paused until {new Date(s.holdUntil).toLocaleString('en-GB')} — the owner
+            recently changed the payout number.
+          </p>
         ) : null}
       </Card>
 
@@ -161,58 +163,23 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
         <PayoutsTable payouts={payouts.data ?? []} />
       </Card>
 
-      <Modal
+      <div className="space-y-2">
+        <h3 className="px-1 text-sm font-semibold text-ink">Account changes</h3>
+        <Card className="p-3">
+          <PayoutAccountHistory changes={history.data ?? []} />
+        </Card>
+      </div>
+
+      <PayoutAccountModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        title="Payout account"
-        className="max-w-md"
-      >
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (phoneOk) save.mutate();
-          }}
-        >
-          <p className="text-sm text-muted">
-            Collected instalments for{' '}
-            <span className="font-medium text-ink">{s?.tenant.name}</span> are sent to this
-            mobile-money account.
-          </p>
-          <Field label="Mobile-money number">
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="0712345678 or 255712345678"
-              inputMode="tel"
-              required
-            />
-            {phone.trim() !== '' && !phoneOk ? (
-              <p className="mt-1 text-xs text-rose-600">
-                Enter a Tanzanian mobile number (07… / 06… / 255…).
-              </p>
-            ) : null}
-          </Field>
-          <Field label="Registered name on the account">
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Name as registered with the network"
-              minLength={2}
-              required
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-            <Button type="submit" disabled={save.isPending || !phoneOk || name.trim().length < 2}>
-              {save.isPending ? 'Saving…' : 'Save account'}
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}>
-              Cancel
-            </Button>
-          </div>
-          {save.isError ? <p className="text-sm text-rose-600">{errorText(save.error)}</p> : null}
-        </form>
-      </Modal>
+        company={s?.tenant.name}
+        initial={{ phone: s?.tenant.payoutPhone ?? '', name: s?.tenant.payoutName ?? '' }}
+        requirePassword={false}
+        pending={save.isPending}
+        error={save.error}
+        onSubmit={(f) => save.mutate(f)}
+      />
     </div>
   );
 }

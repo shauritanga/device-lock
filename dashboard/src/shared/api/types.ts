@@ -168,6 +168,9 @@ export interface PayoutSummary {
     payoutPhone: string | null;
     payoutName: string | null;
   };
+  /** Payouts are paused until this time after a number change (null = no hold). */
+  holdUntil: string | null;
+  lastChange: { changedByName: string; changedByRole: string; createdAt: string } | null;
   gatewayConfigured: boolean;
   minimumPayout: number;
   owed: number;
@@ -175,6 +178,17 @@ export interface PayoutSummary {
   inFlight: number;
   paidOut: number;
   failedCount: number;
+}
+
+export interface PayoutAccountChange {
+  id: string;
+  changedByName: string;
+  changedByRole: string;
+  oldPhone: string | null;
+  newPhone: string;
+  newName: string;
+  holdUntil: string | null;
+  createdAt: string;
 }
 
 export interface StaffUser {
