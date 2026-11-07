@@ -7,7 +7,7 @@ import { StatusDot } from '@/shared/components/ui/Pill';
 import { EmptyState } from '@/shared/components/ui/misc';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { money, shortDate } from '@/shared/lib/format';
-import type { BillingSummary, Invoice } from './types';
+import { ACCESS_COPY, type BillingSummary, type Invoice, type Tenant } from './types';
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -19,6 +19,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function BillingTab({
+  tenant,
   billing,
   invoices,
   onActivate,
@@ -26,7 +27,10 @@ export function BillingTab({
   generating,
   onMarkPaid,
   markingPaid,
+  onSetRequired,
+  settingRequired,
 }: {
+  tenant?: Tenant;
   billing?: BillingSummary;
   invoices: Invoice[];
   onActivate: () => void;
@@ -34,6 +38,8 @@ export function BillingTab({
   generating: boolean;
   onMarkPaid: (id: string) => void;
   markingPaid: boolean;
+  onSetRequired: (required: boolean) => void;
+  settingRequired: boolean;
 }) {
   const sub = billing?.subscription;
   const [search, setSearch] = useState('');
@@ -71,12 +77,37 @@ export function BillingTab({
           <Fact label="Package">{sub?.packageCode ?? '—'}</Fact>
           <Fact label="Status">{sub ? <StatusDot status={sub.status} /> : '—'}</Fact>
           <Fact label="Active since">{shortDate(sub?.activatedAt)}</Fact>
-          <Fact label="Active devices">{billing?.activeDevices ?? 0}</Fact>
-          <Fact label="Est. monthly">{money(billing?.estimatedMonthly ?? 0)}</Fact>
+          <Fact label="Phones included">
+            {!sub
+              ? '—'
+              : sub.packageCode === 'NEGOTIATION'
+                ? 'None (no phones)'
+                : (sub.phoneAllowance ?? 'No limit')}
+          </Fact>
+          <Fact label="Phones in use">{billing?.activeDevices ?? 0}</Fact>
+          <Fact label="Monthly price">{money(billing?.estimatedMonthly ?? 0)}</Fact>
           <Fact label="Open balance">{money(billing?.openBalance ?? 0)}</Fact>
-          <Fact label="Suggested package">{billing?.suggestedPackage ?? '—'}</Fact>
-          <Fact label="Notes">{sub?.notes || '—'}</Fact>
+          <Fact label="Access">{billing?.access ? ACCESS_COPY[billing.access.reason] ?? billing.access.reason : '—'}</Fact>
+          {sub?.notes ? <Fact label="Notes">{sub.notes}</Fact> : null}
         </dl>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">Payment required</p>
+            <p className="text-sm text-muted">
+              {tenant?.subscriptionRequired === false
+                ? 'Off. This company can work without paying its package (existing company).'
+                : 'On. This company is read-only until its package invoice is paid.'}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={settingRequired}
+            onClick={() => onSetRequired(tenant?.subscriptionRequired === false)}
+          >
+            {settingRequired ? 'Saving…' : tenant?.subscriptionRequired === false ? 'Turn on' : 'Turn off'}
+          </Button>
+        </div>
       </Card>
 
       <Card>

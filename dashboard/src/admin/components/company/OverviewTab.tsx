@@ -5,7 +5,24 @@ import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
 import { StatusDot } from '@/shared/components/ui/Pill';
 import { money, shortDate } from '@/shared/lib/format';
-import { AGREEMENT_COPY, type BillingSummary, type Invoice, type TabId } from './types';
+import {
+  ACCESS_COPY,
+  AGREEMENT_COPY,
+  type BillingSummary,
+  type Invoice,
+  type TabId,
+  type Tenant,
+} from './types';
+
+/** "TZ" -> "Tanzania"; falls back to the code if the runtime can't name it. */
+function countryName(code?: string): string {
+  if (!code) return '—';
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code.toUpperCase()) ?? code;
+  } catch {
+    return code;
+  }
+}
 
 /** One line in the "at a glance" list: what it is, its state, and where to manage it. */
 function GlanceRow({
@@ -65,6 +82,7 @@ function RecentList({
 }
 
 export function OverviewTab({
+  tenant,
   billing,
   invoices,
   agreementStatus,
@@ -73,6 +91,7 @@ export function OverviewTab({
   onGo,
   onActivate,
 }: {
+  tenant?: Tenant;
   billing?: BillingSummary;
   invoices: Invoice[];
   agreementStatus: string;
@@ -103,6 +122,44 @@ export function OverviewTab({
   return (
     <div className="space-y-8">
       <FigureStrip items={figures} />
+
+      <section>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-faint">Company</h2>
+        <Card>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-5 px-5 py-5 md:grid-cols-4">
+            <div>
+              <dt className="text-xs text-muted">Status</dt>
+              <dd className="mt-1">
+                <StatusDot
+                  status={tenant?.isActive === false ? 'INACTIVE' : 'ACTIVE'}
+                  label={tenant?.isActive === false ? 'Suspended' : 'Active'}
+                />
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Joined</dt>
+              <dd className="mt-1 text-sm text-ink">{shortDate(tenant?.createdAt)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Access</dt>
+              <dd className="mt-1">
+                {billing?.access ? (
+                  <StatusDot
+                    status={billing.access.allowed ? 'ACTIVE' : 'PENDING'}
+                    label={ACCESS_COPY[billing.access.reason] ?? billing.access.reason}
+                  />
+                ) : (
+                  '—'
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Country</dt>
+              <dd className="mt-1 text-sm text-ink">{countryName(tenant?.country)}</dd>
+            </div>
+          </dl>
+        </Card>
+      </section>
 
       <section>
         <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-faint">

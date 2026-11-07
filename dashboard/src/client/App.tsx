@@ -20,11 +20,13 @@ import Developers from './pages/Developers';
 import CollectionsService from './pages/CollectionsService';
 import Profile from '@/shared/pages/Profile';
 import Settings from '@/shared/pages/Settings';
+import { AccessBanner } from './components/AccessBanner';
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <AppGuard app="client">
       <AppShell brand={CLIENT_BRAND} navGroups={CLIENT_NAV}>
+        <AccessBanner />
         {children}
       </AppShell>
     </AppGuard>

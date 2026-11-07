@@ -14,6 +14,7 @@ export type PackageDef = {
 export type Tenant = {
   id: string;
   name: string;
+  subscriptionRequired?: boolean;
   country?: string;
   isActive?: boolean;
   createdAt?: string;
@@ -39,12 +40,35 @@ export type BillingSummary = {
     status: string;
     notes?: string | null;
     activatedAt?: string | null;
+    phoneAllowance?: number | null;
+    priceModel?: string;
+    flatPrice?: string | number | null;
   } | null;
   activeDevices: number;
   suggestedPackage: string | null;
   estimatedMonthly: number | null;
   openBalance: number;
   invoices: Invoice[];
+  access?: AccessInfo;
+};
+
+export type AccessInfo = {
+  allowed: boolean;
+  reason: string;
+  message: string;
+  noPhones: boolean;
+  phoneAllowance: number | null;
+};
+
+/** Short admin-facing wording for why a company is (not) able to work. */
+export const ACCESS_COPY: Record<string, string> = {
+  OK: 'Full access',
+  EXEMPT: 'Full access (payment not required)',
+  NO_SUBSCRIPTION: 'Read-only: no package yet',
+  AWAITING_ACTIVATION: 'Read-only: package not active',
+  AWAITING_FIRST_PAYMENT: 'Read-only: awaiting first payment',
+  PAYMENT_OVERDUE: 'Read-only: payment overdue',
+  SUSPENDED: 'Read-only: suspended',
 };
 
 /** Plain-language state of the service agreement, for the overview. */
