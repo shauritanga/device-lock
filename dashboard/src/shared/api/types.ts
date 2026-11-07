@@ -144,6 +144,39 @@ export interface Payment {
   receivedAt: string;
 }
 
+export interface Payout {
+  id: string;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REVERSED';
+  /** Sent to the seller, after the payout fee. */
+  amount: string;
+  feeAmount: string;
+  /** Collected instalments this payout settles (amount + fee). */
+  grossAmount: string;
+  currency: string;
+  recipientPhone: string;
+  recipientName: string;
+  failureReason?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+  tenant?: { id: string; name: string };
+}
+
+export interface PayoutSummary {
+  tenant: {
+    id: string;
+    name: string;
+    payoutPhone: string | null;
+    payoutName: string | null;
+  };
+  gatewayConfigured: boolean;
+  minimumPayout: number;
+  owed: number;
+  owedCount: number;
+  inFlight: number;
+  paidOut: number;
+  failedCount: number;
+}
+
 export interface StaffUser {
   id: string;
   email: string;

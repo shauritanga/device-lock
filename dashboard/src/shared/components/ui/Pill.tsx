@@ -39,6 +39,7 @@ export function statusTone(status: string): Tone {
       return 'green';
     case 'LOCKED':
     case 'FAILED':
+    case 'REVERSED':
     case 'DEFAULTED':
     case 'OVERDUE':
     case 'SUSPECTED_FRAUD':

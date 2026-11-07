@@ -21,6 +21,8 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { money, shortDate } from '@/shared/lib/format';
 import { AgreementCard } from '../components/AgreementCard';
+import { PayoutAccountCard } from '../components/PayoutAccountCard';
+import { useAuth } from '@/shared/auth/AuthContext';
 
 type PackageDef = {
   code: string;
@@ -74,6 +76,7 @@ type BillingSummary = {
  */
 export default function CompanyDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [activateOpen, setActivateOpen] = useState(false);
   const [packageCode, setPackageCode] = useState('STARTER');
@@ -244,6 +247,8 @@ export default function CompanyDetail() {
       </div>
 
       {id ? <AgreementCard tenantId={id} companyName={name} /> : null}
+
+      {id && user?.role === 'SUPER_ADMIN' ? <PayoutAccountCard tenantId={id} /> : null}
 
       <Card>
         <div className="border-b border-line px-4 py-4 sm:px-5">

@@ -12,6 +12,7 @@ import Customers from './pages/Customers';
 import Loans from './pages/Loans';
 import LoanDetail from './pages/LoanDetail';
 import Payments from './pages/Payments';
+import Payouts from './pages/Payouts';
 import Staff from './pages/Staff';
 import Billing from './pages/Billing';
 import Agreement from './pages/Agreement';
@@ -44,6 +45,16 @@ export default function ClientApp() {
       <Route path="/loans" element={<Shell><Loans /></Shell>} />
       <Route path="/loans/:id" element={<Shell><LoanDetail /></Shell>} />
       <Route path="/payments" element={<Shell><Payments /></Shell>} />
+      <Route
+        path="/payouts"
+        element={
+          <Shell>
+            <RequireRole allow={['OWNER', 'MANAGER']}>
+              <Payouts />
+            </RequireRole>
+          </Shell>
+        }
+      />
 
       <Route
         path="/collections-service"
