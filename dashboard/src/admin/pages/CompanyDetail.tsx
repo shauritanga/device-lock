@@ -1,88 +1,57 @@
-import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  Building2,
-  FileText,
-  Package,
-  Search,
-  Wallet,
-  X,
-} from 'lucide-react';
 import { api } from '@/shared/api/client';
-import { StatCard } from '@/shared/components/StatCard';
-import { Card } from '@/shared/components/ui/Card';
+import type { Payout, PayoutSummary } from '@/shared/api/types';
+import { useAuth } from '@/shared/auth/AuthContext';
+import type { AgreementSummary } from '@/shared/agreements/types';
 import { Button } from '@/shared/components/ui/Button';
-import { Table, Row } from '@/shared/components/ui/Table';
-import { StatusPill } from '@/shared/components/ui/Pill';
-import { EmptyState, Center, Spinner } from '@/shared/components/ui/misc';
-import { Modal } from '@/shared/components/ui/Modal';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
-import { money, shortDate } from '@/shared/lib/format';
+import { Modal } from '@/shared/components/ui/Modal';
+import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
+import { money } from '@/shared/lib/format';
 import { AgreementCard } from '../components/AgreementCard';
 import { PayoutAccountCard } from '../components/PayoutAccountCard';
-import { useAuth } from '@/shared/auth/AuthContext';
+import { BillingTab } from '../components/company/BillingTab';
+import { CompanyHeader } from '../components/company/CompanyHeader';
+import { OverviewTab } from '../components/company/OverviewTab';
+import type {
+  BillingSummary,
+  Invoice,
+  PackageDef,
+  TabId,
+  Tenant,
+} from '../components/company/types';
 
-type PackageDef = {
-  code: string;
-  label: string;
-  deviceBandMin: number;
-  deviceBandMax: number;
-  priceModel: string;
-  unitPrice: number | null;
-  flatPrice: number | null;
-  currency: string;
-};
-
-type Tenant = {
-  id: string;
-  name: string;
-  isActive?: boolean;
-  billingPlan?: string;
-  subscriptionStatus?: string;
-};
-
-type Invoice = {
-  id: string;
-  periodStart: string;
-  periodEnd: string;
-  packageCode: string;
-  activeDevices: number;
-  total: string | number;
-  status: string;
-  dueDate: string;
-  paidAt?: string | null;
-  tenant: { name: string };
-};
-
-type BillingSummary = {
-  subscription: {
-    id: string;
-    packageCode: string;
-    status: string;
-    notes?: string | null;
-    activatedAt?: string | null;
-  } | null;
-  activeDevices: number;
-  suggestedPackage: string | null;
-  estimatedMonthly: number | null;
-  openBalance: number;
-  invoices: Invoice[];
-};
+const TAB_IDS: TabId[] = ['overview', 'billing', 'payouts', 'agreement'];
 
 /**
- * Per-company collections commercial view: subscription + invoices.
+ * One company, organised into tabs: an at-a-glance overview, then billing,
+ * payouts and the service agreement each on their own.
  */
 export default function CompanyDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const qc = useQueryClient();
+  const [params, setParams] = useSearchParams();
   const [activateOpen, setActivateOpen] = useState(false);
   const [packageCode, setPackageCode] = useState('STARTER');
   const [notes, setNotes] = useState('');
-  const [invSearch, setInvSearch] = useState('');
-  const [invStatus, setInvStatus] = useState('');
+
+  // Payout data is restricted to super admins by the API.
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
+  const requested = params.get('tab') as TabId | null;
+  const tab: TabId =
+    requested && TAB_IDS.includes(requested) && (isSuperAdmin || requested !== 'payouts')
+      ? requested
+      : 'overview';
+  const goTab = (t: TabId) => {
+    const next = new URLSearchParams(params);
+    if (t === 'overview') next.delete('tab');
+    else next.set('tab', t);
+    setParams(next, { replace: true });
+  };
 
   const tenant = useQuery({
     queryKey: ['tenants', id],
@@ -90,25 +59,35 @@ export default function CompanyDetail() {
     enabled: !!id,
     retry: false,
   });
-
   const packages = useQuery({
     queryKey: ['collections', 'packages'],
     queryFn: async () => (await api.get<PackageDef[]>('/collections/packages')).data,
   });
-
   const billing = useQuery({
     queryKey: ['collections', 'billing', id],
     queryFn: async () =>
-      (await api.get<BillingSummary>(`/collections/billing/summary?tenantId=${id}`))
-        .data,
+      (await api.get<BillingSummary>(`/collections/billing/summary?tenantId=${id}`)).data,
     enabled: !!id,
   });
-
   const invoices = useQuery({
     queryKey: ['collections', 'invoices', id],
-    queryFn: async () =>
-      (await api.get<Invoice[]>(`/collections/invoices?tenantId=${id}`)).data,
+    queryFn: async () => (await api.get<Invoice[]>(`/collections/invoices?tenantId=${id}`)).data,
     enabled: !!id,
+  });
+  const agreements = useQuery({
+    queryKey: ['agreements', 'tenant', id],
+    queryFn: async () => (await api.get<AgreementSummary[]>(`/agreements?tenantId=${id}`)).data,
+    enabled: !!id,
+  });
+  const payoutSummary = useQuery({
+    queryKey: ['payouts', 'summary', id],
+    queryFn: async () => (await api.get<PayoutSummary>(`/payouts/summary?tenantId=${id}`)).data,
+    enabled: !!id && isSuperAdmin,
+  });
+  const payouts = useQuery({
+    queryKey: ['payouts', 'list', id],
+    queryFn: async () => (await api.get<Payout[]>(`/payouts?tenantId=${id}`)).data,
+    enabled: !!id && isSuperAdmin,
   });
 
   const activateSub = useMutation({
@@ -125,16 +104,13 @@ export default function CompanyDetail() {
       setActivateOpen(false);
     },
   });
-
   const generateInvoice = useMutation({
-    mutationFn: async () =>
-      (await api.post('/collections/invoices/generate', { tenantId: id })).data,
+    mutationFn: async () => (await api.post('/collections/invoices/generate', { tenantId: id })).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['collections', 'invoices', id] });
       qc.invalidateQueries({ queryKey: ['collections', 'billing', id] });
     },
   });
-
   const markInvoicePaid = useMutation({
     mutationFn: async (invoiceId: string) =>
       (await api.post(`/collections/invoices/${invoiceId}/mark-paid`, {})).data,
@@ -145,217 +121,76 @@ export default function CompanyDetail() {
     },
   });
 
-  const invs = invoices.data ?? billing.data?.invoices ?? [];
   const sub = billing.data?.subscription;
+  const invs = invoices.data ?? billing.data?.invoices ?? [];
   const name = tenant.data?.name ?? invs[0]?.tenant?.name ?? 'Company';
+  const liveAgreement = (agreements.data ?? []).find((a) => a.status !== 'VOID');
 
-  const filteredInvs = useMemo(() => {
-    const q = invSearch.trim().toLowerCase();
-    return invs.filter((i) => {
-      if (invStatus && i.status !== invStatus) return false;
-      if (!q) return true;
-      return `${i.packageCode} ${i.status}`.toLowerCase().includes(q);
-    });
-  }, [invs, invSearch, invStatus]);
+  const openActivate = () => {
+    setPackageCode(sub?.packageCode ?? billing.data?.suggestedPackage ?? 'STARTER');
+    setNotes(sub?.notes ?? '');
+    setActivateOpen(true);
+  };
 
-  const hasFilters = invSearch.trim() !== '' || invStatus !== '';
-
-  if (billing.isLoading || invoices.isLoading) {
+  if (tenant.isLoading || billing.isLoading) {
     return (
       <Center>
         <Spinner />
       </Center>
     );
   }
+  if (tenant.isError) {
+    return (
+      <div className="space-y-3">
+        <Link to="/companies" className="text-sm font-medium text-muted hover:text-ink">
+          ← Companies
+        </Link>
+        <EmptyState title="Company not found" hint="It may have been removed." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link
-            to="/companies"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Companies
-          </Link>
-          <div className="mt-2 flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-              <Building2 className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-ink">{name}</h1>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                <StatusPill status={sub?.status ?? 'NONE'} />
-                {sub?.packageCode ? (
-                  <span className="text-sm text-muted">{sub.packageCode} package</span>
-                ) : (
-                  <span className="text-sm text-muted">No collections subscription</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => generateInvoice.mutate()}
-            disabled={generateInvoice.isPending || !sub}
-          >
-            {generateInvoice.isPending ? 'Generating…' : 'Generate invoice'}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setPackageCode(sub?.packageCode ?? billing.data?.suggestedPackage ?? 'STARTER');
-              setNotes(sub?.notes ?? '');
-              setActivateOpen(true);
-            }}
-          >
-            {sub ? 'Update package' : 'Activate subscription'}
-          </Button>
-        </div>
-      </div>
+      <CompanyHeader
+        name={name}
+        country={tenant.data?.country}
+        createdAt={tenant.data?.createdAt}
+        isActive={tenant.data?.isActive}
+        subscriptionStatus={sub?.status ?? 'NONE'}
+        packageCode={sub?.packageCode}
+        tab={tab}
+        onTab={goTab}
+        hidden={isSuperAdmin ? [] : ['payouts']}
+      />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={Package}
-          label="Active devices"
-          value={billing.data?.activeDevices ?? 0}
-          tone="brand"
+      {tab === 'overview' ? (
+        <OverviewTab
+          billing={billing.data}
+          invoices={invs}
+          agreementStatus={liveAgreement?.status ?? 'NONE'}
+          payoutSummary={isSuperAdmin ? payoutSummary.data : undefined}
+          payouts={payouts.data ?? []}
+          onGo={goTab}
+          onActivate={openActivate}
         />
-        <StatCard
-          icon={Wallet}
-          label="Est. monthly"
-          value={money(billing.data?.estimatedMonthly ?? 0)}
-          hint={billing.data?.suggestedPackage ? `Suggests ${billing.data.suggestedPackage}` : undefined}
-          tone="green"
+      ) : null}
+
+      {tab === 'billing' ? (
+        <BillingTab
+          billing={billing.data}
+          invoices={invs}
+          onActivate={openActivate}
+          onGenerate={() => generateInvoice.mutate()}
+          generating={generateInvoice.isPending}
+          onMarkPaid={(invoiceId) => markInvoicePaid.mutate(invoiceId)}
+          markingPaid={markInvoicePaid.isPending}
         />
-        <StatCard
-          icon={FileText}
-          label="Open balance"
-          value={money(billing.data?.openBalance ?? 0)}
-          tone="amber"
-        />
-        <StatCard
-          icon={FileText}
-          label="Invoices"
-          value={invs.length}
-          tone="brand"
-        />
-      </div>
+      ) : null}
 
-      {id ? <AgreementCard tenantId={id} companyName={name} /> : null}
+      {tab === 'payouts' && id ? <PayoutAccountCard tenantId={id} /> : null}
 
-      {id && user?.role === 'SUPER_ADMIN' ? <PayoutAccountCard tenantId={id} /> : null}
-
-      <Card>
-        <div className="border-b border-line px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="relative w-full min-w-0 sm:min-w-[12rem] sm:flex-[1.6]">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
-                aria-hidden
-              />
-              <Input
-                className="w-full min-w-0 pl-9"
-                value={invSearch}
-                onChange={(e) => setInvSearch(e.target.value)}
-                placeholder="Search invoices…"
-                aria-label="Search invoices"
-              />
-            </div>
-            <Select
-              className="w-full min-w-0 sm:w-auto sm:min-w-[9rem] sm:flex-1"
-              value={invStatus}
-              onChange={(e) => setInvStatus(e.target.value)}
-              aria-label="Filter by status"
-            >
-              <option value="">All statuses</option>
-              <option value="DRAFT">DRAFT</option>
-              <option value="OPEN">OPEN</option>
-              <option value="PAID">PAID</option>
-              <option value="PAST_DUE">PAST DUE</option>
-              <option value="VOID">VOID</option>
-            </Select>
-            {hasFilters ? (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setInvSearch('');
-                  setInvStatus('');
-                }}
-                className="w-full shrink-0 gap-1.5 px-2.5 sm:w-auto"
-              >
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        {filteredInvs.length === 0 ? (
-          <EmptyState
-            title={invs.length === 0 ? 'No collections invoices yet' : 'No matching invoices'}
-            hint={
-              invs.length === 0
-                ? sub
-                  ? 'Generate an invoice for this company to get started.'
-                  : 'Activate a subscription first, then generate invoices.'
-                : 'Try clearing search or filters.'
-            }
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <Table
-              columns={['Package', 'Period', 'Devices', 'Total', 'Due', 'Status', '']}
-            >
-              {filteredInvs.map((inv) => (
-                <Row key={inv.id}>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex rounded-md bg-canvas px-2 py-0.5 text-xs font-semibold text-ink-soft">
-                      {inv.packageCode}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted">
-                    {shortDate(inv.periodStart)} – {shortDate(inv.periodEnd)}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-muted">
-                    {inv.activeDevices}
-                  </td>
-                  <td className="px-4 py-3 font-semibold tabular-nums text-ink">
-                    {money(inv.total)}
-                  </td>
-                  <td className="px-4 py-3 text-muted">{shortDate(inv.dueDate)}</td>
-                  <td className="px-4 py-3">
-                    <StatusPill status={inv.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {inv.status === 'OPEN' || inv.status === 'PAST_DUE' ? (
-                      <Button
-                        variant="secondary"
-                        className="!py-1.5 !text-xs"
-                        onClick={() => markInvoicePaid.mutate(inv.id)}
-                        disabled={markInvoicePaid.isPending}
-                      >
-                        Mark paid
-                      </Button>
-                    ) : inv.paidAt ? (
-                      <span className="text-xs text-muted">
-                        Paid {shortDate(inv.paidAt)}
-                      </span>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                </Row>
-              ))}
-            </Table>
-          </div>
-        )}
-      </Card>
+      {tab === 'agreement' && id ? <AgreementCard tenantId={id} companyName={name} /> : null}
 
       <Modal
         open={activateOpen}
@@ -371,8 +206,8 @@ export default function CompanyDetail() {
           }}
         >
           <p className="text-sm text-muted">
-            For <span className="font-medium text-ink">{name}</span>. Device band must
-            match the package.
+            For <span className="font-medium text-ink">{name}</span>. Device band must match the
+            package.
           </p>
           {(packages.data ?? []).length > 0 ? (
             <div className="grid gap-2 sm:grid-cols-3">
@@ -409,11 +244,7 @@ export default function CompanyDetail() {
             </Field>
           )}
           <Field label="Notes">
-            <Input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional"
-            />
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
           </Field>
           <div className="flex flex-wrap gap-2 border-t border-line pt-4">
             <Button type="submit" disabled={activateSub.isPending}>

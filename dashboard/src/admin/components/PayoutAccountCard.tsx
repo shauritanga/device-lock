@@ -78,7 +78,7 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Card className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
@@ -159,9 +159,12 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
         />
       </div>
 
-      <Card className="p-3">
-        <PayoutsTable payouts={payouts.data ?? []} />
-      </Card>
+      <div className="space-y-2">
+        <h3 className="px-1 text-sm font-semibold text-ink">Payout history</h3>
+        <Card className="p-3">
+          <PayoutsTable payouts={payouts.data ?? []} />
+        </Card>
+      </div>
 
       <div className="space-y-2">
         <h3 className="px-1 text-sm font-semibold text-ink">Account changes</h3>
