@@ -1,63 +1,40 @@
 import type { ReactNode } from 'react';
-import {
-  ArrowRight,
-  Banknote,
-  FileSignature,
-  Hourglass,
-  Package,
-  ReceiptText,
-  Wallet,
-  type LucideIcon,
-} from 'lucide-react';
 import type { Payout, PayoutSummary } from '@/shared/api/types';
-import { StatCard } from '@/shared/components/StatCard';
+import { FigureStrip, type Figure } from '@/shared/components/FigureStrip';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
-import { Pill, StatusPill } from '@/shared/components/ui/Pill';
+import { StatusDot } from '@/shared/components/ui/Pill';
 import { money, shortDate } from '@/shared/lib/format';
-import {
-  AGREEMENT_COPY,
-  type BillingSummary,
-  type Invoice,
-  type TabId,
-} from './types';
+import { AGREEMENT_COPY, type BillingSummary, type Invoice, type TabId } from './types';
 
-/** A compact at-a-glance card with one call to action. */
-function SummaryCard({
-  icon: Icon,
+/** One line in the "at a glance" list: what it is, its state, and where to manage it. */
+function GlanceRow({
   title,
+  children,
   action,
   onAction,
-  children,
 }: {
-  icon: LucideIcon;
   title: string;
+  children: ReactNode;
   action: string;
   onAction: () => void;
-  children: ReactNode;
 }) {
   return (
-    <Card className="flex flex-col p-5">
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-          <Icon className="h-4 w-4" aria-hidden />
-        </span>
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
-      </div>
-      <div className="mt-4 flex-1 space-y-1.5">{children}</div>
+    <li className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-4">
+      <h3 className="w-44 shrink-0 text-sm font-medium text-ink">{title}</h3>
+      <div className="min-w-0 flex-1 text-sm text-muted">{children}</div>
       <button
         type="button"
         onClick={onAction}
-        className="mt-4 inline-flex items-center gap-1 self-start text-sm font-medium text-brand-700 hover:text-brand-800"
+        className="text-sm font-medium text-brand-700 hover:underline"
       >
         {action}
-        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
       </button>
-    </Card>
+    </li>
   );
 }
 
-function ListCard({
+function RecentList({
   title,
   onViewAll,
   empty,
@@ -69,23 +46,21 @@ function ListCard({
   children: ReactNode[];
 }) {
   return (
-    <Card>
-      <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
-        <button
-          type="button"
-          onClick={onViewAll}
-          className="text-sm font-medium text-brand-700 hover:text-brand-800"
-        >
+    <section>
+      <div className="mb-2 flex items-center justify-between px-1">
+        <h2 className="text-xs font-medium uppercase tracking-wide text-faint">{title}</h2>
+        <button type="button" onClick={onViewAll} className="text-sm text-muted hover:text-ink">
           View all
         </button>
       </div>
-      {children.length === 0 ? (
-        <p className="px-5 py-8 text-center text-sm text-muted">{empty}</p>
-      ) : (
-        <ul className="divide-y divide-line">{children}</ul>
-      )}
-    </Card>
+      <Card>
+        {children.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-muted">{empty}</p>
+        ) : (
+          <ul className="divide-y divide-line">{children}</ul>
+        )}
+      </Card>
+    </section>
   );
 }
 
@@ -109,136 +84,111 @@ export function OverviewTab({
 }) {
   const sub = billing?.subscription;
   const agreement = AGREEMENT_COPY[agreementStatus] ?? AGREEMENT_COPY.NONE;
-  const hasAccount = !!(payoutSummary?.tenant.payoutPhone && payoutSummary.tenant.payoutName);
-  const showPayouts = !!payoutSummary;
+  const account = payoutSummary?.tenant;
+  const hasAccount = !!(account?.payoutPhone && account.payoutName);
+
+  const figures: Figure[] = [
+    { label: 'Active devices', value: billing?.activeDevices ?? 0 },
+    { label: 'Est. monthly', value: money(billing?.estimatedMonthly ?? 0) },
+    { label: 'Open balance', value: money(billing?.openBalance ?? 0) },
+  ];
+  if (payoutSummary) {
+    figures.push({
+      label: 'Awaiting payout',
+      value: money(payoutSummary.owed),
+      hint: payoutSummary.owedCount ? `${payoutSummary.owedCount} payments` : undefined,
+    });
+  }
 
   return (
-    <div className="space-y-6">
-      <div
-        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${showPayouts ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}
-      >
-        <StatCard icon={Package} label="Active devices" value={billing?.activeDevices ?? 0} tone="brand" />
-        <StatCard
-          icon={Wallet}
-          label="Est. monthly"
-          value={money(billing?.estimatedMonthly ?? 0)}
-          hint={billing?.suggestedPackage ? `Suggests ${billing.suggestedPackage}` : undefined}
-          tone="green"
-        />
-        <StatCard icon={ReceiptText} label="Open balance" value={money(billing?.openBalance ?? 0)} tone="amber" />
-        {showPayouts ? (
-          <StatCard
-            icon={Hourglass}
-            label="Awaiting payout"
-            value={money(payoutSummary.owed)}
-            hint={payoutSummary.owedCount ? `${payoutSummary.owedCount} payments` : undefined}
-            tone="amber"
-          />
-        ) : null}
-      </div>
+    <div className="space-y-8">
+      <FigureStrip items={figures} />
 
-      <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${showPayouts ? 'xl:grid-cols-3' : 'xl:grid-cols-2'}`}>
-        <SummaryCard
-          icon={Wallet}
-          title="Collections subscription"
-          action={sub ? 'Manage billing' : 'View billing'}
-          onAction={() => onGo('billing')}
-        >
-          {sub ? (
-            <>
-              <div className="flex items-center gap-2">
-                <Pill tone="brand">{sub.packageCode}</Pill>
-                <StatusPill status={sub.status} />
-              </div>
-              <p className="text-sm text-muted">
-                {sub.activatedAt ? `Active since ${shortDate(sub.activatedAt)}` : 'Not yet activated'}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-muted">No collections subscription yet.</p>
-              <Button type="button" variant="secondary" className="!py-1.5 !text-xs" onClick={onActivate}>
-                Activate subscription
-              </Button>
-            </>
-          )}
-        </SummaryCard>
+      <section>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-faint">
+          At a glance
+        </h2>
+        <Card>
+          <ul className="divide-y divide-line">
+            <GlanceRow title="Collections subscription" action="Manage" onAction={() => onGo('billing')}>
+              {sub ? (
+                <span className="flex flex-wrap items-center gap-x-3">
+                  <span className="font-medium text-ink">{sub.packageCode}</span>
+                  <StatusDot status={sub.status} />
+                  {sub.activatedAt ? <span>since {shortDate(sub.activatedAt)}</span> : null}
+                </span>
+              ) : (
+                <span className="flex flex-wrap items-center gap-3">
+                  No subscription yet.
+                  <Button type="button" variant="secondary" className="!py-1 !text-xs" onClick={onActivate}>
+                    Activate
+                  </Button>
+                </span>
+              )}
+            </GlanceRow>
 
-        <SummaryCard
-          icon={FileSignature}
-          title="Service agreement"
-          action="Open agreement"
-          onAction={() => onGo('agreement')}
-        >
-          {agreementStatus === 'NONE' ? (
-            <Pill tone="gray">{agreement.label}</Pill>
-          ) : (
-            <StatusPill status={agreementStatus} />
-          )}
-          <p className="text-sm text-muted">{agreement.hint}</p>
-        </SummaryCard>
+            <GlanceRow title="Service agreement" action="Open" onAction={() => onGo('agreement')}>
+              <span className="flex flex-wrap items-center gap-x-3">
+                <StatusDot
+                  status={agreementStatus === 'NONE' ? 'INACTIVE' : agreementStatus}
+                  label={agreement.label}
+                />
+                <span>{agreement.hint}</span>
+              </span>
+            </GlanceRow>
 
-        {showPayouts ? (
-          <SummaryCard icon={Banknote} title="Payout account" action="Manage payouts" onAction={() => onGo('payouts')}>
-            {hasAccount ? (
-              <>
-                <p className="text-sm font-medium text-ink">{payoutSummary.tenant.payoutName}</p>
-                <p className="font-mono text-sm text-muted">{payoutSummary.tenant.payoutPhone}</p>
-                {payoutSummary.holdUntil ? (
-                  <Pill tone="amber">Payouts paused</Pill>
+            {payoutSummary ? (
+              <GlanceRow title="Payout account" action="Manage" onAction={() => onGo('payouts')}>
+                {hasAccount ? (
+                  <span className="flex flex-wrap items-center gap-x-3">
+                    <span className="font-medium text-ink">{account!.payoutName}</span>
+                    <span className="font-mono text-xs">{account!.payoutPhone}</span>
+                    {payoutSummary.holdUntil ? <StatusDot status="PENDING" label="Payouts paused" /> : null}
+                  </span>
                 ) : (
-                  <Pill tone="green">Ready</Pill>
+                  <span>Not set — money collected for this company waits until one is added.</span>
                 )}
-              </>
-            ) : (
-              <>
-                <Pill tone="amber">Not set</Pill>
-                <p className="text-sm text-muted">Money collected for this company waits until an account is added.</p>
-              </>
-            )}
-          </SummaryCard>
-        ) : null}
-      </div>
+              </GlanceRow>
+            ) : null}
+          </ul>
+        </Card>
+      </section>
 
-      <div className={`grid grid-cols-1 gap-4 ${showPayouts ? 'lg:grid-cols-2' : ''}`}>
-        <ListCard
-          title="Latest invoices"
-          onViewAll={() => onGo('billing')}
-          empty="No invoices yet."
-        >
+      <div className={payoutSummary ? 'grid gap-8 lg:grid-cols-2' : ''}>
+        <RecentList title="Latest invoices" onViewAll={() => onGo('billing')} empty="No invoices yet.">
           {invoices.slice(0, 4).map((i) => (
-            <li key={i.id} className="flex items-center justify-between gap-3 px-5 py-3">
+            <li key={i.id} className="flex items-center justify-between gap-4 px-5 py-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-ink">
+                <p className="text-sm text-ink">
                   {shortDate(i.periodStart)} – {shortDate(i.periodEnd)}
                 </p>
-                <p className="text-xs text-muted">{i.packageCode} · due {shortDate(i.dueDate)}</p>
+                <p className="text-xs text-muted">Due {shortDate(i.dueDate)}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="text-sm font-semibold tabular-nums text-ink">{money(i.total)}</span>
-                <StatusPill status={i.status} />
+              <div className="flex shrink-0 items-center gap-4">
+                <span className="text-sm font-medium tabular-nums text-ink">{money(i.total)}</span>
+                <StatusDot status={i.status} />
               </div>
             </li>
           ))}
-        </ListCard>
+        </RecentList>
 
-        {showPayouts ? (
-          <ListCard title="Latest payouts" onViewAll={() => onGo('payouts')} empty="No payouts yet.">
+        {payoutSummary ? (
+          <RecentList title="Latest payouts" onViewAll={() => onGo('payouts')} empty="No payouts yet.">
             {payouts.slice(0, 4).map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-3">
+              <li key={p.id} className="flex items-center justify-between gap-4 px-5 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink">{shortDate(p.createdAt)}</p>
-                  <p className="truncate text-xs text-muted">to {p.recipientName}</p>
+                  <p className="text-sm text-ink">{shortDate(p.createdAt)}</p>
+                  <p className="truncate text-xs text-muted">To {p.recipientName}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className="text-sm font-semibold tabular-nums text-ink">
+                <div className="flex shrink-0 items-center gap-4">
+                  <span className="text-sm font-medium tabular-nums text-ink">
                     {money(p.amount, p.currency)}
                   </span>
-                  <StatusPill status={p.status} />
+                  <StatusDot status={p.status} />
                 </div>
               </li>
             ))}
-          </ListCard>
+          </RecentList>
         ) : null}
       </div>
     </div>

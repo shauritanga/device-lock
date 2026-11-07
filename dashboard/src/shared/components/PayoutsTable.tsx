@@ -1,6 +1,6 @@
 import type { Payout } from '@/shared/api/types';
 import { Table, Row } from '@/shared/components/ui/Table';
-import { StatusPill } from '@/shared/components/ui/Pill';
+import { StatusDot } from '@/shared/components/ui/Pill';
 import { EmptyState } from '@/shared/components/ui/misc';
 import { money, shortDate } from '@/shared/lib/format';
 
@@ -34,7 +34,7 @@ export function PayoutsTable({ payouts }: { payouts: Payout[] }) {
               {money(p.amount, p.currency)}
             </td>
             <td className="px-4 py-3">
-              <StatusPill status={p.status} />
+              <StatusDot status={p.status} />
               {p.failureReason ? (
                 <p className="mt-1 max-w-[16rem] text-xs text-rose-600">
                   {p.failureReason}

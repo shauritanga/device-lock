@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
 import { Input, Select } from '@/shared/components/ui/Field';
-import { Pill, StatusPill } from '@/shared/components/ui/Pill';
+import { StatusDot } from '@/shared/components/ui/Pill';
 import { EmptyState } from '@/shared/components/ui/misc';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { money, shortDate } from '@/shared/lib/format';
@@ -12,8 +12,8 @@ import type { BillingSummary, Invoice } from './types';
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-faint">{label}</dt>
-      <dd className="mt-1 text-sm font-semibold text-ink">{children}</dd>
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="mt-1 text-sm text-ink">{children}</dd>
     </div>
   );
 }
@@ -53,23 +53,23 @@ export function BillingTab({
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div>
-            <h3 className="text-base font-semibold tracking-tight text-ink">Subscription</h3>
+            <h2 className="text-sm font-semibold text-ink">Subscription</h2>
             <p className="text-sm text-muted">
               {sub ? 'Managed collections package for this company.' : 'No collections subscription yet.'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={onGenerate} disabled={generating || !sub}>
+            <Button type="button" variant={sub ? 'primary' : 'secondary'} onClick={onGenerate} disabled={generating || !sub}>
               {generating ? 'Generating…' : 'Generate invoice'}
             </Button>
-            <Button type="button" onClick={onActivate}>
-              {sub ? 'Update package' : 'Activate subscription'}
+            <Button type="button" variant={sub ? 'secondary' : 'primary'} onClick={onActivate}>
+              {sub ? 'Change package' : 'Activate subscription'}
             </Button>
           </div>
         </div>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-5 px-5 py-5 md:grid-cols-4">
-          <Fact label="Package">{sub ? <Pill tone="brand">{sub.packageCode}</Pill> : '—'}</Fact>
-          <Fact label="Status">{sub ? <StatusPill status={sub.status} /> : '—'}</Fact>
+          <Fact label="Package">{sub?.packageCode ?? '—'}</Fact>
+          <Fact label="Status">{sub ? <StatusDot status={sub.status} /> : '—'}</Fact>
           <Fact label="Active since">{shortDate(sub?.activatedAt)}</Fact>
           <Fact label="Active devices">{billing?.activeDevices ?? 0}</Fact>
           <Fact label="Est. monthly">{money(billing?.estimatedMonthly ?? 0)}</Fact>
@@ -81,7 +81,7 @@ export function BillingTab({
 
       <Card>
         <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center">
-          <h3 className="text-base font-semibold tracking-tight text-ink sm:mr-auto">Invoices</h3>
+          <h2 className="text-sm font-semibold text-ink sm:mr-auto">Invoices</h2>
           <div className="relative w-full sm:w-56">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
@@ -152,7 +152,7 @@ export function BillingTab({
                   <td className="px-4 py-3 font-semibold tabular-nums text-ink">{money(inv.total)}</td>
                   <td className="px-4 py-3 text-muted">{shortDate(inv.dueDate)}</td>
                   <td className="px-4 py-3">
-                    <StatusPill status={inv.status} />
+                    <StatusDot status={inv.status} />
                   </td>
                   <td className="px-4 py-3 text-right">
                     {inv.status === 'OPEN' || inv.status === 'PAST_DUE' ? (

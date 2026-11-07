@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import type { Payout, PayoutSummary } from '@/shared/api/types';
 import { useAuth } from '@/shared/auth/AuthContext';
 import type { AgreementSummary } from '@/shared/agreements/types';
+import { Breadcrumbs } from '@/shared/components/Breadcrumbs';
 import { Button } from '@/shared/components/ui/Button';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -142,23 +143,19 @@ export default function CompanyDetail() {
   if (tenant.isError) {
     return (
       <div className="space-y-3">
-        <Link to="/companies" className="text-sm font-medium text-muted hover:text-ink">
-          ← Companies
-        </Link>
+        <Breadcrumbs items={[{ label: 'Companies', to: '/companies' }, { label: 'Not found' }]} />
         <EmptyState title="Company not found" hint="It may have been removed." />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <CompanyHeader
         name={name}
         country={tenant.data?.country}
         createdAt={tenant.data?.createdAt}
         isActive={tenant.data?.isActive}
-        subscriptionStatus={sub?.status ?? 'NONE'}
-        packageCode={sub?.packageCode}
         tab={tab}
         onTab={goTab}
         hidden={isSuperAdmin ? [] : ['payouts']}

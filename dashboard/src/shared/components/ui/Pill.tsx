@@ -68,3 +68,22 @@ export function statusTone(status: string): Tone {
 export function StatusPill({ status }: { status: string }) {
   return <Pill tone={statusTone(status)}>{status.replace(/_/g, ' ')}</Pill>;
 }
+
+const dots: Record<Tone, string> = {
+  green: 'bg-emerald-500',
+  red: 'bg-rose-500',
+  amber: 'bg-amber-500',
+  gray: 'bg-slate-400',
+  brand: 'bg-brand-500',
+  blue: 'bg-sky-500',
+};
+
+/** Quiet status: a small coloured dot with plain text, for dense lists. */
+export function StatusDot({ status, label }: { status: string; label?: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 whitespace-nowrap text-sm text-ink-soft">
+      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dots[statusTone(status)])} aria-hidden />
+      {label ?? status.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase())}
+    </span>
+  );
+}

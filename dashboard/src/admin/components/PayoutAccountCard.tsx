@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Hourglass, Pencil, Send, Smartphone } from 'lucide-react';
 import { api } from '@/shared/api/client';
 import type { Payout, PayoutAccountChange, PayoutSummary } from '@/shared/api/types';
-import { StatCard } from '@/shared/components/StatCard';
+import { FigureStrip } from '@/shared/components/FigureStrip';
 import { PayoutsTable } from '@/shared/components/PayoutsTable';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
@@ -77,101 +76,110 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
     account_on_hold: 'Nothing sent — payouts are paused after a recent payout-number change.',
   };
 
+  const section = (title: string, body: ReactNode) => (
+    <section>
+      <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-faint">{title}</h2>
+      {body}
+    </section>
+  );
+
   return (
-    <div className="space-y-6">
-      <Card className="p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-            <Smartphone className="h-5 w-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-muted">Payout account</p>
+    <div className="space-y-8">
+      {section(
+        'Payout account',
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
             {summary.isLoading ? (
               <Spinner />
             ) : hasAccount ? (
-              <>
-                <p className="text-base font-semibold text-ink">{s!.tenant.payoutName}</p>
-                <p className="font-mono text-sm text-muted">{s!.tenant.payoutPhone}</p>
-              </>
+              <dl className="flex flex-wrap gap-x-10 gap-y-3">
+                <div>
+                  <dt className="text-xs text-muted">Registered name</dt>
+                  <dd className="mt-1 text-sm font-medium text-ink">{s!.tenant.payoutName}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Mobile-money number</dt>
+                  <dd className="mt-1 font-mono text-sm text-ink">{s!.tenant.payoutPhone}</dd>
+                </div>
+              </dl>
             ) : (
-              <p className="text-sm font-medium text-amber-700">
-                Not set — collected money for this company is held until you add an account.
+              <p className="text-sm text-muted">
+                No account set. Money collected for this company waits until you add one.
               </p>
             )}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => disburse.mutate()}
+                disabled={disburse.isPending || !hasAccount}
+                title="Send everything currently owed to this company"
+              >
+                {disburse.isPending ? 'Sending…' : 'Pay out now'}
+              </Button>
+              <Button
+                type="button"
+                variant={hasAccount ? 'secondary' : 'primary'}
+                onClick={() => {
+                  save.reset();
+                  setEditOpen(true);
+                }}
+                disabled={summary.isLoading}
+              >
+                {hasAccount ? 'Edit account' : 'Set account'}
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => disburse.mutate()}
-              disabled={disburse.isPending || !hasAccount}
-              title="Send everything currently owed to this company"
-            >
-              <Send className="h-4 w-4" />
-              {disburse.isPending ? 'Sending…' : 'Pay out now'}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                save.reset();
-                setEditOpen(true);
-              }}
-              disabled={summary.isLoading}
-            >
-              <Pencil className="h-4 w-4" />
-              {hasAccount ? 'Edit account' : 'Set account'}
-            </Button>
-          </div>
-        </div>
-        {disburse.isSuccess ? (
-          <p className="mt-3 text-sm text-muted">
-            {disburse.data.payoutId
-              ? 'Payout sent — status will update shortly.'
-              : (SKIP_TEXT[disburse.data.skipped ?? ''] ?? 'Nothing to send.')}
-          </p>
-        ) : null}
-        {disburse.isError ? (
-          <p className="mt-3 text-sm text-rose-600">{errorText(disburse.error)}</p>
-        ) : null}
-        {s?.holdUntil ? (
-          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Payouts paused until {new Date(s.holdUntil).toLocaleString('en-GB')} — the owner
-            recently changed the payout number.
-          </p>
-        ) : null}
-      </Card>
+          {s?.holdUntil ? (
+            <p className="border-t border-line px-5 py-3 text-sm text-amber-700">
+              Payouts are paused until {new Date(s.holdUntil).toLocaleString('en-GB')} because the
+              payout number was recently changed.
+            </p>
+          ) : null}
+          {disburse.isSuccess ? (
+            <p className="border-t border-line px-5 py-3 text-sm text-muted">
+              {disburse.data.payoutId
+                ? 'Payout sent — status will update shortly.'
+                : (SKIP_TEXT[disburse.data.skipped ?? ''] ?? 'Nothing to send.')}
+            </p>
+          ) : null}
+          {disburse.isError ? (
+            <p className="border-t border-line px-5 py-3 text-sm text-rose-600">
+              {errorText(disburse.error)}
+            </p>
+          ) : null}
+        </Card>,
+      )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          icon={Hourglass}
-          label="Awaiting payout"
-          value={money(s?.owed ?? 0)}
-          hint={s?.owedCount ? `${s.owedCount} payment${s.owedCount === 1 ? '' : 's'}` : undefined}
-          tone="amber"
-        />
-        <StatCard icon={Send} label="On its way" value={money(s?.inFlight ?? 0)} tone="brand" />
-        <StatCard
-          icon={Banknote}
-          label="Paid out"
-          value={money(s?.paidOut ?? 0)}
-          hint={s?.failedCount ? `${s.failedCount} failed` : undefined}
-          tone="green"
-        />
-      </div>
+      <FigureStrip
+        items={[
+          {
+            label: 'Awaiting payout',
+            value: money(s?.owed ?? 0),
+            hint: s?.owedCount ? `${s.owedCount} payment${s.owedCount === 1 ? '' : 's'}` : undefined,
+          },
+          { label: 'On its way', value: money(s?.inFlight ?? 0) },
+          {
+            label: 'Paid out',
+            value: money(s?.paidOut ?? 0),
+            hint: s?.failedCount ? `${s.failedCount} failed` : undefined,
+          },
+        ]}
+      />
 
-      <div className="space-y-2">
-        <h3 className="px-1 text-sm font-semibold text-ink">Payout history</h3>
+      {section(
+        'Payout history',
         <Card className="p-3">
           <PayoutsTable payouts={payouts.data ?? []} />
-        </Card>
-      </div>
+        </Card>,
+      )}
 
-      <div className="space-y-2">
-        <h3 className="px-1 text-sm font-semibold text-ink">Account changes</h3>
+      {section(
+        'Account changes',
         <Card className="p-3">
           <PayoutAccountHistory changes={history.data ?? []} />
-        </Card>
-      </div>
+        </Card>,
+      )}
 
       <PayoutAccountModal
         open={editOpen}
