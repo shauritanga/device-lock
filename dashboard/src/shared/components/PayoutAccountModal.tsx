@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Field, Input } from '@/shared/components/ui/Field';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -41,9 +42,13 @@ export function PayoutAccountModal({
   onSubmit: (form: AccountForm) => void;
 }) {
   const [form, setForm] = useState<AccountForm>({ ...initial, password: '' });
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ ...initial, password: '' });
+    if (open) {
+      setForm({ ...initial, password: '' });
+      setShowPassword(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -71,6 +76,8 @@ export function PayoutAccountModal({
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             placeholder="0712345678 or 255712345678"
             inputMode="tel"
+            autoComplete="off"
+            name="payout-phone"
             required
           />
           {form.phone.trim() !== '' && !phoneOk ? (
@@ -85,19 +92,40 @@ export function PayoutAccountModal({
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Name as registered with the network"
             minLength={2}
+            autoComplete="off"
+            name="payout-account-name"
             required
           />
         </Field>
         {requirePassword ? (
           <Field label="Your password">
-            <Input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              placeholder="Confirm it's you"
-              autoComplete="current-password"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Confirm it's you"
+                // "new-password" stops the browser pairing this box with the
+                // name field above and autofilling an email into it.
+                autoComplete="new-password"
+                name="confirm-password"
+                required
+                className="pr-11"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-muted transition hover:text-ink"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" aria-hidden />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden />
+                )}
+              </button>
+            </div>
           </Field>
         ) : null}
         {holdNotice ? (
