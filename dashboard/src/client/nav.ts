@@ -1,7 +1,6 @@
 import {
   CreditCard,
   FileSignature,
-  FileText,
   Banknote,
   Code2,
   Headphones,
@@ -38,7 +37,7 @@ export const CLIENT_NAV: NavGroup[] = [
         to: '/sales',
         label: 'Sales',
         icon: ReceiptText,
-        subtitle: 'Start a credit sale — customer, phone, loan, and contract',
+        subtitle: 'Credit sales — customer, phone, loan, contract and repayment status',
       },
       {
         to: '/devices',
@@ -51,12 +50,6 @@ export const CLIENT_NAV: NavGroup[] = [
         label: 'Customers',
         icon: Users,
         subtitle: 'People financing devices with you',
-      },
-      {
-        to: '/loans',
-        label: 'Loans',
-        icon: FileText,
-        subtitle: 'Installment schedules and repayment status',
       },
       {
         to: '/payments',

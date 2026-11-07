@@ -98,8 +98,8 @@ export default function Dashboard() {
           <PanelHeader
             title="Overdue"
             sub="Priority follow-up — unlock risk if unpaid"
-            to="/loans"
-            action="Open loans"
+            to="/sales"
+            action="Open sales"
           />
           {data.overdueAccounts.length === 0 ? (
             <PanelEmpty>No overdue accounts</PanelEmpty>
@@ -126,8 +126,8 @@ export default function Dashboard() {
           <PanelHeader
             title="Due today"
             sub="Remind these customers before close of business"
-            to="/loans"
-            action="Open loans"
+            to="/sales"
+            action="Open sales"
           />
           {data.dueToday.length === 0 ? (
             <PanelEmpty>Nothing due today</PanelEmpty>

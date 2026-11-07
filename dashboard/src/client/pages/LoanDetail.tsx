@@ -71,7 +71,7 @@ export default function LoanDetail() {
   });
 
   usePageTrail([
-    { label: 'Loans', to: '/loans' },
+    { label: 'Sales', to: '/sales' },
     { label: loan?.customer?.fullName ?? 'Loan' },
   ]);
 

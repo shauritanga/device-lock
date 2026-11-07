@@ -544,7 +544,7 @@ export default function Sales() {
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-sm">
             <Link
-              to={`/loans/${result.loan.id}`}
+              to={`/sales/${result.loan.id}`}
               className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline"
             >
               View loan schedule <ArrowRight className="h-3.5 w-3.5" />
@@ -601,7 +601,7 @@ export default function Sales() {
         ) : (
           <Table columns={['Customer', 'Device', 'Amount', 'Term', 'Contract', 'Status', 'Started']}>
             {saleRows.map((sale) => (
-              <Row key={sale.id} onClick={() => navigate(`/loans/${sale.id}`)}>
+              <Row key={sale.id} onClick={() => navigate(`/sales/${sale.id}`)}>
                 <td className="px-4 py-3 font-medium text-ink">{sale.customer?.fullName ?? '—'}</td>
                 <td className="px-4 py-3 text-muted">
                   {sale.device?.imei ?? '—'}

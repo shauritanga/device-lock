@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { AppGuard, RequireRole } from '@/shared/auth/guards';
 import { SELLER_ADMIN_ROLES } from '@/shared/auth/roles';
 import { FlatShell } from '@/shared/layout/FlatShell';
@@ -9,7 +9,6 @@ import Sales from './pages/NewSale';
 import Devices from './pages/Devices';
 import DeviceDetail from './pages/DeviceDetail';
 import Customers from './pages/Customers';
-import Loans from './pages/Loans';
 import LoanDetail from './pages/LoanDetail';
 import Payments from './pages/Payments';
 import Payouts from './pages/Payouts';
@@ -34,6 +33,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Old /loans/:id links (bookmarks, emails) now live under Sales. */
+function LoanRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/sales/${id}`} replace />;
+}
+
 export default function ClientApp() {
   return (
     <Routes>
@@ -45,8 +50,9 @@ export default function ClientApp() {
       <Route path="/devices" element={<Shell><Devices /></Shell>} />
       <Route path="/devices/:id" element={<Shell><DeviceDetail /></Shell>} />
       <Route path="/customers" element={<Shell><Customers /></Shell>} />
-      <Route path="/loans" element={<Shell><Loans /></Shell>} />
-      <Route path="/loans/:id" element={<Shell><LoanDetail /></Shell>} />
+      <Route path="/sales/:id" element={<Shell><LoanDetail /></Shell>} />
+      <Route path="/loans" element={<Navigate to="/sales" replace />} />
+      <Route path="/loans/:id" element={<LoanRedirect />} />
       <Route path="/payments" element={<Shell><Payments /></Shell>} />
       <Route
         path="/payouts"

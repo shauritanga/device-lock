@@ -343,7 +343,7 @@ export default function DeviceDetail() {
               label="Loan"
               value={
                 device.loan ? (
-                  <Link className="text-brand-700 underline" to={`/loans/${device.loan.id}`}>
+                  <Link className="text-brand-700 underline" to={`/sales/${device.loan.id}`}>
                     View loan
                   </Link>
                 ) : (
