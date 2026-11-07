@@ -20,6 +20,9 @@ export default defineConfig({
   root: resolve(__dirname, 'src', app),
   // Keep .env* lookup at the package root, shared by both apps.
   envDir: __dirname,
+  // `root` is the app folder, so Vite would look for src/<app>/public. The shared
+  // static files (logos, favicon) live in dashboard/public.
+  publicDir: resolve(__dirname, 'public'),
   plugins: [react()],
   resolve: {
     alias: { '@': resolve(__dirname, 'src') },
