@@ -148,6 +148,12 @@ passed on to the seller, so **we never hold cash**:
    Failed or reversed payouts return their payments to the owed pool and are retried
    by the 5-minute sweep. Cash/manual payments are never disbursed.
 
+**Payout account.** The company **owner** sets it on their Payouts page (`PUT /v1/payouts/account`);
+a super admin can also set or fix it from the company page. Owner changes require re-entering the
+password, are rate-limited, are logged (`PayoutAccountChange`), alert the old number (SMS) and the
+company owners (email), and pause payouts for `PAYOUT_ACCOUNT_HOLD_HOURS` (default 24, `0` = off)
+when the number changes, so a hijacked login can't instantly redirect money.
+
 Webhooks need a public HTTPS `PUBLIC_BASE_URL`; without one (local dev) the pollers
 reconcile instead. Webhook signatures are mandatory in production, and outcomes are
 re-read from Snippe's API before anything is applied.

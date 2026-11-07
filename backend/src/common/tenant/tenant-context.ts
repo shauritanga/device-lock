@@ -24,6 +24,7 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   'Installment',
   'Payment',
   'Payout',
+  'PayoutAccountChange',
   'DeviceCommand',
   'DeviceEvent',
   'CollectionsSubscription',

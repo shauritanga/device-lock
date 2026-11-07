@@ -1,11 +1,19 @@
 import {
   BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as argon2 from 'argon2';
 import { PaymentStatus, PayoutStatus, Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
+import { EmailService } from '../notifications/email.service';
+import { SmsService } from '../notifications/sms.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { TENANT_ID_KEY } from '../common/tenant/tenant-context';
 import {
@@ -36,6 +44,9 @@ export class PayoutsService {
     private readonly prisma: PrismaService,
     private readonly snippe: SnippeService,
     private readonly cls: ClsService,
+    private readonly sms: SmsService,
+    private readonly email: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   /** Cleared, not-yet-disbursed Snippe payments for a tenant. */
@@ -87,13 +98,24 @@ export class PayoutsService {
   private async disburse(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { name: true, payoutPhone: true, payoutName: true },
+      select: {
+        name: true,
+        payoutPhone: true,
+        payoutName: true,
+        payoutHoldUntil: true,
+      },
     });
     if (!tenant?.payoutPhone || !tenant.payoutName) {
       this.logger.warn(
         `Tenant ${tenantId} has no payout account; funds stay queued`,
       );
       return { skipped: 'no_payout_account' };
+    }
+
+    if (tenant.payoutHoldUntil && tenant.payoutHoldUntil > new Date()) {
+      // Payout number changed recently: money waits and is paid once the hold
+      // lapses (the sweep picks it up), so a hijacked login can't redirect it.
+      return { skipped: 'account_on_hold' };
     }
 
     const owed = await this.owedPayments(tenantId);
@@ -356,11 +378,17 @@ export class PayoutsService {
     if (!tenantId) throw new BadRequestException('tenantId is required');
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, name: true, payoutPhone: true, payoutName: true },
+      select: {
+        id: true,
+        name: true,
+        payoutPhone: true,
+        payoutName: true,
+        payoutHoldUntil: true,
+      },
     });
     if (!tenant) throw new NotFoundException('Tenant not found');
 
-    const [owed, byStatus] = await Promise.all([
+    const [owed, byStatus, lastChange] = await Promise.all([
       this.owedPayments(tenantId),
       this.prisma.payout.groupBy({
         by: ['status'],
@@ -368,11 +396,26 @@ export class PayoutsService {
         _sum: { amount: true },
         _count: true,
       }),
+      this.prisma.payoutAccountChange.findFirst({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        select: { changedByName: true, changedByRole: true, createdAt: true },
+      }),
     ]);
     const sum = (status: PayoutStatus) =>
       Number(byStatus.find((r) => r.status === status)?._sum.amount ?? 0);
     return {
-      tenant,
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        payoutPhone: tenant.payoutPhone,
+        payoutName: tenant.payoutName,
+      },
+      holdUntil:
+        tenant.payoutHoldUntil && tenant.payoutHoldUntil > new Date()
+          ? tenant.payoutHoldUntil
+          : null,
+      lastChange,
       gatewayConfigured: this.snippe.configured,
       minimumPayout: SNIPPE_MIN_PAYOUT,
       // Cleared in Snippe, not yet sent to the seller.
@@ -382,5 +425,202 @@ export class PayoutsService {
       paidOut: sum(PayoutStatus.COMPLETED),
       failedCount: byStatus.find((r) => r.status === PayoutStatus.FAILED)?._count ?? 0,
     };
+  }
+
+  // ------------------------------------------------------------ payout account
+
+  /** Repeated wrong passwords on the account form lock it out briefly. */
+  private readonly failures = new Map<string, { n: number; until: number }>();
+  private static readonly MAX_FAILURES = 5;
+  private static readonly LOCK_MS = 15 * 60 * 1000;
+
+  private assertNotLocked(userId: string) {
+    const f = this.failures.get(userId);
+    if (f && f.n >= PayoutsService.MAX_FAILURES && f.until > Date.now()) {
+      throw new HttpException(
+        'Too many incorrect passwords. Try again in 15 minutes.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private recordFailure(userId: string) {
+    const f = this.failures.get(userId);
+    const n = f && f.until > Date.now() ? f.n + 1 : 1;
+    this.failures.set(userId, {
+      n,
+      until: Date.now() + PayoutsService.LOCK_MS,
+    });
+  }
+
+  /** Tanzanian mobile in 255XXXXXXXXX form, or throw. */
+  private normalizePhone(raw: string): string {
+    const phone = SnippeService.normalizePhone(raw.trim());
+    if (!/^255[67]\d{8}$/.test(phone)) {
+      throw new BadRequestException(
+        'Enter a Tanzanian mobile-money number (07… / 06… / 255…)',
+      );
+    }
+    return phone;
+  }
+
+  /**
+   * Owner sets or changes their company's payout account. Requires the
+   * owner's password again, and pauses payouts for the configured hold when
+   * the number changes.
+   */
+  async changeOwnAccount(
+    actor: { userId: string; tenantId: string | null },
+    input: { phone: string; name: string; password: string },
+  ) {
+    if (!actor.tenantId) throw new ForbiddenException();
+    this.assertNotLocked(actor.userId);
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: { id: true, fullName: true, role: true, passwordHash: true },
+    });
+    if (!user) throw new UnauthorizedException();
+    if (!(await argon2.verify(user.passwordHash, input.password))) {
+      this.recordFailure(user.id);
+      throw new UnauthorizedException('Incorrect password');
+    }
+    this.failures.delete(user.id);
+    return this.applyAccount(
+      actor.tenantId,
+      { id: user.id, name: user.fullName, role: user.role },
+      input,
+      true,
+    );
+  }
+
+  /** Super admin sets or fixes a company's account (no hold: trusted actor). */
+  async changeAccountAsAdmin(
+    actor: { userId: string },
+    tenantId: string,
+    input: { phone: string; name: string },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: { id: true, fullName: true, role: true },
+    });
+    if (!user) throw new UnauthorizedException();
+    return this.applyAccount(
+      tenantId,
+      { id: user.id, name: user.fullName, role: user.role },
+      input,
+      false,
+    );
+  }
+
+  private async applyAccount(
+    tenantId: string,
+    actor: { id: string; name: string; role: string },
+    input: { phone: string; name: string },
+    applyHold: boolean,
+  ) {
+    const phone = this.normalizePhone(input.phone);
+    const name = input.name.trim();
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true, payoutPhone: true, payoutName: true, payoutHoldUntil: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+
+    const oldPhone = tenant.payoutPhone
+      ? SnippeService.normalizePhone(tenant.payoutPhone)
+      : null;
+    if (oldPhone === phone && tenant.payoutName === name) {
+      return this.summary(tenantId); // nothing changed
+    }
+
+    const phoneChanged = oldPhone !== phone;
+    const holdHours = Number(
+      this.config.get('PAYOUT_ACCOUNT_HOLD_HOURS') ?? 24,
+    );
+    const newHold =
+      applyHold && phoneChanged && holdHours > 0
+        ? new Date(Date.now() + holdHours * 3600_000)
+        : null;
+    // Never shorten a hold that is already running.
+    const existing =
+      tenant.payoutHoldUntil && tenant.payoutHoldUntil > new Date()
+        ? tenant.payoutHoldUntil
+        : null;
+    const holdUntil =
+      newHold && existing ? (newHold > existing ? newHold : existing) : (newHold ?? existing);
+
+    await this.prisma.$transaction([
+      this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: { payoutPhone: phone, payoutName: name, payoutHoldUntil: holdUntil },
+      }),
+      this.prisma.payoutAccountChange.create({
+        data: {
+          tenantId,
+          changedByUserId: actor.id,
+          changedByName: actor.name,
+          changedByRole: actor.role,
+          oldPhone,
+          oldName: tenant.payoutName,
+          newPhone: phone,
+          newName: name,
+          holdUntil: newHold,
+        },
+      }),
+    ]);
+    this.logger.log(
+      `Payout account for ${tenantId} changed by ${actor.role} ${actor.id}` +
+        (newHold ? ` (payouts held until ${newHold.toISOString()})` : ''),
+    );
+
+    if (phoneChanged) {
+      this.notifyChange(tenantId, tenant.name, oldPhone, phone, newHold).catch(
+        (e) => this.logger.warn(`Change alert failed: ${(e as Error).message}`),
+      );
+    }
+    return this.summary(tenantId);
+  }
+
+  /** Tell the old number and the company owners that the payout number changed. */
+  private async notifyChange(
+    tenantId: string,
+    tenantName: string,
+    oldPhone: string | null,
+    newPhone: string,
+    holdUntil: Date | null,
+  ) {
+    const masked = `${newPhone.slice(0, 6)}***${newPhone.slice(-3)}`;
+    const hold = holdUntil
+      ? ` Payouts are paused until ${holdUntil.toUTCString()}.`
+      : '';
+    if (oldPhone) {
+      await this.sms.send(
+        oldPhone,
+        `Linda: the payout number for ${tenantName} was changed to ${masked}.${hold} If this wasn't you, contact Linda support now.`,
+      );
+    }
+    const owners = await this.prisma.user.findMany({
+      where: { tenantId, role: 'OWNER', isActive: true },
+      select: { email: true, fullName: true },
+    });
+    for (const o of owners) {
+      await this.email.send({
+        to: o.email,
+        subject: 'Your Linda payout account was changed',
+        text: `Hello ${o.fullName},\n\nThe payout account for ${tenantName} was changed to ${masked}.${hold}\n\nIf this wasn't you, contact Linda support immediately and change your password.`,
+        html: `<p>Hello ${o.fullName},</p><p>The payout account for <b>${tenantName}</b> was changed to <b>${masked}</b>.${hold}</p><p>If this wasn't you, contact Linda support immediately and change your password.</p>`,
+      });
+    }
+  }
+
+  /** Who changed the payout account, and when. */
+  history(requestedTenantId?: string) {
+    const tenantId = this.resolveTenant(requestedTenantId);
+    if (!tenantId) throw new BadRequestException('tenantId is required');
+    return this.prisma.payoutAccountChange.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
   }
 }

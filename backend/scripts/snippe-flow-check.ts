@@ -274,7 +274,55 @@ async function main() {
     const na = await fetch(`${API}/v1/payouts/tenants/${noAcct.id}/disburse`, { method: 'POST', headers: adminAuth });
     check('no payout sent for tenant lacking a payout account', ((await na.json()) as any).skipped === 'no_payout_account' && (await db.payout.count({ where: { tenantId: noAcct.id } })) === 0);
 
-    // ---- 8. cash is never disbursed
+    // ---- 8. payout account: owner self-service with safeguards
+    console.log('\n# Payout account changes');
+    await db.user.create({ data: { tenantId, email: `m-${suffix}@t.test`, fullName: 'Manager', role: 'MANAGER', passwordHash: await argon2.hash('pw12345678', { type: argon2.argon2id }) } });
+    const mgr = (await (await fetch(`${API}/v1/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: `m-${suffix}@t.test`, password: 'pw12345678' }) })).json()) as any;
+    const put = (path: string, headers: any, body: any) => fetch(`${API}/v1/payouts/${path}`, { method: 'PUT', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+    const good = { phone: '0755000222', name: 'New Owner Name' };
+
+    check('manager cannot change the account (403)', (await put('account', { authorization: `Bearer ${mgr.accessToken}` }, { ...good, password: 'pw12345678' })).status === 403);
+    check('owner without password rejected (400)', (await put('account', auth, good)).status === 400);
+    check('invalid phone rejected (400)', (await put('account', auth, { ...good, phone: '12345', password: 'pw12345678' })).status === 400);
+    check('wrong password rejected (401)', (await put('account', auth, { ...good, password: 'nope' })).status === 401);
+    check('wrong password changed nothing', (await db.tenant.findUnique({ where: { id: tenantId } }))?.payoutPhone === '0712345678');
+
+    const changed = await put('account', auth, { ...good, password: 'pw12345678' });
+    const cj = (await changed.json()) as any;
+    check('owner with correct password can change (200)', changed.status === 200, cj);
+    const t1 = await db.tenant.findUnique({ where: { id: tenantId } });
+    check('number stored normalised (255…) and name saved', t1?.payoutPhone === '255755000222' && t1?.payoutName === 'New Owner Name', t1);
+    const hoursLeft = t1?.payoutHoldUntil ? (t1.payoutHoldUntil.getTime() - Date.now()) / 3600e3 : 0;
+    check('payouts paused ~24h after the number changed', hoursLeft > 23 && hoursLeft <= 24, hoursLeft);
+    check('summary exposes the hold', !!cj.holdUntil, cj.holdUntil);
+    const hist = await db.payoutAccountChange.findMany({ where: { tenantId } });
+    check('change recorded: who, old -> new', hist.length === 1 && hist[0].changedByRole === 'OWNER' && hist[0].oldPhone === '255712345678' && hist[0].newPhone === '255755000222', hist);
+
+    // money owed now must wait out the hold
+    await db.payment.create({ data: { tenantId, loanId: loan.id, amount: 21000, method: 'MPESA', status: 'CONFIRMED', provider: 'SNIPPE', netAmount: 20000 } });
+    const sendsBefore = calls.filter((c) => c.path === '/v1/payouts/send').length;
+    const held = (await (await fetch(`${API}/v1/payouts/tenants/${tenantId}/disburse`, { method: 'POST', headers: adminAuth })).json()) as any;
+    check('disbursement skipped while account is on hold', held.skipped === 'account_on_hold', held);
+    check('nothing sent to Snippe during the hold', calls.filter((c) => c.path === '/v1/payouts/send').length === sendsBefore);
+
+    // hold lapses -> money goes to the NEW number
+    await db.tenant.update({ where: { id: tenantId }, data: { payoutHoldUntil: new Date(Date.now() - 1000) } });
+    const released = (await (await fetch(`${API}/v1/payouts/tenants/${tenantId}/disburse`, { method: 'POST', headers: adminAuth })).json()) as any;
+    const lastSend = calls.filter((c) => c.path === '/v1/payouts/send').pop();
+    check('after the hold, payout goes to the new number and name', !!released.payoutId && lastSend?.body.recipient_phone === '255755000222' && lastSend?.body.recipient_name === 'New Owner Name', lastSend?.body);
+
+    // admin fix: audited, no new hold
+    const adm = await put(`tenants/${tenantId}/account`, adminAuth, { phone: '0689111333', name: 'Fixed By Admin' });
+    const t2 = await db.tenant.findUnique({ where: { id: tenantId } });
+    check('super admin can set the account (no hold, audited)', adm.status === 200 && t2?.payoutPhone === '255689111333' && t2.payoutHoldUntil === null && (await db.payoutAccountChange.count({ where: { tenantId } })) === 2);
+    check('owner cannot use the admin endpoint (403)', (await put(`tenants/${tenantId}/account`, auth, good)).status === 403);
+
+    // brute-force lockout
+    let last = 0;
+    for (let i = 0; i < 6; i++) last = (await put('account', auth, { ...good, password: `bad${i}` })).status;
+    check('repeated wrong passwords get locked out (429)', last === 429, last);
+
+    // ---- 9. cash is never disbursed
     console.log('\n# Cash payments');
     const before = await db.payout.count({ where: { tenantId } });
     await fetch(`${API}/v1/payments`, { method: 'POST', headers: auth, body: JSON.stringify({ loanId: loan.id, amount: 50000 }) });

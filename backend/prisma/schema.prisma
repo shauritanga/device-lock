@@ -210,23 +210,26 @@ enum CommandStatus {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   name               String
-  country            String   @default("TZ")
-  timezone           String   @default("Africa/Dar_es_Salaam")
-  isActive           Boolean  @default(true)
+  country            String    @default("TZ")
+  timezone           String    @default("Africa/Dar_es_Salaam")
+  isActive           Boolean   @default(true)
   // Default lock policy applied to new devices (overridable per device).
-  graceDays          Int      @default(3)
-  maxOfflineDays     Int      @default(4)
-  lockOnSimChange    Boolean  @default(true)
-  billingPlan        String   @default("STARTER")
-  subscriptionStatus String   @default("ACTIVE")
+  graceDays          Int       @default(3)
+  maxOfflineDays     Int       @default(4)
+  lockOnSimChange    Boolean   @default(true)
+  billingPlan        String    @default("STARTER")
+  subscriptionStatus String    @default("ACTIVE")
   // Where collected instalments are disbursed (mobile money, 255XXXXXXXXX).
   payoutPhone        String?
   // Registered name on that mobile-money account.
   payoutName         String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  // After the payout number changes, payouts pause until this moment so a
+  // hijacked login can't instantly redirect money.
+  payoutHoldUntil    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   users                   User[]
   customers               Customer[]
@@ -236,6 +239,7 @@ model Tenant {
   installments            Installment[]
   payments                Payment[]
   payouts                 Payout[]
+  payoutAccountChanges    PayoutAccountChange[]
   callFollowUps           CallFollowUp[]
   callAttempts            CallAttempt[]
   billingInvoices         BillingInvoice[]
@@ -1133,5 +1137,24 @@ model ApiRequestLog {
   createdAt   DateTime  @default(now())
 
   @@index([apiClientId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+/// Audit trail of every change to a seller's payout account.
+model PayoutAccountChange {
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  changedByUserId String?
+  changedByName   String
+  changedByRole   String
+  oldPhone        String?
+  oldName         String?
+  newPhone        String
+  newName         String
+  // When payouts to the new number resume (null = no hold applied).
+  holdUntil       DateTime?
+  createdAt       DateTime  @default(now())
+
   @@index([tenantId, createdAt])
 }

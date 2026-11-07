@@ -28,6 +28,9 @@ export const envSchema = z.object({
   // whsec_... signing secret (Snippe dashboard > Settings > Webhook Secret).
   SNIPPE_WEBHOOK_SECRET: z.string().optional(),
 
+  // Hours payouts pause after a seller changes their payout number (0 = off).
+  PAYOUT_ACCOUNT_HOLD_HOURS: z.coerce.number().min(0).default(24),
+
   // Beem (SMS)
   BEEM_SEND_URL: z.string().url().default('https://apisms.beem.africa/v1/send'),
   BEEM_API_KEY: z.string().optional(),
