@@ -25,6 +25,14 @@ object AgentSync {
     private const val IMMEDIATE_WORK = "device-lock-checkin-now"
     private const val ENROLL_WORK = "device-lock-enroll"
 
+    /** Stop every background job: used when the phone is released to the customer. */
+    fun cancelAll(context: Context) {
+        val work = WorkManager.getInstance(context)
+        work.cancelUniqueWork(PERIODIC_WORK)
+        work.cancelUniqueWork(IMMEDIATE_WORK)
+        work.cancelUniqueWork(ENROLL_WORK)
+    }
+
     fun schedulePeriodic(context: Context) {
         val request = PeriodicWorkRequestBuilder<CheckinWorker>(
             15, TimeUnit.MINUTES,

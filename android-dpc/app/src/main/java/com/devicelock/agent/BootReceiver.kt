@@ -26,6 +26,9 @@ class BootReceiver : BroadcastReceiver() {
 
         val appContext = context.applicationContext
 
+        // Released to the customer: nothing to resume, nothing to enforce.
+        if (AgentStore(appContext).released) return
+
         // Resume delivery and catch up on anything missed while off.
         AgentSync.schedulePeriodic(appContext)
         AgentSync.requestImmediateSync(appContext)

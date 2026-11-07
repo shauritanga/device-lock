@@ -245,6 +245,15 @@
                 android:textSize="12sp"
                 android:visibility="gone" />
 
+            <!-- Shown after the phone was released: the app is now removable. -->
+            <Button
+                android:id="@+id/btnUninstall"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:visibility="gone"
+                android:text="@string/action_uninstall" />
+
             <!-- Staff area. The PIN gate is only visible on Support. -->
             <TextView
                 android:layout_width="wrap_content"

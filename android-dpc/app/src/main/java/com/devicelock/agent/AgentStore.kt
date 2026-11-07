@@ -86,16 +86,31 @@ class AgentStore(context: Context) {
     val isEnrolled: Boolean
         get() = !agentToken.isNullOrBlank()
 
+    /** True once the phone was released to the customer: nothing is managed any more. */
+    var released: Boolean
+        get() = prefs.getBoolean(KEY_RELEASED, false)
+        set(value) = prefs.edit().putBoolean(KEY_RELEASED, value).apply()
+
     fun clear() = prefs.edit()
         .remove(KEY_AGENT_TOKEN)
         .remove(KEY_SMS_SECRET)
         .remove(KEY_DEVICE_ID)
         .apply()
 
+    /** Forget everything about the loan and remember the release so nothing restarts. */
+    fun markReleased() {
+        clear()
+        prefs.edit()
+            .remove(KEY_USED_SMS_COMMAND_IDS)
+            .putBoolean(KEY_RELEASED, true)
+            .apply()
+    }
+
     companion object {
         private const val SECURE_PREFS = "device_lock_agent_secure"
         private const val LEGACY_PREFS = "device_lock_agent"
         private const val KEY_AGENT_TOKEN = "agent_token"
+        private const val KEY_RELEASED = "released"
         private const val KEY_SMS_SECRET = "sms_secret"
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_FCM_TOKEN = "fcm_token"

@@ -35,6 +35,7 @@ class AgentManager(context: Context) {
     data class SummaryOutcome(val summary: BuyerSummary, val cached: Boolean, val updatedAt: Long)
 
     fun isEnrolled() = store.isEnrolled
+    fun isReleased() = store.released
     fun baseUrl() = store.baseUrl
     fun deviceId() = store.deviceId
     fun isLocked() = controller.isLocked()
@@ -71,6 +72,7 @@ class AgentManager(context: Context) {
             simInfo = readSimInfo(),
         )
         store.agentToken = res.agentToken
+        store.released = false
         store.deviceId = res.deviceId
         store.smsSecret = res.smsSecret
         res.policy?.let { cachePolicy(it) }
@@ -113,6 +115,9 @@ class AgentManager(context: Context) {
             if (outcome.isSuccess) {
                 executed.add(cmd.type)
                 AgentApi.ack(store.baseUrl, token, cmd.id, "DONE", null)
+                // Only after the server has the confirmation: forget the loan and
+                // stop all background work, so a released phone is left alone.
+                if (cmd.type == "RELEASE") finishRelease()
             } else {
                 AgentApi.ack(
                     store.baseUrl, token, cmd.id, "FAILED",
@@ -195,6 +200,12 @@ class AgentManager(context: Context) {
         return null
     }
 
+    /** The phone now belongs to the customer: drop credentials and stop the agent's jobs. */
+    private fun finishRelease() {
+        store.markReleased()
+        AgentSync.cancelAll(appContext)
+    }
+
     fun handleSmsCommand(message: String): Boolean {
         val parsed = parseSmsCommand(message) ?: return false
         val secret = store.smsSecret ?: return false
@@ -210,9 +221,12 @@ class AgentManager(context: Context) {
 
         val token = store.agentToken
         if (token != null) {
-            runCatching {
+            val acked = runCatching {
                 AgentApi.ack(store.baseUrl, token, parsed.commandId, "DONE", "executed via signed SMS")
-            }
+            }.isSuccess
+            // If the server could not be told, keep the credentials: the next
+            // check-in re-delivers the RELEASE, acknowledges it, then cleans up.
+            if (acked && parsed.type == "RELEASE") finishRelease()
         }
         return true
     }

@@ -30,6 +30,8 @@
     <string name="hint_enroll_token">Enrollment token</string>
     <string name="action_enroll">Enroll with backend</string>
     <string name="action_release">Release device (loan fully paid)</string>
+    <string name="released_notice">Loan fully paid. This phone is now fully yours and is no longer managed. You can remove this app.</string>
+    <string name="action_uninstall">Uninstall this app</string>
     <string name="release_confirm_title">Release this device?</string>
     <string name="release_confirm_msg">This asks the server to release the device. It only completes if the loan is fully paid (or an owner authorizes it). Release lifts all restrictions and removes management — it cannot be undone without re-provisioning.</string>
     <string name="release_checking">Checking with server…</string>

@@ -1,5 +1,7 @@
 package com.devicelock.agent
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -54,6 +56,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnStaffUnlock.setOnClickListener { unlockStaff() }
         binding.btnEnroll.setOnClickListener { enroll() }
         binding.btnRelease.setOnClickListener { requestRelease() }
+        binding.btnUninstall.setOnClickListener { uninstallSelf() }
         binding.btnDebugRelease.setOnClickListener { requestDebugRelease() }
         binding.btnNotifications.setOnClickListener { toast("No new notifications") }
         binding.btnPayNow.setOnClickListener { payNowFromSummary() }
@@ -146,6 +149,11 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    /** After release the app is an ordinary app: offer to remove it. */
+    private fun uninstallSelf() {
+        startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")))
+    }
+
     private fun enroll() {
         val token = binding.inputEnrollToken.text.toString().trim()
         if (token.isEmpty()) {
@@ -178,18 +186,21 @@ class MainActivity : AppCompatActivity() {
         val owner = controller.isDeviceOwner()
         val enrolled = agent.isEnrolled()
 
-        binding.txtHint.text = if (owner) {
-            getString(R.string.hint_ready)
-        } else {
-            getString(R.string.hint_not_owner)
+        val released = agent.isReleased()
+        binding.txtHint.text = when {
+            released -> getString(R.string.released_notice)
+            owner -> getString(R.string.hint_ready)
+            else -> getString(R.string.hint_not_owner)
         }
+        binding.btnUninstall.visibility = if (released) View.VISIBLE else View.GONE
 
         // Managed notice when enrolled; staff actions (once PIN-unlocked) switch
         // between enroll (pre-enrollment) and release (enrolled).
-        binding.txtAgent.visibility = if (enrolled) View.VISIBLE else View.GONE
+        binding.txtAgent.visibility = if (enrolled || released) View.VISIBLE else View.GONE
         if (enrolled) {
             binding.txtAgent.text = getString(R.string.managed_notice, agent.deviceId())
         }
+        if (released) binding.txtAgent.text = getString(R.string.released_notice)
         binding.enrollGroup.visibility = if (enrolled) View.GONE else View.VISIBLE
         binding.btnRelease.visibility = if (enrolled) View.VISIBLE else View.GONE
         binding.btnDebugRelease.visibility = if (BuildConfig.DEBUG && owner) View.VISIBLE else View.GONE
