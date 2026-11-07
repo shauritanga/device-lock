@@ -25,6 +25,8 @@ export interface SnippePayment {
 
 export interface SnippePayout {
   reference: string;
+  channel?: { provider?: string; type?: string };
+  metadata?: Record<string, unknown>;
   status: 'pending' | 'completed' | 'failed' | 'reversed';
   amount?: SnippeMoney;
   fees?: SnippeMoney;
@@ -210,6 +212,15 @@ export class SnippeService {
         ...(input.metadata ? { metadata: input.metadata } : {}),
       },
     });
+  }
+
+  /**
+   * Find a payout we sent by the `payout_id` we put in its metadata. Used when a
+   * send returned an error but Snippe may still have recorded the payout.
+   */
+  async findPayoutByOurId(payoutId: string): Promise<SnippePayout | null> {
+    const d = await this.request<{ items: SnippePayout[] }>('GET', '/v1/payouts?limit=100&offset=0');
+    return d.items.find((p) => p.metadata?.payout_id === payoutId) ?? null;
   }
 
   getPayout(reference: string): Promise<SnippePayout> {

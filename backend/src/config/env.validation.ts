@@ -32,6 +32,10 @@ export const envSchema = z.object({
   // company goes read-only again.
   SUBSCRIPTION_GRACE_DAYS: z.coerce.number().min(0).default(7),
 
+  // Hours automatic payouts wait after a failed payout before trying again
+  // (an admin can still force one). 0 = retry on every sweep.
+  PAYOUT_RETRY_AFTER_FAILURE_HOURS: z.coerce.number().min(0).default(6),
+
   // Hours payouts pause after a seller changes their payout number (0 = off).
   PAYOUT_ACCOUNT_HOLD_HOURS: z.coerce.number().min(0).default(24),
 

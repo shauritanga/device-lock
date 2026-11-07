@@ -28,7 +28,7 @@ export class PayoutsController {
   @Post('tenants/:tenantId/disburse')
   @Roles(UserRole.SUPER_ADMIN)
   disburse(@Param('tenantId') tenantId: string) {
-    return this.payouts.disburseTenant(tenantId);
+    return this.payouts.disburseTenant(tenantId, { manual: true });
   }
 
   /** Owner sets/changes their own payout account (password re-entry + hold). */

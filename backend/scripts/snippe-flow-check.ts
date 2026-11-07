@@ -33,6 +33,7 @@ const payouts = new Map<string, any>();
 const calls: { method: string; path: string; headers: any; body: any }[] = [];
 let nextPayoutFails: string | null = null;
 let reuseRefNext: string | null = null;
+let rejectAs502 = false; // provider rejects: Snippe records a failed payout but answers 502
 
 const fake = http.createServer((req, res) => {
   let raw = '';
@@ -70,6 +71,14 @@ const fake = http.createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/v1/payouts/fee') {
       const amount = Number(url.searchParams.get('amount'));
       return send(200, { amount, fee_amount: PAYOUT_FEE, total_amount: amount + PAYOUT_FEE, currency: 'TZS' });
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/payouts') {
+      return send(200, { items: [...payouts.values()].reverse(), total: payouts.size, limit: 100, offset: 0 });
+    }
+    if (req.method === 'POST' && url.pathname === '/v1/payouts/send' && rejectAs502) {
+      const ref = `po-${payouts.size + 1}`;
+      payouts.set(ref, { reference: ref, key: req.headers['idempotency-key'], status: 'failed', amount: { currency: 'TZS', value: body.amount }, channel: { provider: 'halotel', type: 'mobile_money' }, metadata: body.metadata });
+      return send(502, { status: 'error', code: 502, error_code: 'bad_gateway', message: 'The payout could not be completed. Please try again later.' });
     }
     if (req.method === 'POST' && url.pathname === '/v1/payouts/send') {
       if (nextPayoutFails) {
@@ -347,6 +356,26 @@ async function main() {
     check('original keeps its reference; the duplicate attempt is closed', dupRows.length === 2 && dupRows[0].providerRef === pdupRef && dupRows[0].status === 'PENDING' && dupRows[1].status === 'FAILED' && dupRows[1].providerRef === null, dupRows.map((r) => [r.status, r.providerRef]));
     payments.get(pdupRef).status = 'expired';
     await webhook('payment.expired', payments.get(pdupRef));
+
+    // ---- 8b. provider rejects the payout (Snippe answers 502): learn the truth, don't loop
+    console.log('\n# Provider rejection: no retry loop');
+    await db.payment.create({ data: { tenantId, loanId: loan.id, amount: 20500, method: 'MPESA', status: 'CONFIRMED', provider: 'SNIPPE', netAmount: 20000 } });
+    const sendCount = () => calls.filter((c) => c.path === '/v1/payouts/send').length;
+    rejectAs502 = true;
+    const rj = (await (await fetch(`${API}/v1/payouts/tenants/${tenantId}/disburse`, { method: 'POST', headers: adminAuth })).json()) as any;
+    const rjRow = await db.payout.findFirst({ where: { id: rj.payoutId }, include: { payments: true } });
+    check('502 from Snippe: we ask Snippe what happened and record the rejection', rjRow?.status === 'FAILED' && /halotel/i.test(rjRow.failureReason ?? ''), rjRow);
+    check('rejected payout releases its payments back to owed', rjRow?.payments.length === 0, rjRow?.payments.length);
+    const sendsAfterReject = sendCount();
+    const payoutsAfterReject = await db.payout.count({ where: { tenantId } });
+    const pAuto = await pay(9000);
+    const pAutoRef = (await db.payment.findUnique({ where: { id: pAuto.json.paymentId } }))!.providerRef!;
+    await complete(pAutoRef, 9000, 8800);
+    await sleep(1500);
+    check('automatic payout is NOT retried right after a failure', sendCount() === sendsAfterReject && (await db.payout.count({ where: { tenantId } })) === payoutsAfterReject, [sendCount(), sendsAfterReject]);
+    rejectAs502 = false;
+    const forced = (await (await fetch(`${API}/v1/payouts/tenants/${tenantId}/disburse`, { method: 'POST', headers: adminAuth })).json()) as any;
+    check('an admin can still force a payout', !!forced.payoutId && sendCount() === sendsAfterReject + 1, forced);
 
     // ---- 9. cash is never disbursed
     console.log('\n# Cash payments');

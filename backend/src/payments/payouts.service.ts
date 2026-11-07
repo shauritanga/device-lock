@@ -26,6 +26,9 @@ import {
 /** Snippe keeps idempotency keys for 24h; stop retrying a send well before. */
 const RETRY_WINDOW_MS = 20 * 60 * 60 * 1000;
 
+/** Don't auto-retry a tenant for this long after a payout failed (an admin can still force one). */
+const DEFAULT_RETRY_AFTER_FAILURE_HOURS = 6;
+
 /**
  * Passes collected instalments on to the seller (the phone owner).
  *
@@ -84,15 +87,38 @@ export class PayoutsService {
    */
   async disburseTenant(
     tenantId: string,
+    opts: { manual?: boolean } = {},
   ): Promise<{ payoutId?: string; skipped?: string }> {
     if (!this.snippe.configured) return { skipped: 'snippe_not_configured' };
     if (this.running.has(tenantId)) return { skipped: 'already_running' };
     this.running.add(tenantId);
     try {
+      // After a failure, automatic runs back off: retrying every few minutes
+      // against a number the provider rejects only repeats the same failure.
+      if (!opts.manual && (await this.recentlyFailed(tenantId))) {
+        return { skipped: 'recent_failure' };
+      }
       return await this.disburse(tenantId);
     } finally {
       this.running.delete(tenantId);
     }
+  }
+
+  private async recentlyFailed(tenantId: string): Promise<boolean> {
+    const hours = Number(
+      this.config.get('PAYOUT_RETRY_AFTER_FAILURE_HOURS') ?? DEFAULT_RETRY_AFTER_FAILURE_HOURS,
+    );
+    if (hours <= 0) return false;
+    const last = await this.prisma.payout.findFirst({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true, updatedAt: true },
+    });
+    return (
+      !!last &&
+      (last.status === PayoutStatus.FAILED || last.status === PayoutStatus.REVERSED) &&
+      Date.now() - last.updatedAt.getTime() < hours * 3600_000
+    );
   }
 
   private async disburse(tenantId: string) {
@@ -195,11 +221,28 @@ export class PayoutsService {
         await this.fail(payout.id, PayoutStatus.FAILED, e.message, true);
         return;
       }
-      // Outcome unknown (timeout / 5xx). Keep the payments claimed: re-sending
-      // with the same idempotency key is safe, and releasing them is not.
+      // Outcome unknown (timeout / 5xx). Snippe may still have recorded the
+      // payout (e.g. it reached the mobile-money provider and was rejected), so
+      // ask it. If it has no record we keep the payments claimed: re-sending with
+      // the same idempotency key is safe, and releasing them is not.
       this.logger.warn(
         `Payout ${payout.id} send outcome unknown: ${(e as Error).message}`,
       );
+      await this.recoverUnknown(payout.id);
+    }
+  }
+
+  /** Look the payout up at Snippe by our id and apply what it actually did. */
+  private async recoverUnknown(payoutId: string): Promise<boolean> {
+    try {
+      const found = await this.snippe.findPayoutByOurId(payoutId);
+      if (!found) return false;
+      await this.apply(payoutId, found, found as unknown as Prisma.InputJsonValue);
+      this.logger.log(`Payout ${payoutId} recovered from Snippe: ${found.status}`);
+      return true;
+    } catch (e) {
+      this.logger.warn(`Payout ${payoutId} lookup failed: ${(e as Error).message}`);
+      return false;
     }
   }
 
@@ -244,7 +287,7 @@ export class PayoutsService {
         await this.fail(
           payoutId,
           PayoutStatus.FAILED,
-          snippe.failure_reason ?? 'Payout failed',
+          snippe.failure_reason ?? `Rejected by ${snippe.channel?.provider ?? 'the mobile-money provider'}`,
           true,
           snippe.reference,
           raw,
@@ -326,6 +369,8 @@ export class PayoutsService {
         if (p.providerRef) {
           const res = await this.snippe.getPayout(p.providerRef);
           await this.apply(p.id, res, res as unknown as Prisma.InputJsonValue);
+        } else if (await this.recoverUnknown(p.id)) {
+          // Snippe had already recorded it; state is now up to date.
         } else if (Date.now() - p.createdAt.getTime() < RETRY_WINDOW_MS) {
           await this.send(p.id);
         } else {
@@ -416,6 +461,8 @@ export class PayoutsService {
           ? tenant.payoutHoldUntil
           : null,
       lastChange,
+      // Hours payouts pause after a number change (0 = no pause).
+      holdHours: Number(this.config.get('PAYOUT_ACCOUNT_HOLD_HOURS') ?? 24),
       gatewayConfigured: this.snippe.configured,
       minimumPayout: SNIPPE_MIN_PAYOUT,
       // Cleared in Snippe, not yet sent to the seller.
