@@ -54,9 +54,50 @@ export class PaymentsService {
     private readonly collections: CollectionsService,
   ) {}
 
+  /**
+   * What is still owed on a loan: unsettled instalment amounts less everything
+   * already confirmed. Waived instalments are excluded. This is the exact figure
+   * that completes the loan (and so releases the phone) when paid in one go.
+   */
+  async loanBalance(loanId: string) {
+    await this.requireLoan(loanId);
+    const [installments, confirmed] = await Promise.all([
+      this.prisma.scoped.installment.findMany({
+        where: { loanId, status: { not: InstallmentStatus.WAIVED } },
+        select: { amount: true, status: true },
+      }),
+      this.prisma.scoped.payment.findMany({
+        where: { loanId, status: PaymentStatus.CONFIRMED },
+        select: { amount: true },
+      }),
+    ]);
+    const due = installments.reduce((t, i) => t + toCents(i.amount), 0);
+    const paid = confirmed.reduce((t, p) => t + toCents(p.amount), 0);
+    const outstanding = Math.max(0, due - paid);
+    return {
+      outstanding: Number(fromCents(outstanding)),
+      installmentsLeft: installments.filter((i) => i.status !== InstallmentStatus.PAID)
+        .length,
+    };
+  }
+
+  /** Refuse a payment bigger than what is owed — the excess would be silently lost. */
+  private async assertWithinBalance(loanId: string, amount: number) {
+    const { outstanding } = await this.loanBalance(loanId);
+    if (outstanding <= 0) {
+      throw new BadRequestException('This loan is already fully paid');
+    }
+    if (toCents(amount) > toCents(outstanding)) {
+      throw new BadRequestException(
+        `Amount exceeds the ${outstanding.toLocaleString('en-US')} still owed on this loan`,
+      );
+    }
+  }
+
   /** Record a manual (e.g. cash) payment and apply it immediately. */
   async recordManual(dto: RecordPaymentDto) {
     const loan = await this.requireLoan(dto.loanId);
+    await this.assertWithinBalance(loan.id, dto.amount);
     const payment = await this.prisma.scoped.payment.create({
       data: {
         tenantId: loan.tenantId,
@@ -167,6 +208,7 @@ export class PaymentsService {
 
     // Snippe takes whole shillings only.
     const amount = Math.round(dto.amount);
+    await this.assertWithinBalance(loan.id, amount);
     if (amount < SNIPPE_MIN_COLLECTION) {
       throw new BadRequestException(
         `Mobile-money payments must be at least ${SNIPPE_MIN_COLLECTION} TZS`,

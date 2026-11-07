@@ -6,6 +6,7 @@ import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   CheckCircle2,
+  KeyRound,
   Loader2,
   Lock,
   RefreshCw,
@@ -47,6 +48,7 @@ export default function DeviceDetail() {
   const qc = useQueryClient();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRelease, setConfirmRelease] = useState(false);
 
   const { data: device, isLoading } = useQuery({
     queryKey: ['device', id],
@@ -114,6 +116,13 @@ export default function DeviceDetail() {
       refreshDevice();
     },
   });
+  const release = useMutation({
+    mutationFn: async () => (await api.post(`/devices/${id}/release`, {})).data,
+    onSuccess: () => {
+      setConfirmRelease(false);
+      refreshDevice();
+    },
+  });
   const del = useMutation({
     mutationFn: async () => (await api.delete(`/devices/${id}`)).data,
     onSuccess: () => {
@@ -146,6 +155,13 @@ export default function DeviceDetail() {
       (c.type === 'LOCK' || c.type === 'UNLOCK') &&
       (c.status === 'QUEUED' || c.status === 'SENT'),
   );
+  const releaseCmds = (commands ?? [])
+    .filter((c) => c.type === 'RELEASE')
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  const releaseWaiting = releaseCmds.find((c) => c.status === 'QUEUED' || c.status === 'SENT');
+  const releaseFailed = !releaseWaiting && ['FAILED', 'EXPIRED'].includes(releaseCmds[0]?.status ?? '');
+  const loanPaid = device.loan?.status === 'COMPLETED';
+  const releasable = !['RELEASED', 'PENDING_ENROLLMENT', 'WIPED'].includes(device.status);
   const busy = lock.isPending || unlock.isPending;
   const canLock = device.status === 'ACTIVE' || device.status === 'DEFAULTED';
   const canUnlock = device.status === 'LOCKED';
@@ -283,6 +299,38 @@ export default function DeviceDetail() {
         ) : null}
       </Card>
 
+      {device.status === 'RELEASED' ? (
+        <Card className="flex items-center gap-3 px-5 py-4 text-sm">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+          <p className="text-muted">
+            <span className="font-semibold text-ink">Released.</span> This phone belongs to the
+            customer and is no longer managed.
+          </p>
+        </Card>
+      ) : loanPaid && releasable ? (
+        <Card className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+          <div className="min-w-0 text-sm">
+            <p className="font-semibold text-ink">Loan fully paid</p>
+            <p className="mt-0.5 text-muted">
+              {releaseWaiting
+                ? "Release queued — the phone is released on its next check-in."
+                : releaseFailed
+                  ? 'The last release attempt did not complete. Try again.'
+                  : 'Release the phone to the customer. This removes all management and cannot be undone.'}
+            </p>
+          </div>
+          {releaseWaiting ? (
+            <span className="inline-flex items-center gap-2 text-sm text-muted">
+              <Loader2 className="h-4 w-4 animate-spin text-brand-600" /> Waiting for the phone
+            </span>
+          ) : (
+            <Button onClick={() => { release.reset(); setConfirmRelease(true); }}>
+              <KeyRound className="h-4 w-4" /> {releaseFailed ? 'Retry release' : 'Release phone'}
+            </Button>
+          )}
+        </Card>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title="Details" />
@@ -412,6 +460,33 @@ export default function DeviceDetail() {
               {del.isPending ? 'Deleting…' : 'Delete device'}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={confirmRelease}
+        onClose={() => setConfirmRelease(false)}
+        title="Release this phone?"
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setConfirmRelease(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => release.mutate()} disabled={release.isPending}>
+              {release.isPending ? 'Sending…' : 'Release phone'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-muted">
+          <p>
+            <span className="font-semibold text-ink">IMEI {device.imei}</span> will be handed over
+            to {device.customer?.fullName ?? 'the customer'} on its next check-in. All
+            management, lock control and tracking are removed.
+          </p>
+          <p>This cannot be undone.</p>
+          {release.isError ? <p className="text-rose-600">{errorDetail(release.error)}</p> : null}
         </div>
       </Modal>
     </div>

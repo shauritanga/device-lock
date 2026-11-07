@@ -383,6 +383,30 @@ async function main() {
     await fetch(`${API}/v1/payments`, { method: 'POST', headers: auth, body: JSON.stringify({ loanId: loan.id, amount: 50000 }) });
     await sleep(600);
     check('manual cash payment not routed to payouts', (await db.payout.count({ where: { tenantId } })) === before);
+
+    // ---- 10. paying a loan off in one go releases the phone
+    console.log('\n# Pay-off and release');
+    const dev2 = await db.device.create({ data: { tenantId, customerId: customer.id, imei: `imei2-${suffix}`, status: 'LOCKED' } });
+    const loan2 = await db.loan.create({ data: { tenantId, customerId: customer.id, deviceId: dev2.id, principal: 150000, termMonths: 3, termPeriods: 3 } });
+    for (const seq of [1, 2, 3]) {
+      await db.installment.create({ data: { tenantId, loanId: loan2.id, sequence: seq, dueDate: new Date(Date.now() + seq * 30 * 864e5), amount: 50000 } });
+    }
+    const bal = await (await fetch(`${API}/v1/payments/loans/${loan2.id}/balance`, { headers: auth })).json() as any;
+    check('balance endpoint returns the exact amount owed', bal.outstanding === 150000 && bal.installmentsLeft === 3, bal);
+    const over = await fetch(`${API}/v1/payments`, { method: 'POST', headers: auth, body: JSON.stringify({ loanId: loan2.id, amount: 150001 }) });
+    check('paying more than is owed is rejected (400)', over.status === 400, await over.text());
+    const early = await fetch(`${API}/v1/devices/${dev2.id}/release`, { method: 'POST', headers: auth, body: '{}' });
+    check('release refused while the loan is unpaid (409)', early.status === 409);
+    const full = await fetch(`${API}/v1/payments`, { method: 'POST', headers: auth, body: JSON.stringify({ loanId: loan2.id, amount: 150000 }) });
+    check('exact pay-off accepted', full.status === 201, await full.text());
+    const done = await db.loan.findUnique({ where: { id: loan2.id } });
+    check('loan completes', done?.status === 'COMPLETED', done);
+    const rel = await until(async () => (await db.deviceCommand.findFirst({ where: { deviceId: dev2.id, type: 'RELEASE' } })) || null, 4000);
+    check('a RELEASE command is queued automatically', !!rel, rel);
+    const again = await fetch(`${API}/v1/devices/${dev2.id}/release`, { method: 'POST', headers: auth, body: '{}' });
+    check('manual release while one is waiting is refused (409)', again.status === 409);
+    const after = await fetch(`${API}/v1/payments`, { method: 'POST', headers: auth, body: JSON.stringify({ loanId: loan2.id, amount: 1000 }) });
+    check('paying a settled loan is rejected (400)', after.status === 400);
   } finally {
     if (tenantId) await db.tenant.deleteMany({ where: { name: { contains: suffix } } }).catch(() => null);
     child.kill();

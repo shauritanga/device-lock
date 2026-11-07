@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { usePageTrail } from '@/shared/layout/PageTrail';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { CheckCircle2 } from '@/shared/icons';
+import { Banknote, CheckCircle2 } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Installment, Loan } from '@/shared/api/types';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
@@ -26,10 +26,30 @@ export default function LoanDetail() {
   const [selected, setSelected] = useState<Installment | null>(null);
   const [method, setMethod] = useState('CASH');
   const [amount, setAmount] = useState('');
+  const [payoffOpen, setPayoffOpen] = useState(false);
 
   const { data: loan, isLoading } = useQuery({
     queryKey: ['loan', id],
     queryFn: async () => (await api.get<Loan>(`/loans/${id}`)).data,
+  });
+
+  const balance = useQuery({
+    queryKey: ['loan', id, 'balance'],
+    queryFn: async () =>
+      (await api.get<{ outstanding: number; installmentsLeft: number }>(`/payments/loans/${id}/balance`)).data,
+    enabled: loan?.status === 'ACTIVE',
+  });
+
+  const payoff = useMutation({
+    mutationFn: async () =>
+      (await api.post('/payments', { loanId: id, amount: balance.data!.outstanding, method })).data,
+    onSuccess: () => {
+      setPayoffOpen(false);
+      qc.invalidateQueries({ queryKey: ['loan', id] });
+      qc.invalidateQueries({ queryKey: ['loans'] });
+      qc.invalidateQueries({ queryKey: ['payments'] });
+      qc.invalidateQueries({ queryKey: ['devices'] });
+    },
   });
 
   const pay = useMutation({
@@ -96,7 +116,24 @@ export default function LoanDetail() {
         <CardHeader
           title="Installment schedule"
           subtitle={`${loan.customer?.fullName ?? ''} · ${loan.device?.imei ?? ''}`}
-          action={<StatusPill status={loan.status} />}
+          action={
+            <div className="flex items-center gap-3">
+              {loanActive && (balance.data?.outstanding ?? 0) > 0 ? (
+                <Button
+                  variant="secondary"
+                  className="px-3 py-1.5 text-xs"
+                  onClick={() => {
+                    payoff.reset();
+                    setMethod('CASH');
+                    setPayoffOpen(true);
+                  }}
+                >
+                  <Banknote className="h-3.5 w-3.5" /> Pay off in full
+                </Button>
+              ) : null}
+              <StatusPill status={loan.status} />
+            </div>
+          }
         />
         <div className="p-3">
           <Table columns={['#', 'Due date', 'Amount', 'Paid', 'Outstanding', 'Status', 'Action']}>
@@ -141,6 +178,56 @@ export default function LoanDetail() {
           </Table>
         </div>
       </Card>
+
+      <Modal
+        open={payoffOpen}
+        onClose={() => setPayoffOpen(false)}
+        title="Pay off this loan"
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setPayoffOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => payoff.mutate()} disabled={payoff.isPending || !balance.data}>
+              {payoff.isPending ? 'Recording…' : 'Record full payment'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg bg-canvas px-4 py-3">
+            <p className="text-xs text-muted">Total still owed</p>
+            <p className="mt-0.5 text-xl font-semibold tabular-nums text-ink">
+              {money(balance.data?.outstanding ?? 0, loan.currency)}
+            </p>
+            <p className="mt-0.5 text-xs text-faint">
+              {balance.data?.installmentsLeft ?? 0} installment{balance.data?.installmentsLeft === 1 ? '' : 's'} left
+            </p>
+          </div>
+          <p className="text-sm text-muted">
+            Records one payment that clears every remaining installment. The loan is then
+            completed and the phone is released to the customer on its next check-in.
+          </p>
+          <Field label="Method">
+            <Select value={method} onChange={(e) => setMethod(e.target.value)}>
+              <option value="CASH">CASH — till / hand cash</option>
+              <option value="BANK">BANK — bank transfer / deposit</option>
+              <option value="MPESA">MPESA — verified on phone</option>
+              <option value="TIGOPESA">TIGOPESA — verified on phone</option>
+              <option value="AIRTELMONEY">AIRTELMONEY — verified on phone</option>
+              <option value="CARD">CARD — card payment</option>
+            </Select>
+          </Field>
+          {payoff.isError ? (
+            <p className="text-sm text-rose-600">
+              {axios.isAxiosError(payoff.error)
+                ? String((payoff.error.response?.data as { message?: string })?.message ?? 'Could not record payment.')
+                : 'Could not record payment.'}
+            </p>
+          ) : null}
+        </div>
+      </Modal>
 
       <Modal
         open={selected !== null}

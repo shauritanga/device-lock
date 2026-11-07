@@ -8,6 +8,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { StatusDot } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
+import { apiErrorText } from '@/shared/components/PayoutAccountModal';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { ListToolbar } from '@/shared/components/ListToolbar';
@@ -46,6 +47,13 @@ export default function Payments() {
   const { data: loans } = useQuery({
     queryKey: ['loans'],
     queryFn: async () => (await api.get<Loan[]>('/loans')).data,
+  });
+
+  const { data: balance } = useQuery({
+    queryKey: ['loan', form.loanId, 'balance'],
+    queryFn: async () =>
+      (await api.get<{ outstanding: number; installmentsLeft: number }>(`/payments/loans/${form.loanId}/balance`)).data,
+    enabled: mode !== null && Boolean(form.loanId),
   });
 
   const loanById = useMemo(() => new Map((loans ?? []).map((l) => [l.id, l])), [loans]);
@@ -215,15 +223,28 @@ export default function Payments() {
               ))}
             </Select>
           </Field>
-          <Field label="Amount (TZS)">
+          <Field
+            label="Amount (TZS)"
+            hint={balance ? `Owed on this loan: ${money(balance.outstanding)}` : undefined}
+          >
             <Input
               type="number"
               min={1}
+              max={balance?.outstanding}
               value={form.amount}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
               required
             />
           </Field>
+          {balance && balance.outstanding > 0 ? (
+            <button
+              type="button"
+              className="-mt-2 text-xs font-medium text-brand-600 hover:underline"
+              onClick={() => setForm({ ...form, amount: String(balance.outstanding) })}
+            >
+              Pay in full ({money(balance.outstanding)})
+            </button>
+          ) : null}
           {mode === 'mobile' && (
             <Field label="Customer phone" hint="Format 255712345678">
               <Input
@@ -234,7 +255,7 @@ export default function Payments() {
               />
             </Field>
           )}
-          {failed && <p className="text-sm text-rose-600">Could not process the payment. Check the details and try again.</p>}
+          {failed && <p className="text-sm text-rose-600">{apiErrorText(cash.error ?? mobile.error)}</p>}
         </form>
       </Modal>
     </div>

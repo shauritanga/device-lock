@@ -8,6 +8,8 @@ import {
 import { randomBytes } from 'crypto';
 import {
   CollectionCaseStatus,
+  CommandStatus,
+  CommandType,
   DeviceStatus,
   LoanStatus,
   PaymentStatus,
@@ -242,6 +244,26 @@ export class DevicesService {
     if (!device) throw new NotFoundException('Device not found');
     if (device.status === DeviceStatus.RELEASED) {
       throw new ConflictException('Device is already released');
+    }
+    if (
+      device.status === DeviceStatus.PENDING_ENROLLMENT ||
+      device.status === DeviceStatus.WIPED
+    ) {
+      throw new ConflictException(
+        `Cannot release a device that is ${device.status.toLowerCase().replace('_', ' ')}`,
+      );
+    }
+    const inFlight = await this.prisma.scoped.deviceCommand.count({
+      where: {
+        deviceId: id,
+        type: CommandType.RELEASE,
+        status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+      },
+    });
+    if (inFlight > 0) {
+      throw new ConflictException(
+        "A release is already waiting for the phone's next check-in",
+      );
     }
 
     if (device.loan?.status === LoanStatus.COMPLETED) {

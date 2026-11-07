@@ -33,6 +33,12 @@ export class PaymentsController {
     return this.payments.recordInstallmentPayment(installmentId, dto);
   }
 
+  /** What is still owed on a loan — the exact amount that pays it off. */
+  @Get('loans/:loanId/balance')
+  balance(@Param('loanId') loanId: string) {
+    return this.payments.loanBalance(loanId);
+  }
+
   @Get()
   list() {
     return this.payments.list();
