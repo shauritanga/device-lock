@@ -8,7 +8,6 @@ import { FigureStrip } from '@/shared/components/FigureStrip';
 import { ListToolbar } from '@/shared/components/ListToolbar';
 import { PanelEmpty } from '@/shared/components/Panel';
 import { PayoutsTable } from '@/shared/components/PayoutsTable';
-import { Tabs } from '@/shared/components/Tabs';
 import { Card } from '@/shared/components/ui/Card';
 import { Center, Spinner } from '@/shared/components/ui/misc';
 import { money } from '@/shared/lib/format';
@@ -28,7 +27,6 @@ export default function Payouts() {
   });
 
   const all = payouts.data ?? [];
-  const count = (st: string) => all.filter((p) => p.status === st).length;
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -78,18 +76,6 @@ export default function Payouts() {
         ]}
       />
 
-      <Tabs
-        label="Payout status"
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { id: 'ALL', label: 'All', count: all.length },
-          { id: 'COMPLETED', label: 'Completed', count: count('COMPLETED') },
-          { id: 'PENDING', label: 'Pending', count: count('PENDING') },
-          { id: 'FAILED', label: 'Failed', count: count('FAILED') },
-        ]}
-      />
-
       <Card>
         <ListToolbar
           title="Payout history"
@@ -98,6 +84,16 @@ export default function Payouts() {
           query={query}
           onQuery={setQuery}
           placeholder="Search recipient or number"
+          filter={{
+            value: tab,
+            onChange: (v) => setTab(v as StatusTab),
+            options: [
+              { value: 'ALL', label: 'All statuses' },
+              { value: 'COMPLETED', label: 'Completed' },
+              { value: 'PENDING', label: 'Pending' },
+              { value: 'FAILED', label: 'Failed' },
+            ],
+          }}
         />
         {all.length > 0 && rows.length === 0 ? (
           <PanelEmpty>No payouts match.</PanelEmpty>
