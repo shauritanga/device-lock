@@ -32,6 +32,7 @@ enum CollectionsPackage {
   STARTER // < 30 devices, per-device pricing
   GROWTH // 30–44 devices, flat monthly
   BUSINESS // 45–55 devices, flat monthly
+  NEGOTIATION // for lenders with no phones (e.g. microcredit); price agreed per client
 }
 
 enum CollectionsSubscriptionStatus {
@@ -210,26 +211,29 @@ enum CommandStatus {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id                 String    @id @default(uuid())
-  name               String
-  country            String    @default("TZ")
-  timezone           String    @default("Africa/Dar_es_Salaam")
-  isActive           Boolean   @default(true)
+  id                   String    @id @default(uuid())
+  name                 String
+  country              String    @default("TZ")
+  timezone             String    @default("Africa/Dar_es_Salaam")
+  isActive             Boolean   @default(true)
   // Default lock policy applied to new devices (overridable per device).
-  graceDays          Int       @default(3)
-  maxOfflineDays     Int       @default(4)
-  lockOnSimChange    Boolean   @default(true)
-  billingPlan        String    @default("STARTER")
-  subscriptionStatus String    @default("ACTIVE")
+  graceDays            Int       @default(3)
+  maxOfflineDays       Int       @default(4)
+  lockOnSimChange      Boolean   @default(true)
+  billingPlan          String    @default("STARTER")
+  subscriptionStatus   String    @default("ACTIVE")
   // Where collected instalments are disbursed (mobile money, 255XXXXXXXXX).
-  payoutPhone        String?
+  payoutPhone          String?
   // Registered name on that mobile-money account.
-  payoutName         String?
+  payoutName           String?
   // After the payout number changes, payouts pause until this moment so a
   // hijacked login can't instantly redirect money.
-  payoutHoldUntil    DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  payoutHoldUntil      DateTime?
+  // When true the company is read-only until its package's first invoice is
+  // paid (and again if a renewal goes unpaid). Existing companies are exempt.
+  subscriptionRequired Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   users                   User[]
   customers               Customer[]
@@ -426,25 +430,27 @@ model CollectorDailyStat {
 
 // Seller subscribes so platform collectors can work their overdue book.
 model CollectionsSubscription {
-  id            String                        @id @default(uuid())
-  tenantId      String                        @unique
-  tenant        Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  packageCode   CollectionsPackage
-  status        CollectionsSubscriptionStatus @default(PENDING)
+  id             String                        @id @default(uuid())
+  tenantId       String                        @unique
+  tenant         Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  packageCode    CollectionsPackage
+  status         CollectionsSubscriptionStatus @default(PENDING)
   // Snapshot / limits at activation
-  deviceBandMin Int
-  deviceBandMax Int
-  priceModel    String // PER_DEVICE | FLAT
-  unitPrice     Decimal?                      @db.Decimal(14, 2) // per device (Starter)
-  flatPrice     Decimal?                      @db.Decimal(14, 2) // Growth / Business
-  currency      String                        @default("TZS")
-  activatedAt   DateTime?
-  activatedById String?
-  activatedBy   User?                         @relation("SubscriptionActivatedBy", fields: [activatedById], references: [id], onDelete: SetNull)
-  endsAt        DateTime?
-  notes         String?
-  createdAt     DateTime                      @default(now())
-  updatedAt     DateTime                      @updatedAt
+  deviceBandMin  Int
+  deviceBandMax  Int
+  priceModel     String // PER_DEVICE | FLAT | CUSTOM (negotiation: agreed fee in flatPrice)
+  // Phones the client has paid for and may register (null = legacy, no cap).
+  phoneAllowance Int?
+  unitPrice      Decimal?                      @db.Decimal(14, 2) // per device (Starter)
+  flatPrice      Decimal?                      @db.Decimal(14, 2) // Growth / Business
+  currency       String                        @default("TZS")
+  activatedAt    DateTime?
+  activatedById  String?
+  activatedBy    User?                         @relation("SubscriptionActivatedBy", fields: [activatedById], references: [id], onDelete: SetNull)
+  endsAt         DateTime?
+  notes          String?
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
 
   invoices CollectionsInvoice[]
 

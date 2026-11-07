@@ -63,6 +63,7 @@ export function suggestPackage(devicesPerMonth?: string | null): string | null {
 }
 
 function toCollectionsPackage(code?: string | null): CollectionsPackage {
+  if (code === 'NEGOTIATION') return CollectionsPackage.NEGOTIATION;
   if (code === 'GROWTH') return CollectionsPackage.GROWTH;
   if (code === 'BUSINESS' || code === 'ENTERPRISE') {
     return CollectionsPackage.BUSINESS;

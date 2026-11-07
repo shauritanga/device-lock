@@ -145,9 +145,9 @@ async function main() {
     }
 
     // ---- fixtures
-    const tenant = await db.tenant.create({ data: { name: `T-${suffix}`, payoutPhone: '0712345678', payoutName: 'Shop Owner' } });
+    const tenant = await db.tenant.create({ data: { name: `T-${suffix}`, subscriptionRequired: false, payoutPhone: '0712345678', payoutName: 'Shop Owner' } });
     tenantId = tenant.id;
-    const noAcct = await db.tenant.create({ data: { name: `NA-${suffix}` } });
+    const noAcct = await db.tenant.create({ data: { name: `NA-${suffix}`, subscriptionRequired: false } });
     const customer = await db.customer.create({ data: { tenantId, fullName: 'Asha Juma Mwinyi', phone: '255700000001' } });
     const device = await db.device.create({ data: { tenantId, customerId: customer.id, imei: `imei-${suffix}`, status: 'ACTIVE' } });
     const loan = await db.loan.create({ data: { tenantId, customerId: customer.id, deviceId: device.id, principal: 200000, termMonths: 2, termPeriods: 2 } });

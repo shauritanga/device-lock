@@ -28,6 +28,10 @@ export const envSchema = z.object({
   // whsec_... signing secret (Snippe dashboard > Settings > Webhook Secret).
   SNIPPE_WEBHOOK_SECRET: z.string().optional(),
 
+  // Days a package invoice may stay unpaid after its due date before the
+  // company goes read-only again.
+  SUBSCRIPTION_GRACE_DAYS: z.coerce.number().min(0).default(7),
+
   // Hours payouts pause after a seller changes their payout number (0 = off).
   PAYOUT_ACCOUNT_HOLD_HOURS: z.coerce.number().min(0).default(24),
 

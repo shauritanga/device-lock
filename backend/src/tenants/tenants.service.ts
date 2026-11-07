@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { SubscriptionAccessService } from '../subscription/subscription-access.service';
 import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
 
 /**
@@ -8,7 +9,10 @@ import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
  */
 @Injectable()
 export class TenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: SubscriptionAccessService,
+  ) {}
 
   create(dto: CreateTenantDto) {
     return this.prisma.tenant.create({ data: dto });
@@ -26,6 +30,8 @@ export class TenantsService {
 
   async update(id: string, dto: UpdateTenantDto) {
     await this.findOne(id);
-    return this.prisma.tenant.update({ where: { id }, data: dto });
+    const updated = await this.prisma.tenant.update({ where: { id }, data: dto });
+    this.access.invalidate(id);
+    return updated;
   }
 }

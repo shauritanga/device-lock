@@ -59,6 +59,11 @@ export class UpdateTenantDto {
   @IsBoolean()
   isActive?: boolean;
 
+  /** Require a paid package before this company can work. */
+  @IsOptional()
+  @IsBoolean()
+  subscriptionRequired?: boolean;
+
   @IsOptional()
   @IsBoolean()
   lockOnSimChange?: boolean;

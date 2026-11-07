@@ -3,6 +3,7 @@ import {
   IsDateString,
   IsEmail,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -34,6 +35,18 @@ export class ActivateSubscriptionDto {
 
   @IsEnum(CollectionsPackage)
   packageCode!: CollectionsPackage;
+
+  /** Starter only: how many phones the client is paying for up front (1-29). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  phoneAllowance?: number;
+
+  /** Negotiation only: the monthly fee agreed with the client (TZS). */
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  agreedMonthlyPrice?: number;
 
   @IsOptional()
   @IsString()

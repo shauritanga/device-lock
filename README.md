@@ -161,6 +161,23 @@ re-read from Snippe's API before anything is applied.
 Verify the flow against a fake gateway (no real money) with a throwaway database:
 `TEST_DATABASE_URL=…/linda_test npm run test:snippe` (after `npm run build`).
 
+## Packages, payment gate and the Negotiation package
+
+Every company has a collections **package**: Starter (prepaid phones at 18,000 each), Growth,
+Business (flat monthly), or **Negotiation** (for lenders with no phones, e.g. microcredit; the
+monthly fee is agreed per client and entered at activation; no phones or loans allowed).
+
+A company created from now on is **read-only until its first package invoice is paid** (an admin
+activates the package, the first invoice is created automatically, and "Mark paid" unlocks it). A
+later invoice unpaid more than `SUBSCRIPTION_GRACE_DAYS` (default 7) past its due date locks it
+again. Read-only means data stays visible but writes (registering phones, sales, payments, staff)
+return 403 `SUBSCRIPTION_REQUIRED`; sign-in, agreement signing, enrolled phones, locking and
+payment webhooks are never blocked. Starter clients can register only as many phones as they paid
+for. Companies that existed before this rule are exempt; admins can switch it on per company
+(`subscriptionRequired`). `GET /v1/subscription/access` tells the console why a company is locked.
+
+Check it against a throwaway database: `TEST_DATABASE_URL=…/linda_test npm run test:gate`.
+
 ## Dashboard Setup
 
 `dashboard/` builds **two consoles** from one codebase — see `dashboard/README.md`

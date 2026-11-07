@@ -20,6 +20,8 @@ import { ContractsModule } from './contracts/contracts.module';
 import { CommandsModule } from './commands/commands.module';
 import { AgentModule } from './agent/agent.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SubscriptionModule } from './subscription/subscription.module';
+import { SubscriptionGuard } from './subscription/subscription.guard';
 import { SnippeModule } from './integrations/snippe/snippe.module';
 import { PaymentsModule } from './payments/payments.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -55,6 +57,7 @@ import { PartnersModule } from './partners/partners.module';
     AgentModule,
     NotificationsModule,
     SnippeModule,
+    SubscriptionModule,
     PaymentsModule,
     WebhooksModule,
     JobsModule,
@@ -72,6 +75,8 @@ import { PartnersModule } from './partners/partners.module';
     // Auth runs first (sets request.user + CLS tenant), then role checks.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Then: read-only until the package is paid (seller staff, writes only).
+    { provide: APP_GUARD, useClass: SubscriptionGuard },
   ],
 })
 export class AppModule {}

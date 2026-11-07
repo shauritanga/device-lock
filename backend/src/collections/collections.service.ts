@@ -29,13 +29,15 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { SubscriptionAccessService } from '../subscription/subscription-access.service';
 import { AuthUser } from '../auth/auth.types';
 import { ReferCaseDto } from './dto/collections.dto';
 import { CallProviderService } from '../call-centre/call-provider.service';
 import {
   COLLECTIONS_PACKAGES,
-  isPackageValidForCount,
+  allowanceFor,
   monthlyPrice,
+  subscriptionMonthly,
 } from './packages';
 import {
   ActivateSubscriptionDto,
@@ -94,6 +96,7 @@ export class CollectionsService {
     private readonly prisma: PrismaService,
     private readonly callProvider: CallProviderService,
     private readonly email: EmailService,
+    private readonly access: SubscriptionAccessService,
     config: ConfigService<Env, true>,
   ) {
     this.publicBaseUrl = (
@@ -133,8 +136,10 @@ export class CollectionsService {
       ...p,
       exampleMonthly:
         p.priceModel === 'PER_DEVICE'
-          ? `${p.unitPrice} × devices`
-          : p.flatPrice,
+          ? `${p.unitPrice} × phones`
+          : p.priceModel === 'CUSTOM'
+            ? 'Agreed per client'
+            : p.flatPrice,
     }));
   }
 
@@ -160,9 +165,7 @@ export class CollectionsService {
       subscription: sub,
       activeDevices,
       suggestedPackage: packageCodeForCount(activeDevices),
-      estimatedMonthly: sub
-        ? monthlyPrice(sub.packageCode, activeDevices)
-        : null,
+      estimatedMonthly: sub ? subscriptionMonthly(sub, activeDevices) : null,
     };
   }
 
@@ -267,7 +270,7 @@ export class CollectionsService {
       rows.map(async (s) => ({
         ...s,
         activeDevices: await this.countActiveDevices(s.tenantId),
-        estimatedMonthly: monthlyPrice(s.packageCode, await this.countActiveDevices(s.tenantId)),
+        estimatedMonthly: subscriptionMonthly(s, await this.countActiveDevices(s.tenantId)),
       })),
     );
     return withCounts;
@@ -283,19 +286,48 @@ export class CollectionsService {
     if (!tenant.isActive) throw new BadRequestException('Tenant is inactive');
 
     const activeDevices = await this.countActiveDevices(dto.tenantId);
-    if (activeDevices < 1) {
-      throw new BadRequestException(
-        'Tenant has no active/locked devices to cover under a collections package',
-      );
-    }
-    if (!isPackageValidForCount(dto.packageCode, activeDevices)) {
-      const p = COLLECTIONS_PACKAGES[dto.packageCode];
-      throw new BadRequestException(
-        `Package ${dto.packageCode} requires ${p.deviceBandMin}–${p.deviceBandMax} active devices; tenant has ${activeDevices}`,
-      );
-    }
-
     const def = COLLECTIONS_PACKAGES[dto.packageCode];
+
+    // What the client is paying for, and the phone limit that goes with it.
+    let phoneAllowance: number;
+    let unitPrice: number | null = def.unitPrice;
+    let flatPrice: number | null = def.flatPrice;
+    if (dto.packageCode === CollectionsPackage.NEGOTIATION) {
+      if (activeDevices > 0) {
+        throw new BadRequestException(
+          'The Negotiation package is for lenders that do not sell phones, but this company already has phones registered',
+        );
+      }
+      if (!dto.agreedMonthlyPrice) {
+        throw new BadRequestException('Enter the monthly fee agreed with this client');
+      }
+      phoneAllowance = 0;
+      flatPrice = dto.agreedMonthlyPrice;
+    } else if (def.priceModel === 'PER_DEVICE') {
+      // Starter: the client prepays for a set number of phones.
+      const wanted = dto.phoneAllowance ?? (activeDevices >= 1 ? activeDevices : 0);
+      if (wanted < def.deviceBandMin || wanted > def.deviceBandMax) {
+        throw new BadRequestException(
+          `Choose how many phones this client is paying for (${def.deviceBandMin}–${def.deviceBandMax})`,
+        );
+      }
+      if (wanted < activeDevices) {
+        throw new BadRequestException(
+          `The client already has ${activeDevices} phones; choose at least that many`,
+        );
+      }
+      phoneAllowance = allowanceFor(dto.packageCode, wanted);
+    } else {
+      // Flat bands: the band's top end is the phone limit.
+      if (activeDevices > def.deviceBandMax) {
+        throw new BadRequestException(
+          `Package ${dto.packageCode} covers up to ${def.deviceBandMax} phones; this client has ${activeDevices}`,
+        );
+      }
+      phoneAllowance = allowanceFor(dto.packageCode);
+    }
+    const priceModel = def.priceModel;
+
     const now = new Date();
 
     const sub = await this.prisma.collectionsSubscription.upsert({
@@ -306,9 +338,10 @@ export class CollectionsService {
         status: CollectionsSubscriptionStatus.ACTIVE,
         deviceBandMin: def.deviceBandMin,
         deviceBandMax: def.deviceBandMax,
-        priceModel: def.priceModel,
-        unitPrice: def.unitPrice,
-        flatPrice: def.flatPrice,
+        priceModel,
+        unitPrice,
+        flatPrice,
+        phoneAllowance,
         currency: def.currency,
         activatedAt: now,
         activatedById: actor.userId,
@@ -319,9 +352,10 @@ export class CollectionsService {
         status: CollectionsSubscriptionStatus.ACTIVE,
         deviceBandMin: def.deviceBandMin,
         deviceBandMax: def.deviceBandMax,
-        priceModel: def.priceModel,
-        unitPrice: def.unitPrice,
-        flatPrice: def.flatPrice,
+        priceModel,
+        unitPrice,
+        flatPrice,
+        phoneAllowance,
         currency: def.currency,
         activatedAt: now,
         activatedById: actor.userId,
@@ -339,11 +373,23 @@ export class CollectionsService {
       data: { billingPlan: dto.packageCode, subscriptionStatus: 'ACTIVE' },
     });
 
+    // Companies that must pay before they can work get their first invoice
+    // straight away, so they (and you) can see exactly what is owed.
+    if (tenant.subscriptionRequired) {
+      const hasInvoice = await this.prisma.collectionsInvoice.count({
+        where: { subscriptionId: sub.id, status: { not: CollectionsInvoiceStatus.VOID } },
+      });
+      if (!hasInvoice) {
+        await this.generateCollectionsInvoice({ tenantId: dto.tenantId }, actor);
+      }
+    }
+
+    this.access.invalidate(dto.tenantId);
     const synced = await this.syncOverdueCasesForTenant(dto.tenantId);
     return {
       subscription: sub,
       activeDevices,
-      estimatedMonthly: monthlyPrice(dto.packageCode, activeDevices),
+      estimatedMonthly: subscriptionMonthly(sub, activeDevices),
       casesSynced: synced,
     };
   }
@@ -354,10 +400,12 @@ export class CollectionsService {
       where: { tenantId },
     });
     if (!sub) throw new NotFoundException('Subscription not found');
-    return this.prisma.collectionsSubscription.update({
+    const updated = await this.prisma.collectionsSubscription.update({
       where: { tenantId },
       data: { status: CollectionsSubscriptionStatus.SUSPENDED },
     });
+    this.access.invalidate(tenantId);
+    return updated;
   }
 
   /**
@@ -2120,22 +2168,26 @@ export class CollectionsService {
     );
     const activeDevices = await this.countActiveDevices(dto.tenantId);
     const def = COLLECTIONS_PACKAGES[sub.packageCode];
-    const total = monthlyPrice(sub.packageCode, activeDevices);
+    const total = subscriptionMonthly(sub, activeDevices);
+    const phones = sub.phoneAllowance ?? activeDevices;
     const lineItems =
-      def.priceModel === 'PER_DEVICE'
+      sub.priceModel === 'PER_DEVICE'
         ? [
             {
-              label: `${def.label} managed collections (${activeDevices} devices × ${def.unitPrice})`,
-              quantity: activeDevices,
-              unitPrice: def.unitPrice,
+              label: `${def.label} managed collections (${phones} phones × ${Number(sub.unitPrice)})`,
+              quantity: phones,
+              unitPrice: Number(sub.unitPrice),
               amount: total,
             },
           ]
         : [
             {
-              label: `${def.label} managed collections (flat monthly)`,
+              label:
+                sub.priceModel === 'CUSTOM'
+                  ? `${def.label} package (agreed monthly fee)`
+                  : `${def.label} managed collections (flat monthly)`,
               quantity: 1,
-              unitPrice: def.flatPrice,
+              unitPrice: Number(sub.flatPrice),
               amount: total,
             },
           ];
@@ -2157,10 +2209,10 @@ export class CollectionsService {
         periodEnd,
         packageCode: sub.packageCode,
         activeDevices,
-        priceModel: def.priceModel,
-        unitPrice: def.unitPrice,
-        flatPrice: def.flatPrice,
-        currency: def.currency,
+        priceModel: sub.priceModel,
+        unitPrice: sub.unitPrice,
+        flatPrice: sub.flatPrice,
+        currency: sub.currency,
         subtotal: total,
         total,
         status: CollectionsInvoiceStatus.OPEN,
@@ -2170,9 +2222,9 @@ export class CollectionsService {
       update: {
         activeDevices,
         packageCode: sub.packageCode,
-        priceModel: def.priceModel,
-        unitPrice: def.unitPrice,
-        flatPrice: def.flatPrice,
+        priceModel: sub.priceModel,
+        unitPrice: sub.unitPrice,
+        flatPrice: sub.flatPrice,
         subtotal: total,
         total,
         lineItems: lineItems as Prisma.InputJsonValue,
@@ -2184,6 +2236,7 @@ export class CollectionsService {
       },
     });
 
+    this.access.invalidate(sub.tenantId);
     return invoice;
   }
 
@@ -2247,6 +2300,7 @@ export class CollectionsService {
       },
       data: { status: CollectionsSubscriptionStatus.ACTIVE },
     });
+    this.access.invalidate(inv.tenantId);
 
     return updated;
   }
@@ -2260,10 +2314,12 @@ export class CollectionsService {
     if (inv.status === CollectionsInvoiceStatus.PAID) {
       throw new BadRequestException('Cannot void a paid invoice');
     }
-    return this.prisma.collectionsInvoice.update({
+    const voided = await this.prisma.collectionsInvoice.update({
       where: { id },
       data: { status: CollectionsInvoiceStatus.VOID },
     });
+    this.access.invalidate(inv.tenantId);
+    return voided;
   }
 
   /**
@@ -2323,6 +2379,7 @@ export class CollectionsService {
       ...sub,
       openBalance,
       invoices,
+      access: await this.access.check(tid),
     };
   }
 

@@ -14,6 +14,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { SubscriptionAccessService } from '../subscription/subscription-access.service';
 import { AgreementsService } from '../agreements/agreements.service';
 import { ProvisioningService } from '../provisioning/provisioning.service';
 import {
@@ -31,12 +32,14 @@ export class DevicesService {
     private readonly prisma: PrismaService,
     private readonly provisioning: ProvisioningService,
     private readonly agreements: AgreementsService,
+    private readonly subscription: SubscriptionAccessService,
   ) {}
 
   /** Register a device and issue a one-time enrollment token (for the QR). */
   async register(dto: CreateDeviceDto) {
     const tenantId = this.prisma.currentTenantId;
     await this.agreements.assertCanEnroll(tenantId);
+    await this.subscription.assertCanRegisterPhone(tenantId);
     return this.prisma.scoped.$transaction(async (tx) => {
       const device = await tx.device.create({
         data: {
