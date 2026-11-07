@@ -3,6 +3,7 @@ import { Card, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { Pill, StatusPill } from './ui/Pill';
 import { Center, EmptyState, Spinner } from './ui/misc';
+import { Pagination, usePagination } from './ui/Table';
 import { money, shortDate } from '../lib/format';
 
 export type CollectionCase = {
@@ -53,6 +54,7 @@ export function CaseList({
   onAction?: (id: string) => void;
   caseHref?: (id: string) => string;
 }) {
+  const pager = usePagination(rows?.length ?? 0);
   return (
     <Card>
       <CardHeader title={title} subtitle={subtitle} />
@@ -80,7 +82,7 @@ export function CaseList({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {pager.slice(rows).map((r) => (
                 <tr key={r.id} className="border-t border-line hover:bg-canvas/40">
                   {showCompany ? (
                     <td className="px-3 py-3 font-medium">{r.companyName ?? '—'}</td>
@@ -137,6 +139,7 @@ export function CaseList({
               ))}
             </tbody>
           </table>
+          <Pagination {...pager} />
         </div>
       )}
     </Card>

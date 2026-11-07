@@ -12,6 +12,7 @@ import {
   Alert02Icon,
   AlertCircleIcon,
   ArrowLeft02Icon,
+  ArrowLeft01Icon,
   ArrowRight01Icon,
   ArrowRight02Icon,
   BookOpen01Icon,
@@ -113,6 +114,7 @@ export const Camera = make(Camera01Icon);
 export const Check = make(Tick02Icon);
 export const CheckCircle2 = make(CheckmarkCircle02Icon);
 export const ChevronRight = make(ArrowRight01Icon);
+export const ChevronLeft = make(ArrowLeft01Icon);
 export const Clock = make(Clock01Icon);
 export const Code2 = make(SourceCodeIcon);
 export const Copy = make(Copy01Icon);
