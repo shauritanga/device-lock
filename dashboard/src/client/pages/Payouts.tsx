@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Clock, Hourglass, Pencil, ShieldAlert, Smartphone } from '@/shared/icons';
+import { Pencil, ShieldAlert, Smartphone } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Payout, PayoutAccountChange, PayoutSummary } from '@/shared/api/types';
 import { useAuth } from '@/shared/auth/AuthContext';
@@ -10,7 +10,10 @@ import {
   type AccountForm,
 } from '@/shared/components/PayoutAccountModal';
 import { Button } from '@/shared/components/ui/Button';
-import { StatCard } from '@/shared/components/StatCard';
+import { FigureStrip } from '@/shared/components/FigureStrip';
+import { ListToolbar } from '@/shared/components/ListToolbar';
+import { PanelEmpty } from '@/shared/components/Panel';
+import { Tabs } from '@/shared/components/Tabs';
 import { PayoutsTable } from '@/shared/components/PayoutsTable';
 import { Card } from '@/shared/components/ui/Card';
 import { Center, Spinner } from '@/shared/components/ui/misc';
@@ -21,6 +24,9 @@ export default function Payouts() {
   const isOwner = user?.role === 'OWNER';
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [tab, setTab] = useState<'payouts' | 'changes'>('payouts');
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('ALL');
   const summary = useQuery({
     queryKey: ['payouts', 'summary'],
     queryFn: async () => (await api.get<PayoutSummary>('/payouts/summary')).data,
@@ -45,6 +51,15 @@ export default function Payouts() {
       setEditOpen(false);
     },
   });
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (payouts.data ?? []).filter((p) => {
+      if (status !== 'ALL' && p.status !== status) return false;
+      if (!q) return true;
+      return [p.recipientName, p.recipientPhone].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [payouts.data, query, status]);
 
   if (summary.isLoading || payouts.isLoading) {
     return (
@@ -114,40 +129,62 @@ export default function Payouts() {
         </p>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          icon={Hourglass}
-          label="Awaiting payout"
-          value={money(s?.owed ?? 0)}
-          hint={s?.owedCount ? `${s.owedCount} payment${s.owedCount === 1 ? '' : 's'}` : undefined}
-          tone="amber"
-        />
-        <StatCard
-          icon={Clock}
-          label="On its way"
-          value={money(s?.inFlight ?? 0)}
-          tone="brand"
-        />
-        <StatCard
-          icon={Banknote}
-          label="Paid out"
-          value={money(s?.paidOut ?? 0)}
-          tone="green"
-        />
-      </div>
-
-      <Card className="p-3">
-        <PayoutsTable payouts={payouts.data ?? []} />
-      </Card>
+      <FigureStrip
+        items={[
+          {
+            label: 'Awaiting payout',
+            value: money(s?.owed ?? 0),
+            hint: s?.owedCount ? `${s.owedCount} payment${s.owedCount === 1 ? '' : 's'}` : undefined,
+          },
+          { label: 'On its way', value: money(s?.inFlight ?? 0) },
+          { label: 'Paid out', value: money(s?.paidOut ?? 0) },
+        ]}
+      />
 
       {isOwner ? (
-        <div className="space-y-2">
-          <h2 className="px-1 text-sm font-semibold text-ink">Account changes</h2>
-          <Card className="p-3">
-            <PayoutAccountHistory changes={history.data ?? []} />
-          </Card>
-        </div>
+        <Tabs
+          label="Payout sections"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { id: 'payouts', label: 'Payouts', count: payouts.data?.length },
+            { id: 'changes', label: 'Account changes', count: history.data?.length },
+          ]}
+        />
       ) : null}
+
+      {tab === 'payouts' || !isOwner ? (
+        <Card>
+          <ListToolbar
+            title="Payout history"
+            noun="payout"
+            count={rows.length}
+            query={query}
+            onQuery={setQuery}
+            placeholder="Search recipient or number"
+            filter={{
+              value: status,
+              onChange: setStatus,
+              options: [
+                { value: 'ALL', label: 'All statuses' },
+                { value: 'COMPLETED', label: 'Completed' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'FAILED', label: 'Failed' },
+                { value: 'REVERSED', label: 'Reversed' },
+              ],
+            }}
+          />
+          {payouts.data && payouts.data.length > 0 && rows.length === 0 ? (
+            <PanelEmpty>No payouts match your search.</PanelEmpty>
+          ) : (
+            <PayoutsTable payouts={rows} />
+          )}
+        </Card>
+      ) : (
+        <Card>
+          <PayoutAccountHistory changes={history.data ?? []} />
+        </Card>
+      )}
 
       <PayoutAccountModal
         open={editOpen}

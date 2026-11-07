@@ -25,7 +25,10 @@ import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Field, Input } from '@/shared/components/ui/Field';
 import { FieldGrid, FormSection } from '@/shared/components/ui/FormSection';
 import { Modal } from '@/shared/components/ui/Modal';
-import { StatusPill } from '@/shared/components/ui/Pill';
+import { StatusDot } from '@/shared/components/ui/Pill';
+import { FigureStrip } from '@/shared/components/FigureStrip';
+import { ListToolbar } from '@/shared/components/ListToolbar';
+import { PanelEmpty } from '@/shared/components/Panel';
 import { Row, Table } from '@/shared/components/ui/Table';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { cn } from '@/shared/lib/cn';
@@ -140,11 +143,34 @@ export default function Sales() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [showErrors, setShowErrors] = useState(false);
+  const [saleQuery, setSaleQuery] = useState('');
+  const [saleStatus, setSaleStatus] = useState('ALL');
 
   const { data: sales, isLoading } = useQuery({
     queryKey: ['loans'],
     queryFn: async () => (await api.get<Loan[]>('/loans')).data,
   });
+
+  const saleStats = useMemo(() => {
+    const all = sales ?? [];
+    return {
+      total: all.length,
+      active: all.filter((l) => l.status === 'ACTIVE').length,
+      financed: all.reduce((t, l) => t + Number(l.principal), 0),
+      noContract: all.filter((l) => !l.contract).length,
+    };
+  }, [sales]);
+
+  const saleRows = useMemo(() => {
+    const q = saleQuery.trim().toLowerCase();
+    return (sales ?? []).filter((l) => {
+      if (saleStatus !== 'ALL' && l.status !== saleStatus) return false;
+      if (!q) return true;
+      return [l.customer?.fullName, l.device?.imei, l.device?.model]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [sales, saleQuery, saleStatus]);
 
   const { data: knownCustomers } = useQuery({
     queryKey: ['customers'],
@@ -534,59 +560,60 @@ export default function Sales() {
         </Card>
       ) : null}
 
-      <Card className="p-3">
+      <FigureStrip
+        items={[
+          { label: 'Total sales', value: saleStats.total },
+          { label: 'Active loans', value: saleStats.active },
+          { label: 'Total financed', value: money(saleStats.financed) },
+          { label: 'Without contract', value: saleStats.noContract },
+        ]}
+      />
+
+      <Card>
+        <ListToolbar
+          title="All sales"
+          noun="sale"
+          count={saleRows.length}
+          query={saleQuery}
+          onQuery={setSaleQuery}
+          placeholder="Search customer, IMEI, model"
+          filter={{
+            value: saleStatus,
+            onChange: setSaleStatus,
+            options: [
+              { value: 'ALL', label: 'All statuses' },
+              { value: 'ACTIVE', label: 'Active' },
+              { value: 'COMPLETED', label: 'Completed' },
+              { value: 'DEFAULTED', label: 'Defaulted' },
+              { value: 'CANCELLED', label: 'Cancelled' },
+            ],
+          }}
+        />
         {!sales || sales.length === 0 ? (
-          <EmptyState
-            title="No sales yet"
-            hint="A credit sale creates the customer, device, loan, and contract together."
-          />
+          <div className="p-5">
+            <EmptyState
+              title="No sales yet"
+              hint="A credit sale creates the customer, device, loan, and contract together."
+            />
+          </div>
+        ) : saleRows.length === 0 ? (
+          <PanelEmpty>No sales match your search.</PanelEmpty>
         ) : (
-          <Table
-            columns={[
-              'Customer',
-              'Device',
-              'Amount',
-              'Term',
-              'Contract',
-              'Status',
-              'Started',
-            ]}
-          >
-            {sales.map((sale) => (
+          <Table columns={['Customer', 'Device', 'Amount', 'Term', 'Contract', 'Status', 'Started']}>
+            {saleRows.map((sale) => (
               <Row key={sale.id} onClick={() => navigate(`/loans/${sale.id}`)}>
-                <td className="px-4 py-3 font-medium">
-                  {sale.customer?.fullName ?? '—'}
-                </td>
+                <td className="px-4 py-3 font-medium text-ink">{sale.customer?.fullName ?? '—'}</td>
                 <td className="px-4 py-3 text-muted">
-                  {sale.device?.id ? (
-                    <button
-                      type="button"
-                      className="text-left hover:text-brand-700 hover:underline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/devices/${sale.device!.id}`);
-                      }}
-                    >
-                      {sale.device?.imei ?? '—'}
-                      {sale.device?.model ? ` · ${sale.device.model}` : ''}
-                    </button>
-                  ) : (
-                    '—'
-                  )}
+                  {sale.device?.imei ?? '—'}
+                  {sale.device?.model ? ` · ${sale.device.model}` : ''}
                 </td>
-                <td className="px-4 py-3">
-                  {money(sale.principal, sale.currency)}
-                </td>
+                <td className="px-4 py-3 tabular-nums">{money(sale.principal, sale.currency)}</td>
                 <td className="px-4 py-3 text-muted">{termLabel(sale)}</td>
                 <td className="px-4 py-3">
-                  <StatusPill status={sale.contract ? 'SIGNED' : 'MISSING'} />
+                  <StatusDot status={sale.contract ? 'SIGNED' : 'MISSING'} />
                 </td>
-                <td className="px-4 py-3">
-                  <StatusPill status={sale.status} />
-                </td>
-                <td className="px-4 py-3 text-right text-muted">
-                  {shortDate(sale.startDate)}
-                </td>
+                <td className="px-4 py-3"><StatusDot status={sale.status} /></td>
+                <td className="px-4 py-3 text-right text-muted">{shortDate(sale.startDate)}</td>
               </Row>
             ))}
           </Table>

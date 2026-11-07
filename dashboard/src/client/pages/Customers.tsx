@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from '@/shared/icons';
@@ -7,6 +8,9 @@ import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { Avatar, Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
+import { FigureStrip } from '@/shared/components/FigureStrip';
+import { ListToolbar } from '@/shared/components/ListToolbar';
+import { PanelEmpty } from '@/shared/components/Panel';
 import { shortDate } from '@/shared/lib/format';
 
 const ID_TYPES = [
@@ -22,11 +26,34 @@ function idTypeLabel(type?: string | null) {
 
 export default function Customers() {
   const navigate = useNavigate();
+  const [query, setQuery] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => (await api.get<Customer[]>('/customers')).data,
   });
+
+  const stats = useMemo(() => {
+    const all = data ?? [];
+    const now = new Date();
+    return {
+      total: all.length,
+      month: all.filter((c) => {
+        const d = new Date(c.createdAt);
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      }).length,
+      withGuardians: all.filter((c) => (c._count?.guardians ?? 0) > 0).length,
+      without: all.filter((c) => (c._count?.guardians ?? 0) === 0).length,
+    };
+  }, [data]);
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return data ?? [];
+    return (data ?? []).filter((c) =>
+      [c.fullName, c.phone, c.nationalId].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
+    );
+  }, [data, query]);
 
   if (isLoading) {
     return (
@@ -44,15 +71,36 @@ export default function Customers() {
         </Button>
       </div>
 
-      <Card className="p-3">
+      <FigureStrip
+        items={[
+          { label: 'Total customers', value: stats.total },
+          { label: 'Joined this month', value: stats.month },
+          { label: 'With guardians', value: stats.withGuardians },
+          { label: 'No guardians yet', value: stats.without },
+        ]}
+      />
+
+      <Card>
+        <ListToolbar
+          title="All customers"
+          noun="customer"
+          count={rows.length}
+          query={query}
+          onQuery={setQuery}
+          placeholder="Search name, phone, ID number"
+        />
         {!data || data.length === 0 ? (
-          <EmptyState
-            title="No customers yet"
-            hint="Customers are added through a credit sale, with their guardians."
-          />
+          <div className="p-5">
+            <EmptyState
+              title="No customers yet"
+              hint="Customers are added through a credit sale, with their guardians."
+            />
+          </div>
+        ) : rows.length === 0 ? (
+          <PanelEmpty>No customers match your search.</PanelEmpty>
         ) : (
           <Table columns={['Customer', 'Phone', 'Person ID', 'Guardians', 'Joined']}>
-            {data.map((c) => (
+            {rows.map((c) => (
               <Row key={c.id}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">

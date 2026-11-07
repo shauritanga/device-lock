@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Smartphone } from '@/shared/icons';
+import { Plus, Smartphone } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import type { Loan, Payment } from '@/shared/api/types';
 import { Card } from '@/shared/components/ui/Card';
@@ -10,6 +10,7 @@ import { StatusDot } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
+import { ListToolbar } from '@/shared/components/ListToolbar';
 import { FigureStrip } from '@/shared/components/FigureStrip';
 import { PanelEmpty } from '@/shared/components/Panel';
 import { money, shortDate } from '@/shared/lib/format';
@@ -132,32 +133,15 @@ export default function Payments() {
       />
 
       <Card>
-        <div className="flex flex-col gap-3 border-b border-line-soft px-5 pb-3.5 pt-[18px] sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-sm font-semibold tracking-[-0.2px] text-ink">Payment history</h3>
-            <p className="mt-0.5 text-xs text-faint">
-              {rows.length} {rows.length === 1 ? 'payment' : 'payments'}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search customer, IMEI, reference"
-                className="!w-full !pl-9 sm:!w-64"
-              />
-            </div>
-            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="sm:!w-40">
-              {STATUS_FILTERS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
+        <ListToolbar
+          title="Payment history"
+          noun="payment"
+          count={rows.length}
+          query={query}
+          onQuery={setQuery}
+          placeholder="Search customer, IMEI, reference"
+          filter={{ value: status, onChange: setStatus, options: STATUS_FILTERS }}
+        />
 
         {!data || data.length === 0 ? (
           <div className="p-5">
