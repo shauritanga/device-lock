@@ -20,6 +20,9 @@
 
     <string name="action_refresh">Refresh status</string>
     <string name="action_pay_now">Pay Now</string>
+    <string name="lock_pay_other_number">Pay with a different number</string>
+    <string name="lock_pay_other_hint">Mobile-money number, e.g. 0712 345 678</string>
+    <string name="lock_pay_other_invalid">Enter a valid mobile-money number</string>
     <string name="pay_now_starting">Starting mobile money payment…</string>
     <string name="pay_now_started">Payment request sent. Confirm on your phone, then the device will update automatically.</string>
     <string name="pay_now_failed">Could not start payment</string>

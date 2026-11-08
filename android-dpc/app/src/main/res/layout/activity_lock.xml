@@ -41,6 +41,31 @@
         android:layout_marginTop="32dp"
         android:text="@string/action_pay_now" />
 
+    <TextView
+        android:id="@+id/btnPayOtherNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:padding="8dp"
+        android:text="@string/lock_pay_other_number"
+        android:textColor="#9CC4FF"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/editPayPhone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:autofillHints="phone"
+        android:hint="@string/lock_pay_other_hint"
+        android:importantForAutofill="no"
+        android:inputType="phone"
+        android:maxLength="16"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#8FA3C0"
+        android:visibility="gone" />
+
     <Button
         android:id="@+id/btnCheckPayment"
         android:layout_width="match_parent"

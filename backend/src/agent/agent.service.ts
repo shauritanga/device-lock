@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CommandsService } from '../commands/commands.service';
 import { randomToken, sha256 } from '../common/crypto.util';
+import { SnippeService } from '../integrations/snippe/snippe.service';
 import { PaymentsService } from '../payments/payments.service';
 import { AckDto, CheckinDto, EnrollDto, PayNowDto } from './dto/agent.dto';
 
@@ -381,10 +382,22 @@ export class AgentService {
       throw new BadRequestException('No outstanding amount to pay');
     }
 
+    // The payer may use any mobile-money wallet (a relative's, a different
+    // SIM); the payment is still credited to this device's loan.
+    let phoneNumber = summary.customer.phone;
+    if (dto.phoneNumber?.trim()) {
+      phoneNumber = SnippeService.normalizePhone(dto.phoneNumber);
+      if (!/^255[67]\d{8}$/.test(phoneNumber)) {
+        throw new BadRequestException(
+          'Enter a Tanzanian mobile-money number (07… / 06… / 255…)',
+        );
+      }
+    }
+
     return this.payments.initiateMobileMoney({
       loanId: await this.requireDeviceLoanId(deviceId),
       amount,
-      phoneNumber: dto.phoneNumber ?? summary.customer.phone,
+      phoneNumber,
     });
   }
 

@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.devicelock.agent.databinding.ActivityLockBinding
@@ -82,9 +83,26 @@ class LockScreenActivity : AppCompatActivity() {
         // Company helpline for payment and account questions.
         binding.btnSupport.setOnClickListener { dial(BuildConfig.SUPPORT_PHONE) }
 
+        // Optionally pay from another wallet (a relative's, a different SIM).
+        // The payment still counts toward this device's loan.
+        binding.btnPayOtherNumber.setOnClickListener {
+            val show = binding.editPayPhone.visibility != View.VISIBLE
+            binding.editPayPhone.visibility = if (show) View.VISIBLE else View.GONE
+            if (show) binding.editPayPhone.requestFocus() else binding.editPayPhone.text.clear()
+        }
+
         binding.btnPayNow.setOnClickListener {
+            val typed = if (binding.editPayPhone.visibility == View.VISIBLE) {
+                binding.editPayPhone.text.toString().filter { it.isDigit() }
+            } else {
+                ""
+            }
+            if (binding.editPayPhone.visibility == View.VISIBLE && !isValidTzMobile(typed)) {
+                binding.editPayPhone.error = getString(R.string.lock_pay_other_invalid)
+                return@setOnClickListener
+            }
             Toast.makeText(this, R.string.pay_now_starting, Toast.LENGTH_SHORT).show()
-            agent.payNow(amount = null, phoneNumber = null) { result ->
+            agent.payNow(amount = null, phoneNumber = typed.ifEmpty { null }) { result ->
                 result
                     .onSuccess {
                         Toast.makeText(this, R.string.pay_now_started, Toast.LENGTH_LONG).show()
@@ -109,6 +127,10 @@ class LockScreenActivity : AppCompatActivity() {
                 .show()
         }
     }
+
+    /** 07XXXXXXXX / 06XXXXXXXX, 7XXXXXXXX / 6XXXXXXXX, or 2557XXXXXXXX / 2556XXXXXXXX. */
+    private fun isValidTzMobile(d: String): Boolean =
+        Regex("^(255|0)?[67]\\d{8}$").matches(d)
 
     /**
      * Open the dialer with [number] pre-filled. We use ACTION_DIAL rather than
