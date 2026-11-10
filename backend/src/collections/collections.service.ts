@@ -3187,8 +3187,8 @@ function buildRepaymentHistory(
 
 function packageCodeForCount(count: number): CollectionsPackage | null {
   if (count >= 1 && count <= 29) return CollectionsPackage.STARTER;
-  if (count >= 30 && count <= 44) return CollectionsPackage.GROWTH;
-  if (count >= 45 && count <= 55) return CollectionsPackage.BUSINESS;
+  if (count >= 44 && count <= 59) return CollectionsPackage.GROWTH;
+  if (count >= 60 && count <= 75) return CollectionsPackage.BUSINESS;
   return null;
 }
 

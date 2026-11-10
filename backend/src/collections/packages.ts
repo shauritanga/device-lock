@@ -30,8 +30,8 @@ export const COLLECTIONS_PACKAGES: Record<CollectionsPackage, PackageDef> = {
   GROWTH: {
     code: CollectionsPackage.GROWTH,
     label: 'Growth',
-    deviceBandMin: 30,
-    deviceBandMax: 44,
+    deviceBandMin: 44,
+    deviceBandMax: 59,
     priceModel: 'FLAT',
     unitPrice: null,
     flatPrice: 700_000,
@@ -40,8 +40,8 @@ export const COLLECTIONS_PACKAGES: Record<CollectionsPackage, PackageDef> = {
   BUSINESS: {
     code: CollectionsPackage.BUSINESS,
     label: 'Business',
-    deviceBandMin: 45,
-    deviceBandMax: 55,
+    deviceBandMin: 60,
+    deviceBandMax: 75,
     priceModel: 'FLAT',
     unitPrice: null,
     flatPrice: 900_000,
@@ -63,8 +63,8 @@ export const COLLECTIONS_PACKAGES: Record<CollectionsPackage, PackageDef> = {
 
 export function packageForDeviceCount(count: number): PackageDef | null {
   if (count >= 1 && count <= 29) return COLLECTIONS_PACKAGES.STARTER;
-  if (count >= 30 && count <= 44) return COLLECTIONS_PACKAGES.GROWTH;
-  if (count >= 45 && count <= 55) return COLLECTIONS_PACKAGES.BUSINESS;
+  if (count >= 44 && count <= 59) return COLLECTIONS_PACKAGES.GROWTH;
+  if (count >= 60 && count <= 75) return COLLECTIONS_PACKAGES.BUSINESS;
   return null;
 }
 

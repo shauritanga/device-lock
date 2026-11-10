@@ -30,8 +30,8 @@ enum UserRole {
 
 enum CollectionsPackage {
   STARTER // < 30 devices, per-device pricing
-  GROWTH // 30–44 devices, flat monthly
-  BUSINESS // 45–55 devices, flat monthly
+  GROWTH // 44–59 devices, flat monthly
+  BUSINESS // 60–75 devices, flat monthly
   NEGOTIATION // for lenders with no phones (e.g. microcredit); price agreed per client
 }
 
@@ -331,7 +331,7 @@ model DemoRequest {
   companyName       String
   phone             String
   email             String?
-  /// Raw band from the form, e.g. "Fewer than 30" / "30 – 44".
+  /// Raw band from the form, e.g. "Fewer than 30" / "44 – 59".
   devicesPerMonth   String?
   /// Suggested package from the band (STARTER | GROWTH | BUSINESS | ENTERPRISE).
   suggestedPackage  String?

@@ -54,9 +54,9 @@ export function suggestPackage(devicesPerMonth?: string | null): string | null {
   if (!devicesPerMonth) return null;
   const v = devicesPerMonth.toLowerCase();
   if (v.includes('fewer') || v.includes('<') || v.startsWith('fewer')) return 'STARTER';
-  if (v.includes('30') && v.includes('44')) return 'GROWTH';
-  if (v.includes('45') && v.includes('55')) return 'BUSINESS';
-  if (v.includes('more') || v.includes('55+') || v.includes('enterprise')) {
+  if (v.includes('44') && v.includes('59')) return 'GROWTH';
+  if (v.includes('60') && v.includes('75')) return 'BUSINESS';
+  if (v.includes('more') || v.includes('75+') || v.includes('enterprise')) {
     return 'ENTERPRISE';
   }
   return null;
