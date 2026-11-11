@@ -4,7 +4,7 @@ export type PackageDef = {
   code: CollectionsPackage;
   label: string;
   deviceBandMin: number;
-  /** Inclusive upper bound; Starter is exclusive at max (devices < 30). */
+  /** Inclusive upper bound; Starter covers 1-39. */
   deviceBandMax: number;
   priceModel: 'PER_DEVICE' | 'FLAT' | 'CUSTOM';
   unitPrice: number | null;
@@ -21,7 +21,7 @@ export const COLLECTIONS_PACKAGES: Record<CollectionsPackage, PackageDef> = {
     code: CollectionsPackage.STARTER,
     label: 'Starter',
     deviceBandMin: 1,
-    deviceBandMax: 29,
+    deviceBandMax: 39,
     priceModel: 'PER_DEVICE',
     unitPrice: 18_000,
     flatPrice: null,
@@ -30,7 +30,7 @@ export const COLLECTIONS_PACKAGES: Record<CollectionsPackage, PackageDef> = {
   GROWTH: {
     code: CollectionsPackage.GROWTH,
     label: 'Growth',
-    deviceBandMin: 44,
+    deviceBandMin: 40,
     deviceBandMax: 59,
     priceModel: 'FLAT',
     unitPrice: null,
@@ -62,8 +62,8 @@ export const COLLECTIONS_PACKAGES: Record<CollectionsPackage, PackageDef> = {
 };
 
 export function packageForDeviceCount(count: number): PackageDef | null {
-  if (count >= 1 && count <= 29) return COLLECTIONS_PACKAGES.STARTER;
-  if (count >= 44 && count <= 59) return COLLECTIONS_PACKAGES.GROWTH;
+  if (count >= 1 && count <= 39) return COLLECTIONS_PACKAGES.STARTER;
+  if (count >= 40 && count <= 59) return COLLECTIONS_PACKAGES.GROWTH;
   if (count >= 60 && count <= 75) return COLLECTIONS_PACKAGES.BUSINESS;
   return null;
 }

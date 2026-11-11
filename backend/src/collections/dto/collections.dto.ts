@@ -36,7 +36,7 @@ export class ActivateSubscriptionDto {
   @IsEnum(CollectionsPackage)
   packageCode!: CollectionsPackage;
 
-  /** Starter only: how many phones the client is paying for up front (1-29). */
+  /** Starter only: how many phones the client is paying for up front (1-39). */
   @IsOptional()
   @IsInt()
   @Min(1)

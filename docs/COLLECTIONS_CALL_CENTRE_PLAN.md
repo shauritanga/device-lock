@@ -25,8 +25,8 @@ Platform sells **follow-up capacity** and **collector labour**, not the loan boo
 
 | Package | Active devices | Price model |
 |---------|----------------|-------------|
-| **Starter** | Less than 30 | TZS 18,000 / device / month |
-| **Growth** | 44–59 | TZS 700,000 / month (flat) |
+| **Starter** | Less than 40 | TZS 18,000 / device / month |
+| **Growth** | 40–59 | TZS 700,000 / month (flat) |
 | **Business** | 60–75 | TZS 900,000 / month (flat) |
 
 **Activation rules (recommended):**
@@ -508,8 +508,8 @@ Optional: `CollectionCase.closedAt` + `closedReason = PAID`.
 
 | Package | Monthly charge |
 |---------|----------------|
-| Starter | `activeDevices × 18_000` (band: &lt; 30) |
-| Growth | `700_000` flat (band: 44–59) |
+| Starter | `activeDevices × 18_000` (band: &lt; 40) |
+| Growth | `700_000` flat (band: 40–59) |
 | Business | `900_000` flat (band: 60–75) |
 
 **Activation checklist**
@@ -732,7 +732,7 @@ Dashboard: new top-level **Collections** area for platform roles; seller sees **
 
 ## 16. Success criteria (MVP)
 
-1. Seller activates **Growth**; 44–59 devices; overdue loans appear as managed cases tagged with **that company only**.  
+1. Seller activates **Growth**; 40–59 devices; overdue loans appear as managed cases tagged with **that company only**.  
 2. Admin assigns 10 cases to Collector A; Collector B cannot see them.  
 3. Collector **starts** call/SMS/WhatsApp from the case (ContactSession); timeline shows verification badge.  
 4. Verified path: bridge callback or device log match marks contact `PROVIDER_VERIFIED` / `DEVICE_LOG_MATCHED`; pure self-report is labelled weak.  

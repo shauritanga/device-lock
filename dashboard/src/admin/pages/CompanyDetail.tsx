@@ -270,13 +270,13 @@ export default function CompanyDetail() {
               hint={
                 phones && Number(phones) > 0
                   ? `${money((packages.data?.find((p) => p.code === 'STARTER')?.unitPrice ?? 18000) * Number(phones))} per month, paid up front. The client can register up to ${phones} phones.`
-                  : 'How many phones the client is paying for (1–29).'
+                  : 'How many phones the client is paying for (1–39).'
               }
             >
               <Input
                 type="number"
                 min={1}
-                max={29}
+                max={39}
                 value={phones}
                 onChange={(e) => setPhones(e.target.value)}
                 required

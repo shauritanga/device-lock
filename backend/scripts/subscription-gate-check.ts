@@ -83,8 +83,8 @@ async function main() {
     console.log('\n# Starter: pay up front for a set number of phones');
     const noQty = await call('POST', '/collections/subscriptions/activate', admin, { tenantId: a.tenant.id, packageCode: 'STARTER' });
     check('activating Starter requires a phone count (400)', noQty.status === 400, noQty.json);
-    const tooMany = await call('POST', '/collections/subscriptions/activate', admin, { tenantId: a.tenant.id, packageCode: 'STARTER', phoneAllowance: 30 });
-    check('Starter cannot exceed its band of 29 (400)', tooMany.status === 400);
+    const tooMany = await call('POST', '/collections/subscriptions/activate', admin, { tenantId: a.tenant.id, packageCode: 'STARTER', phoneAllowance: 40 });
+    check('Starter cannot exceed its band of 39 (400)', tooMany.status === 400);
     const act = await call('POST', '/collections/subscriptions/activate', admin, { tenantId: a.tenant.id, packageCode: 'STARTER', phoneAllowance: 2 });
     check('Starter activates for 2 phones with no phones registered yet', act.status === 201 || act.status === 200, act.json);
     const inv = await db.collectionsInvoice.findFirst({ where: { tenantId: a.tenant.id } });
