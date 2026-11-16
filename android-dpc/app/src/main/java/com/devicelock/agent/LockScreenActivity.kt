@@ -64,8 +64,12 @@ class LockScreenActivity : AppCompatActivity() {
             return
         }
 
+        // Tell the watchdog the lock screen really appeared.
+        controller.markLockScreenShown()
+
         // Enter kiosk mode so this screen owns the device.
         runCatching { startLockTask() }
+            .onFailure { android.util.Log.w("DeviceLock", "startLockTask failed", it) }
         // Start polling here, not only in onResume — lock-task on Aquos can
         // pause the activity and would otherwise never pull UNLOCK.
         poll.postDelayed(pollRunnable, POLL_INTERVAL_MS)
@@ -167,6 +171,7 @@ class LockScreenActivity : AppCompatActivity() {
             dismiss()
             return
         }
+        controller.markLockScreenShown()
         poll.removeCallbacks(pollRunnable)
         poll.postDelayed(pollRunnable, POLL_INTERVAL_MS)
     }

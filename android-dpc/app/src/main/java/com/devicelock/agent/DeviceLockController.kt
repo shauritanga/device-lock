@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.UserManager
 import android.telecom.TelecomManager
+import android.util.Log
 
 /**
  * Thin wrapper around [DevicePolicyManager] that expresses the locking policy
@@ -59,6 +60,16 @@ class DeviceLockController(private val context: Context) {
                 DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
             )
         }
+        // Lets the lock screen start from the background on stricter OEMs. Not
+        // every OS version lets a device owner grant this one, so best effort.
+        runCatching {
+            dpm.setPermissionGrantState(
+                admin,
+                context.packageName,
+                Manifest.permission.SYSTEM_ALERT_WINDOW,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
+            )
+        }
     }
 
     /**
@@ -96,14 +107,50 @@ class DeviceLockController(private val context: Context) {
         setLockScreenAsHome(true)
 
         markLocked(true)
+        // Not shown yet: [reassertLockScreen] keeps retrying until the lock
+        // screen reports in, because some OEMs (Samsung One UI) can silently
+        // block an activity started from the background.
+        setLockScreenShown(false)
         LockCheckinReceiver.schedule(context)
         AgentSync.requestImmediateSync(context)
 
-        // Bring up the lock screen on top of everything.
+        showLockScreen()
+    }
+
+    /** Bring up the lock screen on top of everything. Never throws. */
+    private fun showLockScreen() {
         val intent = Intent(context, LockScreenActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
-        context.startActivity(intent)
+        runCatching { context.startActivity(intent) }
+            .onFailure { Log.w(TAG, "Could not start the lock screen", it) }
+    }
+
+    /**
+     * Watchdog, run from the 30-second lock alarm. If the device is meant to be
+     * locked but the lock screen has never appeared since the lock command (the
+     * launch was blocked or the process was killed), try again and hard-lock the
+     * screen so the phone is not left fully usable. Does nothing once the lock
+     * screen has been shown, so it never pulls the customer out of the dialer.
+     */
+    fun reassertLockScreen() {
+        if (!isDeviceOwner() || !isLocked() || isLockScreenShown()) return
+        Log.w(TAG, "Locked but lock screen not shown; retrying launch")
+        showLockScreen()
+        runCatching { dpm.lockNow() }
+            .onFailure { Log.w(TAG, "lockNow failed", it) }
+    }
+
+    /** Called by [LockScreenActivity] once it is on screen. */
+    fun markLockScreenShown() = setLockScreenShown(true)
+
+    private fun isLockScreenShown(): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_SHOWN, false)
+
+    private fun setLockScreenShown(shown: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_SHOWN, shown).apply()
     }
 
     /**
@@ -234,6 +281,8 @@ class DeviceLockController(private val context: Context) {
     companion object {
         private const val PREFS = "device_lock_prefs"
         private const val KEY_LOCKED = "locked"
+        private const val KEY_SHOWN = "lock_screen_shown"
+        private const val TAG = "DeviceLock"
 
         /** Broadcast (package-internal) sent whenever the device is unlocked. */
         const val ACTION_UNLOCKED = "com.devicelock.agent.action.UNLOCKED"

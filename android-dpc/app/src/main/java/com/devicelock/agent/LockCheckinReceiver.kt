@@ -16,10 +16,12 @@ class LockCheckinReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext
-        if (!DeviceLockController(app).isLocked()) {
+        val controller = DeviceLockController(app)
+        if (!controller.isLocked()) {
             cancel(app)
             return
         }
+        controller.reassertLockScreen()
         AgentSync.requestImmediateSync(app)
         schedule(app)
     }
