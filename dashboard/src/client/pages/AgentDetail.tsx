@@ -225,6 +225,7 @@ export default function AgentDetail() {
         open={assignOpen}
         onClose={() => setAssignOpen(false)}
         title={`Give phones to ${agent.fullName}`}
+        dirty={picked.size > 0}
         subtitle="Pick from registered phones that have not been sold."
         size="lg"
         footer={
@@ -285,6 +286,7 @@ export default function AgentDetail() {
         open={pwOpen}
         onClose={() => setPwOpen(false)}
         title="Reset password"
+        dirty={!!password}
         size="sm"
         footer={
           <>

@@ -294,7 +294,7 @@ export default function RegisterDevices() {
         onClose={() => !register.isPending && setOpen(false)}
         title="Register phones"
         subtitle="Add phones to stock. At the counter you just pick the IMEI. Dial *#06# on a phone to see it."
-        dirty={!!text.trim()}
+        dirty={!!(text.trim() || make.trim() || model.trim() || agentId)}
         footer={
           <>
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
