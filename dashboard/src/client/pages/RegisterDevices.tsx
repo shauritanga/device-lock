@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, CheckCircle2, Loader2, Package, Trash2 } from '@/shared/icons';
+import { AlertCircle, CheckCircle2, Plus, Trash2 } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { apiErrorMessage } from '@/shared/agreements/apiError';
 import type { Agent, Device } from '@/shared/api/types';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
-import { FieldGrid, FormSection } from '@/shared/components/ui/FormSection';
+import { FieldGrid } from '@/shared/components/ui/FormSection';
+import { Modal } from '@/shared/components/ui/Modal';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { FigureStrip } from '@/shared/components/FigureStrip';
@@ -32,6 +33,7 @@ export default function RegisterDevices() {
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
   const [agentId, setAgentId] = useState('');
+  const [open, setOpen] = useState(false);
   const [done, setDone] = useState<BulkResult | null>(null);
 
   const [query, setQuery] = useState('');
@@ -73,6 +75,7 @@ export default function RegisterDevices() {
     onSuccess: (r) => {
       setDone(r);
       setText('');
+      setOpen(false);
       refresh();
     },
   });
@@ -129,6 +132,28 @@ export default function RegisterDevices() {
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <Button
+          onClick={() => {
+            register.reset();
+            setDone(null);
+            setOpen(true);
+          }}
+        >
+          <Plus className="h-4 w-4" /> Register phones
+        </Button>
+      </div>
+
+      {done ? (
+        <p className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {done.created} {done.created === 1 ? 'phone' : 'phones'} added to stock.
+            {done.skipped.length ? ` Already registered, skipped: ${done.skipped.join(', ')}.` : ''}
+          </span>
+        </p>
+      ) : null}
+
       <FigureStrip
         items={[
           { label: 'In stock', value: counts.total, hint: 'Registered, not yet sold' },
@@ -136,97 +161,6 @@ export default function RegisterDevices() {
           { label: 'Held by the shop', value: counts.shop },
         ]}
       />
-
-      <Card className="p-5">
-        <form
-          className="space-y-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setDone(null);
-            register.mutate();
-          }}
-        >
-          <FormSection
-            title="Register phones"
-            description="Add phones to your stock before a customer arrives. At the counter you simply pick the IMEI — nothing to retype. Dial *#06# on a phone to see its IMEI."
-          >
-            <Field
-              label="IMEIs"
-              required
-              hint="One per line. Paste a whole list to register many phones at once."
-              error={
-                shortOnes.length
-                  ? `Too short to be an IMEI: ${shortOnes.slice(0, 3).join(', ')}`
-                  : null
-              }
-            >
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                rows={5}
-                placeholder={'356789012345678\n356789012345679'}
-                inputMode="numeric"
-                className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 font-mono text-sm text-ink outline-none transition placeholder:text-faint focus:border-brand-400 focus:ring-4 focus:ring-brand-100 flat:rounded-lg flat:bg-elevated flat:text-[13.5px]"
-              />
-            </Field>
-            <FieldGrid className="sm:grid-cols-3">
-              <Field label="Make">
-                <Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Tecno" />
-              </Field>
-              <Field label="Model">
-                <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Spark 20" />
-              </Field>
-              <Field label="Give to agent" hint="Optional — agents only sell phones given to them.">
-                <Select value={agentId} onChange={(e) => setAgentId(e.target.value)}>
-                  <option value="">Keep with the shop</option>
-                  {activeAgents.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.fullName}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </FieldGrid>
-          </FormSection>
-
-          {register.isError ? (
-            <p className="flex items-start gap-2 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              {apiErrorMessage(register.error, 'Could not register these phones.')}
-            </p>
-          ) : null}
-          {done ? (
-            <p className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>
-                {done.created} {done.created === 1 ? 'phone' : 'phones'} added to stock.
-                {done.skipped.length
-                  ? ` Already registered, skipped: ${done.skipped.join(', ')}.`
-                  : ''}
-              </span>
-            </p>
-          ) : null}
-
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={register.isPending || imeis.length === 0 || shortOnes.length > 0}
-            >
-              {register.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Registering…
-                </>
-              ) : (
-                <>
-                  <Package className="h-4 w-4" /> Register{' '}
-                  {imeis.length > 0 ? `${imeis.length} ` : ''}
-                  {imeis.length === 1 ? 'phone' : 'phones'}
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
-      </Card>
 
       <Card>
         <ListToolbar
@@ -296,7 +230,7 @@ export default function RegisterDevices() {
           <div className="p-5">
             <EmptyState
               title="No phones in stock"
-              hint="Register phones above. They appear here until they are sold on credit."
+              hint="Use Register phones to add some. They stay here until they are sold on credit."
             />
           </div>
         ) : rows.length === 0 ? (
@@ -355,6 +289,81 @@ export default function RegisterDevices() {
           <p className="px-5 pb-3 text-sm text-rose-600">{apiErrorMessage(remove.error)}</p>
         ) : null}
       </Card>
+      <Modal
+        open={open}
+        onClose={() => !register.isPending && setOpen(false)}
+        title="Register phones"
+        subtitle="Add phones to stock. At the counter you just pick the IMEI. Dial *#06# on a phone to see it."
+        dirty={!!text.trim()}
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="register-form"
+              disabled={register.isPending || imeis.length === 0 || shortOnes.length > 0}
+            >
+              {register.isPending
+                ? 'Registering…'
+                : `Register ${imeis.length || ''} ${imeis.length === 1 ? 'phone' : 'phones'}`}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="register-form"
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            register.mutate();
+          }}
+        >
+          <Field
+            label="IMEIs"
+            required
+            hint="One per line. Paste a whole list to register many phones at once."
+            error={
+              shortOnes.length ? `Too short to be an IMEI: ${shortOnes.slice(0, 3).join(', ')}` : null
+            }
+          >
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={5}
+              placeholder={'356789012345678\n356789012345679'}
+              inputMode="numeric"
+              autoFocus
+              className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 font-mono text-sm text-ink outline-none transition placeholder:text-faint focus:border-brand-400 focus:ring-4 focus:ring-brand-100 flat:rounded-lg flat:bg-elevated flat:text-[13.5px]"
+            />
+          </Field>
+          <FieldGrid>
+            <Field label="Make">
+              <Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Tecno" />
+            </Field>
+            <Field label="Model">
+              <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Spark 20" />
+            </Field>
+          </FieldGrid>
+          <Field label="Give to agent" hint="Optional. Agents only sell phones given to them.">
+            <Select value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+              <option value="">Keep with the shop</option>
+              {activeAgents.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.fullName}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {register.isError ? (
+            <p className="flex items-start gap-2 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              {apiErrorMessage(register.error, 'Could not register these phones.')}
+            </p>
+          ) : null}
+        </form>
+      </Modal>
     </div>
   );
 }
