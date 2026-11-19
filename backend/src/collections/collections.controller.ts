@@ -387,6 +387,15 @@ export class CollectionsController {
     return this.collections.listDevices(query, actor);
   }
 
+  @Get('sold-devices')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLECTIONS_ADMIN)
+  listSoldDevices(
+    @Query() query: ListDevicesQuery,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.collections.listSoldDevices(query, actor);
+  }
+
   @Get('reports/paid-cases')
   @Roles(
     UserRole.SUPER_ADMIN,

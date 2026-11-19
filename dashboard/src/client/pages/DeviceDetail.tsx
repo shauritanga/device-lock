@@ -17,6 +17,7 @@ import {
   XCircle,
 } from '@/shared/icons';
 import { api } from '@/shared/api/client';
+import { useAuth } from '@/shared/auth/AuthContext';
 import type { Device, DeviceCommand } from '@/shared/api/types';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -44,6 +45,8 @@ const STATUS_DOT: Record<string, string> = {
 
 export default function DeviceDetail() {
   const { id } = useParams<{ id: string }>();
+  // Sales agents get the enrollment QR for phones they sold, never device controls.
+  const isAgent = useAuth().user?.role === 'AGENT';
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -60,6 +63,7 @@ export default function DeviceDetail() {
     queryKey: ['device', id, 'commands'],
     queryFn: async () => (await api.get<DeviceCommand[]>(`/devices/${id}/commands`)).data,
     refetchInterval: 3_000,
+    enabled: !isAgent,
   });
   const { data: enroll } = useQuery({
     queryKey: ['device', id, 'qr'],
@@ -139,7 +143,7 @@ export default function DeviceDetail() {
   });
 
   usePageTrail([
-    { label: 'Devices', to: '/devices' },
+    isAgent ? { label: 'Sales', to: '/sales' } : { label: 'Devices', to: '/devices' },
     { label: device ? `${device.make ?? ''} ${device.model ?? ''}`.trim() || `IMEI ${device.imei}` : 'Device' },
   ]);
 
@@ -169,7 +173,7 @@ export default function DeviceDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end gap-3">
-        {device.status === 'PENDING_ENROLLMENT' ? (
+        {!isAgent && device.status === 'PENDING_ENROLLMENT' ? (
           <Button
             variant="ghost"
             className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
@@ -198,7 +202,7 @@ export default function DeviceDetail() {
         </Card>
       ) : null}
 
-      {simWarning && simNeedsApproval ? (
+      {!isAgent && simWarning && simNeedsApproval ? (
         <Card className="border-rose-200 bg-rose-50 p-4">
           <div className="flex flex-col gap-3 text-rose-800 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex gap-3">
@@ -233,7 +237,7 @@ export default function DeviceDetail() {
             </div>
             <p className="mt-1 text-sm text-muted">{statusDetail(device)}</p>
           </div>
-          <div className="flex gap-2">
+          <div className={isAgent ? 'hidden' : 'flex gap-2'}>
             <Button
               variant="danger"
               onClick={() => lock.mutate()}
@@ -307,7 +311,7 @@ export default function DeviceDetail() {
             customer and is no longer managed.
           </p>
         </Card>
-      ) : loanPaid && releasable ? (
+      ) : !isAgent && loanPaid && releasable ? (
         <Card className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
           <div className="min-w-0 text-sm">
             <p className="font-semibold text-ink">Loan fully paid</p>
@@ -370,7 +374,7 @@ export default function DeviceDetail() {
         <CardHeader
           title="Enrollment"
           subtitle="Scan on a factory-reset device"
-          action={
+          action={isAgent ? undefined : (
             <Button
               variant="ghost"
               onClick={() => regenerate.mutate()}
@@ -379,11 +383,14 @@ export default function DeviceDetail() {
             >
               <RefreshCw className={`h-4 w-4 ${regenerate.isPending ? 'animate-spin' : ''}`} />
             </Button>
-          }
+          )}
         />
         <div className="p-6">
           {!enroll ? (
-            <EmptyState title="No active token" hint="Regenerate to issue one." />
+            <EmptyState
+              title="No active token"
+              hint={isAgent ? 'Ask the owner to issue a new one.' : 'Regenerate to issue one.'}
+            />
           ) : enroll.consumedAt ? (
             <div className="flex items-center gap-3 py-2">
               <CheckCircle2 className="h-8 w-8 shrink-0 text-emerald-500" />

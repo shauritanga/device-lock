@@ -9,6 +9,7 @@ import CollectionCaseDetail from './pages/CollectionCaseDetail';
 import CollectionsReports from './pages/CollectionsReports';
 import CallCentre from './pages/CallCentre';
 import Devices from './pages/Devices';
+import SoldPhones from './pages/SoldPhones';
 import Companies from './pages/Companies';
 import Partners from './pages/Partners';
 import CompanyDetail from './pages/CompanyDetail';
@@ -54,6 +55,16 @@ export default function AdminApp() {
           <Shell>
             <RequireRole allow={PLATFORM_ADMIN_ROLES}>
               <Devices />
+            </RequireRole>
+          </Shell>
+        }
+      />
+      <Route
+        path="/sold-phones"
+        element={
+          <Shell>
+            <RequireRole allow={PLATFORM_ADMIN_ROLES}>
+              <SoldPhones />
             </RequireRole>
           </Shell>
         }

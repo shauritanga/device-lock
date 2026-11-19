@@ -19,6 +19,7 @@ import {
 } from '@/shared/icons';
 import axios from 'axios';
 import { api } from '@/shared/api/client';
+import { useAuth } from '@/shared/auth/AuthContext';
 import type { Customer, Device, Guardian, Loan } from '@/shared/api/types';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
@@ -63,7 +64,7 @@ const FREQUENCIES: Array<{
 const STEPS = [
   { label: 'Customer', hint: 'Who is buying on credit' },
   { label: 'Guardians', hint: 'Three people who vouch for the customer' },
-  { label: 'Phone', hint: 'The phone being financed' },
+  { label: 'Phone', hint: 'Pick the phone from stock' },
   { label: 'Plan', hint: 'Price, deposit and repayment schedule' },
   { label: 'Review', hint: 'Confirm with the customer' },
 ] as const;
@@ -89,6 +90,8 @@ type SaleResult = {
 };
 
 const initialSale = {
+  /** Stock phone picked at the counter (registered ahead on Register phones). */
+  deviceId: '',
   imei: '',
   make: '',
   model: '',
@@ -131,6 +134,8 @@ const prefixErrors = (prefix: string, e: PersonErrors) =>
   Object.fromEntries(Object.entries(e).map(([k, v]) => [`${prefix}.${k}`, v as string]));
 
 export default function Sales() {
+  const { user } = useAuth();
+  const isAgent = user?.role === 'AGENT';
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [customer, setCustomer] = useState<PersonForm>(emptyPerson());
@@ -177,6 +182,23 @@ export default function Sales() {
     queryFn: async () => (await api.get<Customer[]>('/customers')).data,
     enabled: open,
   });
+
+  // Registered, unsold phones. Agents only get the ones allocated to them.
+  const { data: stock, isLoading: stockLoading } = useQuery({
+    queryKey: ['devices', 'available'],
+    queryFn: async () =>
+      (await api.get<Device[]>('/devices', { params: { available: 'true' } })).data,
+    enabled: open,
+  });
+  const [stockQuery, setStockQuery] = useState('');
+  const stockRows = useMemo(() => {
+    const q = stockQuery.trim().toLowerCase();
+    return (stock ?? []).filter(
+      (d) =>
+        !q ||
+        [d.imei, d.make, d.model].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
+    );
+  }, [stock, stockQuery]);
 
   const matched = customer.phone.trim()
     ? knownCustomers?.find(
@@ -227,7 +249,7 @@ export default function Sales() {
       phones.push(digits);
       Object.assign(e, prefixErrors(`g${i}`, ge));
     }
-    if (sale.imei.trim().length < 4) e.imei = 'Enter the IMEI / device ID';
+    if (!sale.deviceId) e.imei = 'Pick the phone being sold';
     if (!(Number(sale.principal) > 0)) e.principal = 'Enter the phone price';
     if (Number(sale.downPayment) >= Number(sale.principal) && Number(sale.principal) > 0)
       e.downPayment = 'Deposit must be less than the price';
@@ -285,6 +307,7 @@ export default function Sales() {
     setStep(0);
     setActiveGuardian(0);
     setShowErrors(false);
+    setStockQuery('');
   }
 
   const createSale = useMutation({
@@ -328,19 +351,13 @@ export default function Sales() {
         await api.post<Guardian>(`/customers/${created.id}/guardians`, body);
       }
 
-      const registered = (
-        await api.post<{ device: Device; enrollmentToken: string }>('/devices', {
-          imei: sale.imei.trim(),
-          customerId: created.id,
-          ...(sale.make.trim() ? { make: sale.make.trim() } : {}),
-          ...(sale.model.trim() ? { model: sale.model.trim() } : {}),
-        })
-      ).data;
+      // The phone was registered ahead of time; fetch it for its enrollment token.
+      const registered = (await api.get<Device>(`/devices/${sale.deviceId}`)).data;
 
       const loan = (
         await api.post<Loan>('/loans', {
           customerId: created.id,
-          deviceId: registered.device.id,
+          deviceId: registered.id,
           principal: Number(sale.principal),
           downPayment: sale.downPayment ? Number(sale.downPayment) : 0,
           interestRate: sale.interestRate ? Number(sale.interestRate) : 0,
@@ -372,7 +389,7 @@ export default function Sales() {
 
       return {
         customer: created,
-        device: { ...registered.device, enrollmentToken: registered.enrollmentToken },
+        device: { ...registered, enrollmentToken: registered.enrollToken?.token },
         loan,
       } satisfies SaleResult;
     },
@@ -382,6 +399,8 @@ export default function Sales() {
       resetAll();
       qc.invalidateQueries({ queryKey: ['customers'] });
       qc.invalidateQueries({ queryKey: ['devices'] });
+      qc.invalidateQueries({ queryKey: ['agents'] });
+      qc.invalidateQueries({ queryKey: ['agent'] });
       qc.invalidateQueries({ queryKey: ['loans'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
     },
@@ -408,7 +427,7 @@ export default function Sales() {
       !!customer.phone ||
       !!customer.fullName ||
       !!customer.photo ||
-      !!sale.imei ||
+      !!sale.deviceId ||
       guardians.some((g) => g.fullName || g.phone));
 
   const modalFooter = (
@@ -599,7 +618,7 @@ export default function Sales() {
         ) : saleRows.length === 0 ? (
           <PanelEmpty>No sales match your search.</PanelEmpty>
         ) : (
-          <Table columns={['Customer', 'Device', 'Amount', 'Term', 'Contract', 'Status', 'Started']}>
+          <Table columns={['Customer', 'Device', 'Amount', 'Term', ...(isAgent ? [] : ['Sold by']), 'Contract', 'Status', 'Started']}>
             {saleRows.map((sale) => (
               <Row key={sale.id} onClick={() => navigate(`/sales/${sale.id}`)}>
                 <td className="px-4 py-3 font-medium text-ink">{sale.customer?.fullName ?? '—'}</td>
@@ -609,6 +628,9 @@ export default function Sales() {
                 </td>
                 <td className="px-4 py-3 tabular-nums">{money(sale.principal, sale.currency)}</td>
                 <td className="px-4 py-3 text-muted">{termLabel(sale)}</td>
+                {isAgent ? null : (
+                  <td className="px-4 py-3 text-muted">{sale.soldBy?.fullName ?? '—'}</td>
+                )}
                 <td className="px-4 py-3">
                   <StatusDot status={sale.contract ? 'SIGNED' : 'MISSING'} />
                 </td>
@@ -734,35 +756,70 @@ export default function Sales() {
               <FormSection
                 icon={Smartphone}
                 title="Phone being financed"
-                description="Dial *#06# on the phone to see its IMEI."
+                description="Choose one of the phones registered in stock. Check the IMEI against the box (dial *#06# on the phone)."
               >
-                <FieldGrid>
-                  <div className="sm:col-span-2">
-                    <Field label="IMEI / device ID" required error={err('imei')}>
-                      <Input
-                        value={sale.imei}
-                        onChange={(e) => setSale({ ...sale, imei: e.target.value })}
-                        placeholder="15-digit IMEI"
-                        inputMode="numeric"
-                        autoFocus
-                      />
-                    </Field>
-                  </div>
-                  <Field label="Make">
-                    <Input
-                      value={sale.make}
-                      onChange={(e) => setSale({ ...sale, make: e.target.value })}
-                      placeholder="Tecno"
-                    />
-                  </Field>
-                  <Field label="Model">
-                    <Input
-                      value={sale.model}
-                      onChange={(e) => setSale({ ...sale, model: e.target.value })}
-                      placeholder="Spark 20"
-                    />
-                  </Field>
-                </FieldGrid>
+                <Input
+                  value={stockQuery}
+                  onChange={(e) => setStockQuery(e.target.value)}
+                  placeholder="Search IMEI or model"
+                  autoFocus
+                />
+                {stockLoading ? (
+                  <Center>
+                    <Spinner />
+                  </Center>
+                ) : !stock || stock.length === 0 ? (
+                  <EmptyState
+                    title="No phones in stock"
+                    hint={
+                      isAgent
+                        ? 'Ask the owner to give you phones to sell.'
+                        : 'Register phones first, then come back to complete the sale.'
+                    }
+                  />
+                ) : stockRows.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted">No phone matches that search.</p>
+                ) : (
+                  <ul
+                    role="radiogroup"
+                    aria-label="Phones in stock"
+                    className="max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line"
+                  >
+                    {stockRows.map((d) => (
+                      <li key={d.id}>
+                        <label
+                          className={cn(
+                            'flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm hover:bg-canvas/60',
+                            sale.deviceId === d.id && 'bg-brand-600/10',
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="stock-phone"
+                            className="h-4 w-4 accent-brand-600"
+                            checked={sale.deviceId === d.id}
+                            onChange={() =>
+                              setSale({
+                                ...sale,
+                                deviceId: d.id,
+                                imei: d.imei,
+                                make: d.make ?? '',
+                                model: d.model ?? '',
+                              })
+                            }
+                          />
+                          <span className="font-medium tabular-nums text-ink">{d.imei}</span>
+                          <span className="text-muted">
+                            {[d.make, d.model].filter(Boolean).join(' ') || 'Model not set'}
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {err('imei') ? (
+                  <span className="block text-xs text-rose-600">{err('imei')}</span>
+                ) : null}
               </FormSection>
             ) : null}
 

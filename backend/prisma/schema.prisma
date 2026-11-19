@@ -384,6 +384,8 @@ model User {
   promisesToPay           PromiseToPay[]            @relation("PtpCreatedBy")
   workSessions            CollectorWorkSession[]
   dailyStats              CollectorDailyStat[]
+  stockDevices            Device[]                  @relation("AgentStock")
+  soldLoans               Loan[]                    @relation("SoldLoans")
 
   @@index([tenantId])
   @@index([role])
@@ -732,6 +734,10 @@ model Device {
   /// The id this device has in the partner's own system (API sync).
   externalId   String?
 
+  /// Stock allocation: the sales agent allowed to sell this phone on credit.
+  assignedAgentId String?
+  assignedAgent   User?   @relation("AgentStock", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+
   status         DeviceStatus @default(PENDING_ENROLLMENT)
   // Per-device overrides of the tenant policy (null => inherit tenant).
   graceDays      Int?
@@ -772,6 +778,7 @@ model Device {
   @@unique([tenantId, imei])
   @@unique([tenantId, externalId])
   @@index([tenantId, status])
+  @@index([assignedAgentId])
   @@index([lastCheckInAt])
 }
 
@@ -797,6 +804,9 @@ model Loan {
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   deviceId   String   @unique
   device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  /// Staff member (owner, manager or agent) who made the sale.
+  soldById   String?
+  soldBy     User?    @relation("SoldLoans", fields: [soldById], references: [id], onDelete: SetNull)
 
   principal    Decimal          @db.Decimal(14, 2) // device price financed
   downPayment  Decimal          @default(0) @db.Decimal(14, 2)
@@ -819,6 +829,7 @@ model Loan {
   collectionCase CollectionCase?
 
   @@index([tenantId, status])
+  @@index([soldById])
 }
 
 model CallFollowUp {

@@ -13,6 +13,7 @@ import { HealthController } from './health/health.controller';
 import { AuthModule } from './auth/auth.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
+import { AgentsModule } from './agents/agents.module';
 import { CustomersModule } from './customers/customers.module';
 import { DevicesModule } from './devices/devices.module';
 import { LoansModule } from './loans/loans.module';
@@ -49,6 +50,7 @@ import { PartnersModule } from './partners/partners.module';
     AuthModule,
     TenantsModule,
     UsersModule,
+    AgentsModule,
     CustomersModule,
     DevicesModule,
     LoansModule,

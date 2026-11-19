@@ -156,7 +156,7 @@ export class SubscriptionAccessService {
   }
 
   /** A client may only register as many phones as they have paid for. */
-  async assertCanRegisterPhone(tenantId: string) {
+  async assertCanRegisterPhone(tenantId: string, count = 1) {
     const state = await this.check(tenantId);
     if (state.noPhones) {
       throw new ForbiddenException({
@@ -171,10 +171,13 @@ export class SubscriptionAccessService {
         status: { notIn: [DeviceStatus.RELEASED, DeviceStatus.WIPED] },
       },
     });
-    if (inUse >= state.phoneAllowance) {
+    if (inUse + count > state.phoneAllowance) {
       throw new ForbiddenException({
         code: 'PHONE_LIMIT_REACHED',
-        message: `Your package covers ${state.phoneAllowance} phones and you have ${inUse}. Contact Linda to add more.`,
+        message:
+          count > 1
+            ? `Your package covers ${state.phoneAllowance} phones and you have ${inUse}, so ${count} more will not fit. Contact Linda to add more.`
+            : `Your package covers ${state.phoneAllowance} phones and you have ${inUse}. Contact Linda to add more.`,
       });
     }
   }

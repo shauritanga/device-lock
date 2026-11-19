@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { LoanStatus, PaymentFrequency } from '@prisma/client';
+import { LoanStatus, PaymentFrequency, UserRole } from '@prisma/client';
+import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { REQUIRED_GUARDIANS } from '../customers/customers.service';
 import { CreateLoanDto } from './dto/loan.dto';
@@ -14,7 +16,7 @@ import { approxMonths, generateSchedule } from './installment.util';
 export class LoansService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateLoanDto) {
+  async create(dto: CreateLoanDto, actor?: AuthUser) {
     const downPayment = dto.downPayment ?? 0;
     const interestRate = dto.interestRate ?? 0;
     if (downPayment >= dto.principal) {
@@ -41,6 +43,13 @@ export class LoansService {
     if (device.loan) {
       throw new ConflictException('Device already has a loan');
     }
+    // Agents may only sell phones the owner allocated to them.
+    if (
+      actor?.role === UserRole.AGENT &&
+      device.assignedAgentId !== actor.userId
+    ) {
+      throw new ForbiddenException('This phone is not assigned to you');
+    }
 
     const frequency = dto.frequency ?? PaymentFrequency.MONTHLY;
     if (frequency === PaymentFrequency.MONTHLY && dto.termPeriods > 60) {
@@ -62,6 +71,7 @@ export class LoansService {
           tenantId: customer.tenantId,
           customerId: dto.customerId,
           deviceId: dto.deviceId,
+          soldById: actor?.userId,
           principal: dto.principal,
           downPayment,
           interestRate,
@@ -102,17 +112,29 @@ export class LoansService {
     });
   }
 
-  findAll() {
+  /** Agents only see the sales they made themselves. */
+  private scope(actor?: AuthUser) {
+    return actor?.role === UserRole.AGENT ? { soldById: actor.userId } : {};
+  }
+
+  findAll(actor?: AuthUser) {
     return this.prisma.scoped.loan.findMany({
+      where: this.scope(actor),
       orderBy: { createdAt: 'desc' },
-      include: { customer: true, device: true, contract: true },
+      include: {
+        customer: true,
+        device: true,
+        contract: true,
+        soldBy: { select: { id: true, fullName: true, role: true } },
+      },
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, actor?: AuthUser) {
     const loan = await this.prisma.scoped.loan.findFirst({
-      where: { id },
+      where: { id, ...this.scope(actor) },
       include: {
+        soldBy: { select: { id: true, fullName: true, role: true } },
         customer: true,
         device: true,
         contract: true,
@@ -123,8 +145,8 @@ export class LoansService {
     return loan;
   }
 
-  async installments(id: string) {
-    await this.findOne(id);
+  async installments(id: string, actor?: AuthUser) {
+    await this.findOne(id, actor);
     return this.prisma.scoped.installment.findMany({
       where: { loanId: id },
       orderBy: { sequence: 'asc' },

@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Smartphone,
   UserCog,
+  UserPlus,
+  Package,
   Users,
   WalletCards,
 } from '@/shared/icons';
@@ -40,10 +42,25 @@ export const CLIENT_NAV: NavGroup[] = [
         subtitle: 'Credit sales — customer, phone, loan, contract and repayment status',
       },
       {
+        to: '/register-devices',
+        label: 'Register phones',
+        icon: Package,
+        subtitle: 'Add phones to stock by IMEI — pick them at the counter when a customer buys',
+        roles: ['OWNER', 'MANAGER'],
+      },
+      {
         to: '/devices',
         label: 'Devices',
         icon: Smartphone,
         subtitle: 'Enrolled phones — status, lock/unlock, and enrollment QR',
+        roles: ['OWNER', 'MANAGER'],
+      },
+      {
+        to: '/agents',
+        label: 'Agents',
+        icon: UserPlus,
+        subtitle: 'Sales agents who sell phones on credit on your behalf, and the stock they hold',
+        roles: ['OWNER', 'MANAGER'],
       },
       {
         to: '/customers',

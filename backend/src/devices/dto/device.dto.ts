@@ -1,6 +1,10 @@
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -29,6 +33,45 @@ export class CreateDeviceDto {
   @IsOptional()
   @IsString()
   customerId?: string;
+
+  /** Allocate the phone to a sales agent when it is registered. */
+  @IsOptional()
+  @IsString()
+  assignedAgentId?: string;
+}
+
+/** Register many phones into stock at once (one IMEI per entry). */
+export class BulkCreateDevicesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  imeis!: string[];
+
+  @IsOptional()
+  @IsString()
+  make?: string;
+
+  @IsOptional()
+  @IsString()
+  model?: string;
+
+  @IsOptional()
+  @IsString()
+  assignedAgentId?: string;
+}
+
+/** Allocate stock to an agent; a null agent returns the phones to the shop. */
+export class AssignDevicesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  deviceIds!: string[];
+
+  @IsOptional()
+  @IsString()
+  agentId?: string | null;
 }
 
 export class UpdateDeviceDto {
@@ -82,6 +125,11 @@ export class ApproveSimChangeDto {
 }
 
 export class ListDevicesQuery {
+  /** Only phones still in stock: registered, never sold, not yet enrolled. */
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  available?: string;
+
   @IsOptional()
   @IsEnum(DeviceStatus)
   status?: DeviceStatus;

@@ -61,6 +61,7 @@ export interface Device {
   model?: string | null;
   status: DeviceStatus;
   customerId?: string | null;
+  assignedAgent?: { id: string; fullName: string } | null;
   lastCheckInAt?: string | null;
   lockedAt?: string | null;
   simIccid?: string | null;
@@ -118,6 +119,7 @@ export interface Loan {
   startDate: string;
   customer?: Customer;
   device?: Device;
+  soldBy?: { id: string; fullName: string; role: Role } | null;
   installments?: Installment[];
   summary?: { financed: string; totalInterest: string; totalRepayable: string };
   contract?: Contract | null;
@@ -337,4 +339,35 @@ export interface BillingSummary {
   usage: { activeDevices: number; smsCount: number; voiceCount: number; callCentreCount: number };
   estimate: { lineItems: BillingLineItem[]; subtotal: number; tax: number; total: number; plan: Record<string, unknown> };
   invoices: BillingInvoice[];
+}
+
+/** A sales agent as listed on the Agents page. */
+export interface Agent {
+  id: string;
+  email: string;
+  fullName: string;
+  phone?: string | null;
+  isActive: boolean;
+  lastLoginAt?: string | null;
+  createdAt: string;
+  stockCount: number;
+  salesCount: number;
+  activeSales: number;
+  totalFinanced: number;
+}
+
+export interface AgentDetail extends Omit<Agent, 'stockCount' | 'salesCount' | 'activeSales' | 'totalFinanced'> {
+  stock: Array<Pick<Device, 'id' | 'imei' | 'make' | 'model' | 'status' | 'createdAt'>>;
+  sales: Array<{
+    id: string;
+    principal: string;
+    currency: string;
+    status: string;
+    startDate: string;
+    termMonths: number;
+    termPeriods: number;
+    frequency: PaymentFrequency;
+    customer?: { id: string; fullName: string };
+    device?: Pick<Device, 'id' | 'imei' | 'make' | 'model' | 'status'>;
+  }>;
 }

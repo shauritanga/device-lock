@@ -19,7 +19,10 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { SubscriptionAccessService } from '../subscription/subscription-access.service';
 import { AgreementsService } from '../agreements/agreements.service';
 import { ProvisioningService } from '../provisioning/provisioning.service';
+import { AuthUser } from '../auth/auth.types';
 import {
+  AssignDevicesDto,
+  BulkCreateDevicesDto,
   CreateDeviceDto,
   ListDevicesQuery,
   UpdateDeviceDto,
@@ -42,15 +45,17 @@ export class DevicesService {
     const tenantId = this.prisma.currentTenantId;
     await this.agreements.assertCanEnroll(tenantId);
     await this.subscription.assertCanRegisterPhone(tenantId);
+    if (dto.assignedAgentId) await this.assertAgent(dto.assignedAgentId);
     return this.prisma.scoped.$transaction(async (tx) => {
       const device = await tx.device.create({
         data: {
           tenantId,
-          imei: dto.imei,
+          imei: dto.imei.trim(),
           serialNumber: dto.serialNumber,
           make: dto.make,
           model: dto.model,
           customerId: dto.customerId,
+          assignedAgentId: dto.assignedAgentId,
           status: DeviceStatus.PENDING_ENROLLMENT,
         },
       });
@@ -68,13 +73,145 @@ export class DevicesService {
     });
   }
 
-  findAll(query: ListDevicesQuery) {
+  /**
+   * Register many phones into stock in one go. Phones already on file are
+   * reported back rather than failing the whole batch.
+   */
+  async registerBulk(dto: BulkCreateDevicesDto) {
+    const tenantId = this.prisma.currentTenantId;
+    const imeis = [
+      ...new Set(dto.imeis.map((i) => i.replace(/\s+/g, '')).filter(Boolean)),
+    ];
+    const tooShort = imeis.filter((i) => i.length < 4);
+    if (tooShort.length) {
+      throw new BadRequestException(
+        `IMEI too short: ${tooShort.slice(0, 3).join(', ')}`,
+      );
+    }
+    if (imeis.length === 0) throw new BadRequestException('No IMEIs provided');
+
+    await this.agreements.assertCanEnroll(tenantId);
+    if (dto.assignedAgentId) await this.assertAgent(dto.assignedAgentId);
+
+    const existing = await this.prisma.scoped.device.findMany({
+      where: { imei: { in: imeis } },
+      select: { imei: true },
+    });
+    const taken = new Set(existing.map((d) => d.imei));
+    const fresh = imeis.filter((i) => !taken.has(i));
+    if (fresh.length > 0) {
+      await this.subscription.assertCanRegisterPhone(tenantId, fresh.length);
+    }
+
+    const created = await this.prisma.scoped.$transaction(async (tx) => {
+      const rows = [];
+      for (const imei of fresh) {
+        const device = await tx.device.create({
+          data: {
+            tenantId,
+            imei,
+            make: dto.make?.trim() || undefined,
+            model: dto.model?.trim() || undefined,
+            assignedAgentId: dto.assignedAgentId,
+            status: DeviceStatus.PENDING_ENROLLMENT,
+          },
+        });
+        await tx.enrollmentToken.create({
+          data: {
+            tenantId,
+            deviceId: device.id,
+            token: randomBytes(24).toString('hex'),
+            expiresAt: daysFromNow(ENROLLMENT_TTL_DAYS),
+          },
+        });
+        rows.push(device);
+      }
+      return rows;
+    });
+    return {
+      created: created.length,
+      skipped: imeis.filter((i) => taken.has(i)),
+      devices: created,
+    };
+  }
+
+  /** Allocate phones to an agent (or return them to the shop with a null agent). */
+  async assign(dto: AssignDevicesDto) {
+    if (dto.agentId) await this.assertAgent(dto.agentId);
+    const devices = await this.prisma.scoped.device.findMany({
+      where: { id: { in: dto.deviceIds } },
+      select: { id: true, loan: { select: { id: true } } },
+    });
+    if (devices.length !== new Set(dto.deviceIds).size) {
+      throw new NotFoundException('One or more phones were not found');
+    }
+    if (devices.some((d) => d.loan)) {
+      throw new ConflictException(
+        'Phones that are already sold cannot be reassigned',
+      );
+    }
+    await this.prisma.scoped.device.updateMany({
+      where: { id: { in: dto.deviceIds } },
+      data: { assignedAgentId: dto.agentId ?? null },
+    });
+    return { updated: devices.length, agentId: dto.agentId ?? null };
+  }
+
+  /** A sales agent only ever sees phones allocated to them or that they sold. */
+  private agentScope(actor?: AuthUser) {
+    if (!actor || actor.role !== UserRole.AGENT) return {};
+    return {
+      OR: [
+        { assignedAgentId: actor.userId },
+        { loan: { soldById: actor.userId } },
+      ],
+    };
+  }
+
+  /** Throws unless the caller may see this phone (agents: only their own). */
+  async assertVisible(id: string, actor: AuthUser) {
+    if (actor.role !== UserRole.AGENT) return;
+    const hit = await this.prisma.scoped.device.findFirst({
+      where: { id, ...this.agentScope(actor) },
+      select: { id: true },
+    });
+    if (!hit) throw new NotFoundException('Device not found');
+  }
+
+  private async assertAgent(agentId: string) {
+    const agent = await this.prisma.scoped.user.findFirst({
+      where: { id: agentId, role: UserRole.AGENT, isActive: true },
+      select: { id: true },
+    });
+    if (!agent) throw new BadRequestException('Choose an active sales agent');
+  }
+
+  findAll(query: ListDevicesQuery, actor?: AuthUser) {
     return this.prisma.scoped.device.findMany({
       where: {
+        ...this.agentScope(actor),
         ...(query.status ? { status: query.status } : {}),
         ...(query.customerId ? { customerId: query.customerId } : {}),
+        ...(query.available === 'true'
+          ? {
+              loan: { is: null },
+              customerId: null,
+              status: DeviceStatus.PENDING_ENROLLMENT,
+            }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
+      include: {
+        customer: { select: { id: true, fullName: true, phone: true } },
+        assignedAgent: { select: { id: true, fullName: true } },
+        loan: {
+          select: {
+            id: true,
+            status: true,
+            soldBy: { select: { id: true, fullName: true, role: true } },
+          },
+        },
+      },
     });
   }
 

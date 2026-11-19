@@ -257,6 +257,90 @@ export class CollectionsService {
     });
   }
 
+  /**
+   * Platform-admin view of every phone that has actually been handed to a
+   * customer on credit, across all sellers. Stock that is only registered (no
+   * sale yet) is left out.
+   */
+  async listSoldDevices(query: ListDevicesQuery, actor: AuthUser) {
+    this.assertPlatformAdmin(actor);
+    const q = query.q?.trim();
+    const devices = await this.prisma.device.findMany({
+      where: {
+        // A cancelled sale never reached the customer.
+        loan: { is: { status: { not: LoanStatus.CANCELLED } } },
+        customerId: { not: null },
+        ...(query.tenantId ? { tenantId: query.tenantId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(q
+          ? {
+              OR: [
+                { imei: { contains: q, mode: 'insensitive' as const } },
+                { model: { contains: q, mode: 'insensitive' as const } },
+                { tenant: { name: { contains: q, mode: 'insensitive' as const } } },
+                {
+                  customer: {
+                    OR: [
+                      { fullName: { contains: q, mode: 'insensitive' as const } },
+                      { phone: { contains: q } },
+                    ],
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { loan: { startDate: 'desc' } },
+      take: 1000,
+      select: {
+        id: true,
+        imei: true,
+        make: true,
+        model: true,
+        status: true,
+        lastCheckInAt: true,
+        tenant: { select: { id: true, name: true } },
+        customer: { select: { id: true, fullName: true, phone: true } },
+        loan: {
+          select: {
+            id: true,
+            status: true,
+            principal: true,
+            downPayment: true,
+            currency: true,
+            frequency: true,
+            termPeriods: true,
+            startDate: true,
+            soldBy: { select: { id: true, fullName: true, role: true } },
+            installments: {
+              where: { status: 'OVERDUE' as const },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    const loanIds = devices.map((d) => d.loan!.id);
+    const paid = loanIds.length
+      ? await this.prisma.payment.groupBy({
+          by: ['loanId'],
+          where: { loanId: { in: loanIds }, status: PaymentStatus.CONFIRMED },
+          _sum: { amount: true },
+        })
+      : [];
+    const paidBy = new Map(paid.map((p) => [p.loanId, Number(p._sum.amount ?? 0)]));
+
+    return devices.map((d) => ({
+      ...d,
+      loan: {
+        ...d.loan!,
+        overdueInstallments: d.loan!.installments.length,
+        totalPaid: paidBy.get(d.loan!.id) ?? 0,
+      },
+    }));
+  }
+
   async listSubscriptions(actor: AuthUser) {
     this.assertPlatformAdmin(actor);
     const rows = await this.prisma.collectionsSubscription.findMany({

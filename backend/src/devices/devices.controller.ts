@@ -16,6 +16,8 @@ import { AuthUser } from '../auth/auth.types';
 import { DevicesService } from './devices.service';
 import { CommandsService } from '../commands/commands.service';
 import {
+  AssignDevicesDto,
+  BulkCreateDevicesDto,
   CreateDeviceDto,
   ApproveSimChangeDto,
   ListDevicesQuery,
@@ -34,22 +36,41 @@ export class DevicesController {
     private readonly commands: CommandsService,
   ) {}
 
+  // Sales agents never manage devices: they sell phones that were allocated to
+  // them, and can only look at (not control) the ones they sold.
+
   @Post()
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   register(@Body() dto: CreateDeviceDto) {
     return this.devices.register(dto);
   }
 
+  @Post('bulk')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  registerBulk(@Body() dto: BulkCreateDevicesDto) {
+    return this.devices.registerBulk(dto);
+  }
+
+  @Post('assign')
+  @HttpCode(200)
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  assign(@Body() dto: AssignDevicesDto) {
+    return this.devices.assign(dto);
+  }
+
   @Get()
-  findAll(@Query() query: ListDevicesQuery) {
-    return this.devices.findAll(query);
+  findAll(@Query() query: ListDevicesQuery, @CurrentUser() actor: AuthUser) {
+    return this.devices.findAll(query, actor);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    await this.devices.assertVisible(id, actor);
     return this.devices.findOne(id);
   }
 
   @Patch(':id')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   update(@Param('id') id: string, @Body() dto: UpdateDeviceDto) {
     return this.devices.update(id, dto);
   }
@@ -61,6 +82,7 @@ export class DevicesController {
   }
 
   @Post(':id/enrollment-token')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   regenerate(@Param('id') id: string) {
     return this.devices.regenerateEnrollment(id);
   }
@@ -72,7 +94,8 @@ export class DevicesController {
   }
 
   @Get(':id/qr')
-  qr(@Param('id') id: string) {
+  async qr(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    await this.devices.assertVisible(id, actor);
     return this.devices.enrollmentPayload(id);
   }
 
@@ -82,7 +105,6 @@ export class DevicesController {
   @Roles(
     UserRole.OWNER,
     UserRole.MANAGER,
-    UserRole.AGENT,
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
   )
@@ -106,7 +128,6 @@ export class DevicesController {
   @Roles(
     UserRole.OWNER,
     UserRole.MANAGER,
-    UserRole.AGENT,
     UserRole.SUPER_ADMIN,
     UserRole.COLLECTIONS_ADMIN,
   )
@@ -127,7 +148,7 @@ export class DevicesController {
 
   @Post(':id/release')
   @HttpCode(202)
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   async release(
     @Param('id') id: string,
     @Body() dto: ReleaseDeviceDto,
@@ -147,6 +168,7 @@ export class DevicesController {
   }
 
   @Get(':id/commands')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   commandHistory(@Param('id') id: string) {
     return this.commands.listForDevice(id);
   }

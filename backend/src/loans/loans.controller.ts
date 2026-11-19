@@ -7,6 +7,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AuthUser } from '../auth/auth.types';
 import { Roles } from '../common/decorators/roles.decorator';
 import { LoansService } from './loans.service';
 import { CreateLoanDto } from './dto/loan.dto';
@@ -16,23 +18,23 @@ export class LoansController {
   constructor(private readonly loans: LoansService) {}
 
   @Post()
-  create(@Body() dto: CreateLoanDto) {
-    return this.loans.create(dto);
+  create(@Body() dto: CreateLoanDto, @CurrentUser() actor: AuthUser) {
+    return this.loans.create(dto, actor);
   }
 
   @Get()
-  findAll() {
-    return this.loans.findAll();
+  findAll(@CurrentUser() actor: AuthUser) {
+    return this.loans.findAll(actor);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.loans.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    return this.loans.findOne(id, actor);
   }
 
   @Get(':id/installments')
-  installments(@Param('id') id: string) {
-    return this.loans.installments(id);
+  installments(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    return this.loans.installments(id, actor);
   }
 
   @Post(':id/cancel')

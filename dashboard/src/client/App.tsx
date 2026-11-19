@@ -7,6 +7,9 @@ import { CLIENT_BRAND, CLIENT_NAV } from './nav';
 import Dashboard from './pages/Dashboard';
 import Sales from './pages/NewSale';
 import Devices from './pages/Devices';
+import RegisterDevices from './pages/RegisterDevices';
+import Agents from './pages/Agents';
+import AgentDetail from './pages/AgentDetail';
 import DeviceDetail from './pages/DeviceDetail';
 import Customers from './pages/Customers';
 import LoanDetail from './pages/LoanDetail';
@@ -47,7 +50,46 @@ export default function ClientApp() {
       <Route path="/" element={<Shell><Dashboard /></Shell>} />
       <Route path="/sales" element={<Shell><Sales /></Shell>} />
       <Route path="/sales/new" element={<Navigate to="/sales" replace />} />
-      <Route path="/devices" element={<Shell><Devices /></Shell>} />
+      <Route
+        path="/devices"
+        element={
+          <Shell>
+            <RequireRole allow={['OWNER', 'MANAGER']}>
+              <Devices />
+            </RequireRole>
+          </Shell>
+        }
+      />
+      <Route
+        path="/register-devices"
+        element={
+          <Shell>
+            <RequireRole allow={['OWNER', 'MANAGER']}>
+              <RegisterDevices />
+            </RequireRole>
+          </Shell>
+        }
+      />
+      <Route
+        path="/agents"
+        element={
+          <Shell>
+            <RequireRole allow={['OWNER', 'MANAGER']}>
+              <Agents />
+            </RequireRole>
+          </Shell>
+        }
+      />
+      <Route
+        path="/agents/:id"
+        element={
+          <Shell>
+            <RequireRole allow={['OWNER', 'MANAGER']}>
+              <AgentDetail />
+            </RequireRole>
+          </Shell>
+        }
+      />
       <Route path="/devices/:id" element={<Shell><DeviceDetail /></Shell>} />
       <Route path="/customers" element={<Shell><Customers /></Shell>} />
       <Route path="/sales/:id" element={<Shell><LoanDetail /></Shell>} />
