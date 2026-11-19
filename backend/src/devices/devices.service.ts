@@ -190,6 +190,7 @@ export class DevicesService {
     return this.prisma.scoped.device.findMany({
       where: {
         ...this.agentScope(actor),
+        archivedAt: null,
         ...(query.status ? { status: query.status } : {}),
         ...(query.customerId ? { customerId: query.customerId } : {}),
         ...(query.available === 'true'
@@ -241,7 +242,7 @@ export class DevicesService {
    * queued commands, events) and frees the IMEI for re-registration; the
    * customer record is kept.
    */
-  async remove(id: string) {
+  async remove(id: string, actor: AuthUser) {
     const device = await this.prisma.scoped.device.findFirst({
       where: { id },
       select: {
@@ -260,6 +261,18 @@ export class DevicesService {
       },
     });
     if (!device) throw new NotFoundException('Device not found');
+    // A released phone belongs to the customer now. The owner can drop it from
+    // the list; it is archived, not erased, so payment history survives.
+    if (device.status === DeviceStatus.RELEASED) {
+      if (actor.role !== UserRole.OWNER) {
+        throw new ForbiddenException('Only an owner can remove a released phone');
+      }
+      await this.prisma.scoped.device.update({
+        where: { id },
+        data: { archivedAt: new Date() },
+      });
+      return { deleted: true, id, archived: true };
+    }
     if (
       device.status !== DeviceStatus.PENDING_ENROLLMENT ||
       device.lastCheckInAt

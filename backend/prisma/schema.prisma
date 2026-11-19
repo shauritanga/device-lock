@@ -735,6 +735,10 @@ model Device {
   externalId   String?
 
   /// Stock allocation: the sales agent allowed to sell this phone on credit.
+  /// Set when the owner removes a released phone from the device list. The sale
+  /// and payment records are kept; only the list entry is hidden.
+  archivedAt DateTime?
+
   assignedAgentId String?
   assignedAgent   User?   @relation("AgentStock", fields: [assignedAgentId], references: [id], onDelete: SetNull)
 

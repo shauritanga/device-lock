@@ -77,8 +77,8 @@ export class DevicesController {
 
   @Delete(':id')
   @Roles(UserRole.OWNER, UserRole.MANAGER)
-  remove(@Param('id') id: string) {
-    return this.devices.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    return this.devices.remove(id, actor);
   }
 
   @Post(':id/enrollment-token')
