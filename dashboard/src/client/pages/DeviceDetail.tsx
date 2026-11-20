@@ -49,11 +49,14 @@ export default function DeviceDetail() {
   const { id } = useParams<{ id: string }>();
   // Sales agents get the enrollment QR for phones they sold, never device controls.
   const isAgent = useAuth().user?.role === 'AGENT';
+  const isOwner = useAuth().user?.role === 'OWNER';
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmRelease, setConfirmRelease] = useState(false);
+  // Owner-only: free a phone whose loan is not fully paid (write-off, or resetting a test phone).
+  const [forceRelease, setForceRelease] = useState(false);
 
   const { data: device, isLoading } = useQuery({
     queryKey: ['device', id],
@@ -123,7 +126,8 @@ export default function DeviceDetail() {
     },
   });
   const release = useMutation({
-    mutationFn: async () => (await api.post(`/devices/${id}/release`, {})).data,
+    mutationFn: async () =>
+      (await api.post(`/devices/${id}/release`, forceRelease ? { force: true } : {})).data,
     onSuccess: () => {
       setConfirmRelease(false);
       refreshDevice();
@@ -366,7 +370,7 @@ export default function DeviceDetail() {
               <Loader2 className="h-4 w-4 animate-spin text-brand-600" /> Waiting for the phone
             </span>
           ) : (
-            <Button onClick={() => { release.reset(); setConfirmRelease(true); }}>
+            <Button onClick={() => { release.reset(); setForceRelease(false); setConfirmRelease(true); }}>
               <KeyRound className="h-4 w-4" /> {releaseFailed ? 'Retry release' : 'Release phone'}
             </Button>
           )}
@@ -538,8 +542,15 @@ export default function DeviceDetail() {
             <Button type="button" variant="secondary" onClick={() => setConfirmRelease(false)}>
               Cancel
             </Button>
-            <Button onClick={() => release.mutate()} disabled={release.isPending}>
-              {release.isPending ? 'Sending…' : 'Release phone'}
+            <Button
+              variant={forceRelease ? 'danger' : 'primary'}
+              onClick={() => release.mutate()}
+              disabled={
+                release.isPending ||
+                (!forceRelease && !!device.loan && device.loan.status !== 'COMPLETED' && isOwner)
+              }
+            >
+              {release.isPending ? 'Sending…' : forceRelease ? 'Release anyway' : 'Release phone'}
             </Button>
           </>
         }
@@ -551,6 +562,22 @@ export default function DeviceDetail() {
             management, lock control and tracking are removed.
           </p>
           <p>This cannot be undone.</p>
+          {isOwner && device.loan && device.loan.status !== 'COMPLETED' ? (
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rose-400/40 bg-rose-500/5 px-3 py-3 text-ink">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-line accent-rose-600"
+                checked={forceRelease}
+                onChange={(e) => setForceRelease(e.target.checked)}
+              />
+              <span>
+                The loan is not fully paid. Release it anyway
+                <span className="block text-xs text-muted">
+                  Only an owner can do this. The customer keeps the phone and you lose all control of it.
+                </span>
+              </span>
+            </label>
+          ) : null}
           {release.isError ? <p className="text-rose-600">{errorDetail(release.error)}</p> : null}
         </div>
       </Modal>

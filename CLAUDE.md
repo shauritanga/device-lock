@@ -92,8 +92,14 @@ without a new install (the app has no self-update, and updates need the original
 signing key). The `/v1/agent/*` API must therefore stay backward compatible: never remove or
 rename an endpoint, a request field or a response field the app uses, and only add optional
 fields. A phone on an old build must always still be able to check in, receive LOCK, UNLOCK
-and RELEASE, acknowledge them and pay. The release keystore is not in the repo: its SHA-256
-certificate fingerprint is `4A:EE:EE:35:8D:7A:09:93:40:39:15:FD:97:66:09:28:49:28:02:C8:13:EE:AF:A2:26:B5:CD:E7:AB:2D:7C:55`.
+and RELEASE, acknowledge them and pay. There are two signing generations. Phones enrolled before 21 Nov 2026 run builds signed with the
+original key (SHA-256 `4A:EE:EE:35:8D:7A:09:93:40:39:15:FD:97:66:09:28:49:28:02:C8:13:EE:AF:A2:26:B5:CD:E7:AB:2D:7C:55`),
+which has been lost: those phones cannot be updated, only released or reset. New phones use the
+current release key (SHA-256 `67:61:00:63:BB:A5:27:14:50:E2:71:63:04:F6:16:76:A4:43:0A:87:70:FA:8B:93:82:E4:F8:8C:90:B4:5E:80`,
+alias `linda-agent`, file `android-dpc/signing/linda-agent-release.jks` with its passwords in
+`android-dpc/keystore.properties`, both gitignored). Back them up outside the repo and never lose
+them again: a lost key strands every phone signed with it. The server's
+`PROVISIONING_SIGNATURE_CHECKSUM` must always match the key that signed `provisioning/agent.apk`.
 
 **Android URLs.** Both apps bake in `https://api.linda.co.tz/v1`, HTTPS only. A phone
 is only truly controlled when the agent is Device Owner, which requires QR
