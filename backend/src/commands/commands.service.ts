@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -9,6 +10,8 @@ import {
   CommandStatus,
   CommandType,
   DeviceStatus,
+  InstallmentStatus,
+  LoanStatus,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -37,6 +40,36 @@ export class CommandsService {
     private readonly webhooks: OutboundWebhooksService,
   ) {}
 
+  /**
+   * A phone with an unpaid installment past its due date must stay locked until
+   * it is paid. No reason, role or API key overrides that: record the payment
+   * (cash included) and the phone unlocks itself once the arrears are cleared.
+   */
+  async assertUnlockAllowed(deviceId: string) {
+    const loan = await this.prisma.scoped.loan.findFirst({
+      where: { deviceId, status: LoanStatus.ACTIVE },
+      select: { id: true },
+    });
+    if (!loan) return; // no live loan, nothing owed (e.g. a SIM-change lock)
+    const overdue = await this.prisma.scoped.installment.findMany({
+      where: {
+        loanId: loan.id,
+        dueDate: { lte: new Date() },
+        status: { notIn: [InstallmentStatus.PAID, InstallmentStatus.WAIVED] },
+      },
+      select: { amount: true, amountPaid: true },
+    });
+    if (overdue.length === 0) return;
+    const owed = overdue.reduce(
+      (t, i) => t + Math.max(Number(i.amount) - Number(i.amountPaid), 0),
+      0,
+    );
+    throw new ConflictException(
+      `Cannot unlock: ${overdue.length} installment(s) are overdue (TZS ${owed.toLocaleString('en-US')}). ` +
+        'Record the payment first; the phone unlocks automatically once it is paid.',
+    );
+  }
+
   /** Queue a command for a device and attempt instant push (fallback: check-in). */
   async queue(
     deviceId: string,
@@ -60,6 +93,12 @@ export class CommandsService {
       },
     });
     if (!device) throw new NotFoundException('Device not found');
+
+    // Manual (staff) and partner unlocks are checked here; the system's own
+    // unlock after a payment clears the arrears first, so it never trips this.
+    if (type === CommandType.UNLOCK && (opts.issuedById || opts.apiClientId)) {
+      await this.assertUnlockAllowed(deviceId);
+    }
 
     // The last instruction wins. A command still waiting for the phone is
     // replaced by a newer opposite one (LOCK vs UNLOCK), and repeating the same

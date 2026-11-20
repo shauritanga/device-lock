@@ -137,6 +137,7 @@ export class DevicesController {
     @CurrentUser() actor: AuthUser,
   ) {
     let reason = dto.reason;
+    await this.commands.assertUnlockAllowed(id); // before any audit entry is written
     if (isPlatformAdmin(actor.role)) {
       reason = await this.devices.auditAdminLockAction(id, 'UNLOCK', actor, dto.reason);
     }
