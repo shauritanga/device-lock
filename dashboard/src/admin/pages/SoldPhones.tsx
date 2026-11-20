@@ -28,6 +28,7 @@ type SoldPhone = {
     currency: string;
     startDate: string;
     overdueInstallments: number;
+    nextDue?: { sequence: number; dueDate: string; amountDue: number } | null;
     totalPaid: number;
     soldBy?: { id: string; fullName: string; role: string } | null;
   };
@@ -117,7 +118,7 @@ export default function SoldPhones() {
           count={rows.length}
           query={query}
           onQuery={setQuery}
-          placeholder="Search customer, IMEI, company, seller"
+          placeholder="Search customer, IMEI, shop, seller"
           filter={{ value: status, onChange: setStatus, options: STATUSES }}
         />
         <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-5 py-2.5">
@@ -148,31 +149,53 @@ export default function SoldPhones() {
           <PanelEmpty>No phones match your search.</PanelEmpty>
         ) : (
           <Table
-            columns={['Customer', 'Phone', 'Company', 'Sold by', 'Price', 'Paid', 'Status', 'Sold']}
+            columns={['Shop', 'Customer', 'Phone type', 'IMEI', 'Lock status', 'Next due', 'Price', 'Paid', 'Sold']}
           >
             {rows.map((d) => (
               <Row key={d.id}>
+                <td className="px-4 py-3 text-ink">
+                  <div className="font-medium">{d.tenant.name}</div>
+                  {d.loan.soldBy ? (
+                    <div className="text-xs text-muted">by {d.loan.soldBy.fullName}</div>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3">
                   <div className="font-medium text-ink">{d.customer?.fullName ?? '—'}</div>
                   <div className="text-xs text-muted">{d.customer?.phone}</div>
                 </td>
-                <td className="px-4 py-3">
-                  <div className="tabular-nums text-ink">{d.imei}</div>
-                  <div className="text-xs text-muted">
-                    {[d.make, d.model].filter(Boolean).join(' ') || '—'}
-                  </div>
+                <td className="px-4 py-3 text-muted">
+                  {[d.make, d.model].filter(Boolean).join(' ') || '—'}
                 </td>
-                <td className="px-4 py-3 text-muted">{d.tenant.name}</td>
-                <td className="px-4 py-3 text-muted">{d.loan.soldBy?.fullName ?? '—'}</td>
-                <td className="px-4 py-3 tabular-nums">{money(d.loan.principal, d.loan.currency)}</td>
-                <td className="px-4 py-3 tabular-nums text-muted">
-                  {money(d.loan.totalPaid, d.loan.currency)}
-                </td>
+                <td className="px-4 py-3 tabular-nums text-ink">{d.imei}</td>
                 <td className="px-4 py-3">
                   <div className="space-y-1">
                     <StatusDot status={d.status} />
                     {d.loan.overdueInstallments > 0 ? <StatusDot status="OVERDUE" /> : null}
                   </div>
+                </td>
+                <td className="px-4 py-3">
+                  {d.loan.nextDue ? (
+                    <>
+                      <div
+                        className={
+                          new Date(d.loan.nextDue.dueDate) < new Date()
+                            ? 'font-medium text-rose-600'
+                            : 'text-ink'
+                        }
+                      >
+                        {shortDate(d.loan.nextDue.dueDate)}
+                      </div>
+                      <div className="text-xs tabular-nums text-muted">
+                        {money(d.loan.nextDue.amountDue, d.loan.currency)}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 tabular-nums">{money(d.loan.principal, d.loan.currency)}</td>
+                <td className="px-4 py-3 tabular-nums text-muted">
+                  {money(d.loan.totalPaid, d.loan.currency)}
                 </td>
                 <td className="px-4 py-3 text-right text-muted">{shortDate(d.loan.startDate)}</td>
               </Row>

@@ -331,10 +331,34 @@ export class CollectionsService {
       : [];
     const paidBy = new Map(paid.map((p) => [p.loanId, Number(p._sum.amount ?? 0)]));
 
+    // The earliest unpaid installment per loan is the one the buyer owes next.
+    const nextDue = loanIds.length
+      ? await this.prisma.installment.findMany({
+          where: {
+            loanId: { in: loanIds },
+            status: { in: [InstallmentStatus.PENDING, InstallmentStatus.OVERDUE] },
+          },
+          orderBy: [{ loanId: 'asc' }, { dueDate: 'asc' }],
+          distinct: ['loanId'],
+          select: { loanId: true, sequence: true, dueDate: true, amount: true, amountPaid: true },
+        })
+      : [];
+    const nextBy = new Map(
+      nextDue.map((i) => [
+        i.loanId,
+        {
+          sequence: i.sequence,
+          dueDate: i.dueDate,
+          amountDue: Math.max(Number(i.amount) - Number(i.amountPaid), 0),
+        },
+      ]),
+    );
+
     return devices.map((d) => ({
       ...d,
       loan: {
         ...d.loan!,
+        nextDue: nextBy.get(d.loan!.id) ?? null,
         overdueInstallments: d.loan!.installments.length,
         totalPaid: paidBy.get(d.loan!.id) ?? 0,
       },
