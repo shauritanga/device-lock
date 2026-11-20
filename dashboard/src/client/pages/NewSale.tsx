@@ -19,6 +19,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Combobox, type ComboOption } from '@/shared/components/ui/Combobox';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
+import { FormSection } from '@/shared/components/ui/FormSection';
 import { Modal } from '@/shared/components/ui/Modal';
 import { StatusDot } from '@/shared/components/ui/Pill';
 import { FigureStrip } from '@/shared/components/FigureStrip';
@@ -617,46 +618,54 @@ export default function Sales() {
               </Field>
             </div>
 
-            <div className="grid grid-cols-3 divide-x divide-line rounded-xl border border-line bg-canvas/40 py-3 text-center">
-              <SummaryCell label="Financed" value={money(financed)} />
-              <SummaryCell label="Total repayable" value={money(totalRepayable)} emphasize />
-              <SummaryCell label={`Each ${freq.unit.replace(/s$/, '')}`} value={money(perInstallment)} />
-            </div>
-            {(() => {
-              const rows = previewDates(sale).filter((r) => r.n > 0);
-              if (rows.length === 0) return null;
-              const first = rows[0];
-              const last = rows[rows.length - 1];
-              return (
-                <p className="-mt-2 text-xs text-muted">
-                  First payment {shortDate(first.date.toISOString())}
-                  {last.n !== first.n ? ` · last payment ${shortDate(last.date.toISOString())}` : ''}
-                </p>
-              );
-            })()}
-
-            <div className="space-y-2 border-t border-line-soft pt-4">
-              <label className="flex cursor-pointer items-start gap-3 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-line accent-brand-600"
-                  checked={sale.consentAccepted}
-                  onChange={(e) => setSale({ ...sale, consentAccepted: e.target.checked })}
+              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-line bg-canvas/40 p-3 text-center">
+                <SummaryCell label="Financed" value={money(financed)} />
+                <SummaryCell label="Total repayable" value={money(totalRepayable)} emphasize />
+                <SummaryCell
+                  label={`Each ${freq.unit.replace(/s$/, '')}`}
+                  value={money(perInstallment)}
                 />
-                <span>The customer has read and accepted the SimuLinda credit-sale terms.</span>
-              </label>
-              <details className="pl-7 text-xs text-muted">
-                <summary className="cursor-pointer select-none text-brand-700">View terms</summary>
-                <ul className="mt-2 list-disc space-y-1 pl-4">
+              </div>
+
+              <FormSection title="Payments">
+                <p className="text-sm font-semibold">
+                  {money(perInstallment)} {freq.per}, {sale.termPeriods} {freq.unit}
+                </p>
+                <p className="text-sm text-muted">
+                  Total {money(totalRepayable)} · deposit {money(Number(sale.downPayment) || 0)}
+                </p>
+                <ul className="mt-3 space-y-1 text-xs text-muted">
+                  {previewDates(sale).map((row) => (
+                    <li key={row.n} className="flex justify-between border-b border-line/60 pb-1 last:border-0">
+                      <span>{row.n === 0 ? '…' : `#${row.n} · ${shortDate(row.date.toISOString())}`}</span>
+                      <span>{row.n === 0 ? '' : money(perInstallment)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </FormSection>
+
+              <FormSection title="Consent & fair-use terms">
+                <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
                   <li>Reminders are sent before any restriction.</li>
-                  <li>After a missed payment and the grace period, the phone is restricted until payment is confirmed.</li>
+                  <li>
+                    After a missed payment and grace period, the phone may be restricted
+                    until payment is confirmed.
+                  </li>
                   <li>The phone shares its last-known location with the seller while the loan is active.</li>
                   <li>Guardians on file may be contacted if payments are missed.</li>
                   <li>Emergency access remains; personal data is not deleted.</li>
                   <li>After final settlement, the phone is permanently released.</li>
                 </ul>
-              </details>
-            </div>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-canvas px-3 py-3 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-line accent-brand-600"
+                    checked={sale.consentAccepted}
+                    onChange={(e) => setSale({ ...sale, consentAccepted: e.target.checked })}
+                  />
+                  <span>I confirm the customer accepted these SimuLinda credit-sale terms.</span>
+                </label>
+              </FormSection>
 
             {createSale.isError ? (
               <p className="flex items-start gap-2 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
