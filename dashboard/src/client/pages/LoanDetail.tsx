@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Banknote, CheckCircle2 } from '@/shared/icons';
 import { api } from '@/shared/api/client';
+import { useAuth } from '@/shared/auth/AuthContext';
 import type { Installment, Loan } from '@/shared/api/types';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -27,6 +28,8 @@ export default function LoanDetail() {
   const [method, setMethod] = useState('CASH');
   const [amount, setAmount] = useState('');
   const [payoffOpen, setPayoffOpen] = useState(false);
+  // Marking money as received is for owners and managers only.
+  const canMarkPaid = useAuth().user?.role !== 'AGENT';
 
   const { data: loan, isLoading } = useQuery({
     queryKey: ['loan', id],
@@ -118,7 +121,7 @@ export default function LoanDetail() {
           subtitle={`${loan.customer?.fullName ?? ''} · ${loan.device?.imei ?? ''}`}
           action={
             <div className="flex items-center gap-3">
-              {loanActive && (balance.data?.outstanding ?? 0) > 0 ? (
+              {loanActive && canMarkPaid && (balance.data?.outstanding ?? 0) > 0 ? (
                 <Button
                   variant="secondary"
                   className="px-3 py-1.5 text-xs"
@@ -152,7 +155,7 @@ export default function LoanDetail() {
                   </td>
                   <td className="px-4 py-3"><StatusPill status={i.status} /></td>
                   <td className="px-4 py-3 text-right">
-                    {!settled && loanActive ? (
+                    {!settled && loanActive && canMarkPaid ? (
                       <Button
                         variant="secondary"
                         className="px-3 py-1.5 text-xs"

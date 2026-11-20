@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Smartphone } from '@/shared/icons';
 import { api } from '@/shared/api/client';
+import { useAuth } from '@/shared/auth/AuthContext';
 import type { Loan, Payment } from '@/shared/api/types';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -36,6 +37,8 @@ const STATUS_FILTERS = [
 export default function Payments() {
   const qc = useQueryClient();
   const [mode, setMode] = useState<null | 'cash' | 'mobile'>(null);
+  // Sales agents can ask for a mobile-money payment but never mark money as received.
+  const canRecordCash = useAuth().user?.role !== 'AGENT';
   const [form, setForm] = useState({ loanId: '', amount: '', phoneNumber: '' });
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('ALL');
@@ -122,9 +125,11 @@ export default function Payments() {
         <Button variant="secondary" onClick={() => setMode('mobile')}>
           <Smartphone className="h-4 w-4" /> Mobile money
         </Button>
-        <Button onClick={() => setMode('cash')}>
-          <Plus className="h-4 w-4" /> Record cash
-        </Button>
+        {canRecordCash ? (
+          <Button onClick={() => setMode('cash')}>
+            <Plus className="h-4 w-4" /> Record cash
+          </Button>
+        ) : null}
       </div>
 
       <FigureStrip

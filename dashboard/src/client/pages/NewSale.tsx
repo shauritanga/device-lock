@@ -284,7 +284,7 @@ export default function Sales() {
         })
       ).data;
 
-      if (sale.depositPaidNow && Number(sale.downPayment) > 0) {
+      if (!isAgent && sale.depositPaidNow && Number(sale.downPayment) > 0) {
         await api.post('/payments', { loanId: loan.id, amount: Number(sale.downPayment), method: 'CASH' });
       }
 
@@ -677,7 +677,7 @@ export default function Sales() {
               </Field>
             </div>
 
-            {Number(sale.downPayment) > 0 ? (
+            {Number(sale.downPayment) > 0 && !isAgent ? (
               <label className="-mt-1 flex cursor-pointer items-start gap-3 text-sm text-ink">
                 <input
                   type="checkbox"

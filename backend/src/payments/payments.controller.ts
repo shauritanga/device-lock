@@ -12,8 +12,10 @@ import {
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
+  // Marking money as received (cash, or an installment paid) is for owners and managers only.
+  // A sales agent can ask a customer to pay by mobile money, but never confirm a payment.
   @Post()
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   record(@Body() dto: RecordPaymentDto) {
     return this.payments.recordManual(dto);
   }
@@ -25,7 +27,7 @@ export class PaymentsController {
   }
 
   @Post('installments/:installmentId/pay')
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.AGENT)
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
   payInstallment(
     @Param('installmentId') installmentId: string,
     @Body() dto: MarkInstallmentPaidDto,
