@@ -25,6 +25,10 @@ export class SmsService {
     }
   }
 
+  get isConfigured() {
+    return !!this.authHeader;
+  }
+
   /** Send an SMS to a single MSISDN (format 2557XXXXXXXX). Returns success. */
   async send(dest: string, message: string): Promise<boolean> {
     if (!this.authHeader) {
@@ -46,7 +50,8 @@ export class SmsService {
         }),
       });
       if (!res.ok) {
-        this.logger.warn(`Beem send failed ${res.status}`);
+        const body = (await res.text().catch(() => '')).slice(0, 300);
+        this.logger.warn(`Beem send failed ${res.status} (to ${normalizeMsisdn(dest)}): ${body}`);
         return false;
       }
       return true;

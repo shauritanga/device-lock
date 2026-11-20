@@ -237,6 +237,7 @@ export class AgentService {
       select: {
         tenantId: true,
         approvedSimFingerprint: true,
+        status: true,
         tenant: { select: { lockOnSimChange: true } },
       },
     });
@@ -281,6 +282,9 @@ export class AgentService {
     }
 
     if (!device.tenant.lockOnSimChange) return;
+    // Already locked: queueing another LOCK on every check-in only spams the
+    // phone and the owner's SMS bill.
+    if (device.status === DeviceStatus.LOCKED) return;
 
     const pendingLock = await this.prisma.scoped.deviceCommand.findFirst({
       where: {

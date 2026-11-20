@@ -114,15 +114,19 @@ class AgentManager(context: Context) {
             val outcome = runCatching { execute(cmd) }
             if (outcome.isSuccess) {
                 executed.add(cmd.type)
-                AgentApi.ack(store.baseUrl, token, cmd.id, "DONE", null)
+                // The command already ran on the phone; a failed ack (network,
+                // or already acknowledged via SMS) must not abort the rest.
+                runCatching { AgentApi.ack(store.baseUrl, token, cmd.id, "DONE", null) }
                 // Only after the server has the confirmation: forget the loan and
                 // stop all background work, so a released phone is left alone.
                 if (cmd.type == "RELEASE") finishRelease()
             } else {
-                AgentApi.ack(
-                    store.baseUrl, token, cmd.id, "FAILED",
-                    outcome.exceptionOrNull()?.message,
-                )
+                runCatching {
+                    AgentApi.ack(
+                        store.baseUrl, token, cmd.id, "FAILED",
+                        outcome.exceptionOrNull()?.message,
+                    )
+                }
             }
         }
         return CheckinOutcome(

@@ -118,7 +118,11 @@ export class CommandsService {
       data: {
         tenantId: device.tenantId,
         deviceId: device.id,
-        type: sent ? 'SMS_COMMAND_SENT' : 'SMS_COMMAND_STUBBED',
+        type: sent
+          ? 'SMS_COMMAND_SENT'
+          : this.sms.isConfigured
+            ? 'SMS_COMMAND_FAILED'
+            : 'SMS_COMMAND_STUBBED',
         metadata: { commandId: command.id, commandType: command.type },
       },
     });
@@ -169,7 +173,9 @@ export class CommandsService {
       command.status === CommandStatus.ACKED ||
       command.status === CommandStatus.FAILED
     ) {
-      throw new BadRequestException('Command already finalized');
+      // Push, check-in and SMS can all deliver the same command; the phone may
+      // acknowledge it more than once. That is not an error.
+      return { ok: true };
     }
 
     const now = new Date();
