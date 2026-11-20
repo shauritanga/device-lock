@@ -112,11 +112,17 @@ One Ubuntu server, `root@139.59.139.30`, repo at `/var/www/device-lock`, API und
 pm2 as `device-lock-api` on port 3200. Follow `deploy/DEPLOY.md`: `git pull`, then
 `npm ci`, `npx prisma migrate deploy` and `npm run build` in `backend/`, `npm ci` and
 `npm run build` in `dashboard/`, then `pm2 restart device-lock-api`. The website
-updates on `git pull` alone. Migrations are forward-only. Deploy only when asked.
+updates on `git pull` alone. Migrations are forward-only. Redeploy after every change (see Conventions).
 
 ## Conventions
 
-- Work happens directly on `main`; commit and push only when asked.
+- Work happens directly on `main`.
+- **After every change, commit, push and redeploy without being asked.** Verify the build
+  first (`npm run build` in `backend/` and/or `dashboard/`), then commit, push to `main`,
+  and redeploy to production following the Deploy section below, then confirm the API and
+  the affected console respond. Android changes are committed and pushed, but they reach
+  phones only after a new APK is built and installed, so say so. If a build fails, fix it
+  before committing; never deploy a broken build.
 - Commit messages are a single plain subject line in the style of the history, for
   example `Lock screen: let the customer pay Now from a different mobile-money number`.
   Do not add `Co-Authored-By` or any other Claude attribution.

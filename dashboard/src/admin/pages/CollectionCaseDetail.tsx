@@ -45,7 +45,7 @@ type CaseDetail = {
     relationship: string;
     phone: string;
     address: string;
-    photoUrl: string;
+    photoUrl?: string | null;
   }>;
   occupation: string | null;
   employerName: string | null;
@@ -542,7 +542,9 @@ export default function CollectionCaseDetail() {
                     key={g.id}
                     className="flex items-center gap-3 border-b border-line-soft px-5 py-3.5 last:border-b-0"
                   >
-                    <img src={g.photoUrl} alt={g.fullName} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                    {g.photoUrl ? (
+                      <img src={g.photoUrl} alt={g.fullName} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                    ) : null}
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-medium text-ink">
                         {g.fullName} <span className="font-normal text-muted">· {g.relationship}</span>

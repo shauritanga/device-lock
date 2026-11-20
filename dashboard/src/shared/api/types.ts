@@ -29,7 +29,7 @@ export interface Guardian {
   idDocumentType: 'NATIONAL_ID' | 'VOTER_ID' | 'DRIVING_LICENSE' | 'PASSPORT';
   nationalId: string;
   address: string;
-  photoUrl: string;
+  photoUrl?: string | null;
 }
 
 export interface Customer {

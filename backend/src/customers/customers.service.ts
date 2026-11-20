@@ -179,22 +179,25 @@ export class CustomersService {
     photo: Express.Multer.File | undefined,
   ) {
     const customer = await this.findOne(customerId);
-    if (!photo) throw new BadRequestException('Guardian photo is required');
     if (customer.guardians.length >= MAX_GUARDIANS) {
       throw new BadRequestException(
         `A customer can have at most ${MAX_GUARDIANS} guardians`,
       );
     }
-    const dir = path.join(this.uploadsRoot, 'guardians', customerId);
-    fs.mkdirSync(dir, { recursive: true });
-    const name = `photo-${Date.now()}-${customer.guardians.length}${path.extname(photo.originalname)}`;
-    fs.writeFileSync(path.join(dir, name), photo.buffer);
+    let photoUrl: string | null = null;
+    if (photo) {
+      const dir = path.join(this.uploadsRoot, 'guardians', customerId);
+      fs.mkdirSync(dir, { recursive: true });
+      const name = `photo-${Date.now()}-${customer.guardians.length}${path.extname(photo.originalname)}`;
+      fs.writeFileSync(path.join(dir, name), photo.buffer);
+      photoUrl = `${this.publicBaseUrl}/uploads/guardians/${customerId}/${name}`;
+    }
     return this.prisma.scoped.guardian.create({
       data: {
         ...dto,
         tenantId: customer.tenantId,
         customerId,
-        photoUrl: `${this.publicBaseUrl}/uploads/guardians/${customerId}/${name}`,
+        photoUrl,
       },
     });
   }

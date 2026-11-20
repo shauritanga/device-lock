@@ -731,7 +731,7 @@ model Guardian {
   idDocumentType IdDocumentType
   nationalId     String
   address        String
-  photoUrl       String
+  photoUrl       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

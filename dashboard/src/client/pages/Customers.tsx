@@ -319,7 +319,6 @@ function GuardiansStep({ customer, onSaved }: { customer: Customer; onSaved: () 
       body.append('idDocumentType', g.idDocumentType);
       body.append('nationalId', g.nationalId.trim());
       body.append('address', g.address.trim());
-      body.append('photo', g.photo as File);
       return (await api.post<Guardian>(`/customers/${customer.id}/guardians`, body)).data;
     },
     onSuccess: async () => {
@@ -332,7 +331,7 @@ function GuardiansStep({ customer, onSaved }: { customer: Customer; onSaved: () 
     onError: (e) => setError(apiErrorMessage(e)),
   });
 
-  const errors = showErrors ? validatePerson(g, 'guardian') : {};
+  const errors = showErrors ? validatePerson(g, 'guardian', { photoOptional: true }) : {};
   const phoneClash = g.phone.replace(/\D/g, '') === customer.phone.replace(/\D/g, '');
 
   if (have >= REQUIRED_GUARDIANS) {
@@ -346,7 +345,7 @@ function GuardiansStep({ customer, onSaved }: { customer: Customer; onSaved: () 
   return (
     <FormSection
       title={`Guardian ${have + 1} of ${REQUIRED_GUARDIANS}`}
-      description="Someone who vouches for the customer. Each needs a photo, phone, ID and address."
+      description="Someone who vouches for the customer. Each needs a phone, ID and address."
     >
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       <PersonFields
@@ -355,13 +354,13 @@ function GuardiansStep({ customer, onSaved }: { customer: Customer; onSaved: () 
         value={g}
         onChange={setG}
         errors={{ ...errors, ...(showErrors && phoneClash ? { phone: 'Must differ from the customer' } : {}) }}
-        photoLabel="Guardian photo"
+        hidePhoto
       />
       <Button
         type="button"
         disabled={add.isPending}
         onClick={() => {
-          if (Object.keys(validatePerson(g, 'guardian')).length || phoneClash) {
+          if (Object.keys(validatePerson(g, 'guardian', { photoOptional: true })).length || phoneClash) {
             setShowErrors(true);
             return;
           }
