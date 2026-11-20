@@ -40,7 +40,9 @@ export interface Customer {
   idDocumentType?: 'NATIONAL_ID' | 'VOTER_ID' | 'DRIVING_LICENSE' | 'PASSPORT' | null;
   selfiePhotoUrl?: string | null;
   idCardPhotoUrl?: string | null;
+  idCardBackPhotoUrl?: string | null;
   guardians?: Guardian[];
+  devices?: Device[];
   _count?: { guardians: number };
   address?: string | null;
   verificationStatus?: VerificationStatus;

@@ -11,6 +11,7 @@ import Agents from './pages/Agents';
 import AgentDetail from './pages/AgentDetail';
 import DeviceDetail from './pages/DeviceDetail';
 import Customers from './pages/Customers';
+import CustomerDetail from './pages/CustomerDetail';
 import LoanDetail from './pages/LoanDetail';
 import Payments from './pages/Payments';
 import Payouts from './pages/Payouts';
@@ -85,6 +86,7 @@ export default function ClientApp() {
       />
       <Route path="/devices/:id" element={<Shell><DeviceDetail /></Shell>} />
       <Route path="/customers" element={<Shell><Customers /></Shell>} />
+      <Route path="/customers/:id" element={<Shell><CustomerDetail /></Shell>} />
       <Route path="/sales/:id" element={<Shell><LoanDetail /></Shell>} />
       <Route path="/loans" element={<Navigate to="/sales" replace />} />
       <Route path="/loans/:id" element={<LoanRedirect />} />
