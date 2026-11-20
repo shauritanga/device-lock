@@ -528,7 +528,15 @@ function CustomerDetail({
                   note={checks.duplicateId.matches ? `Already registered to ${checks.duplicateId.matches}` : null}
                 />
                 <Check1 ok={checks.photos.passed} label="ID and selfie photos on file" />
-                <Check1 ok={checks.liveness.passed} label="Live person (blinked on camera)" />
+                <Check1
+                  ok={checks.liveness.passed}
+                  label="Live person (blinked on camera)"
+                  note={
+                    checks.liveness.info
+                      ? `Detector: ${checks.liveness.info.fps} frames/s, face seen in ${checks.liveness.info.faceFrames} of ${checks.liveness.info.frames} frames, ${checks.liveness.info.attempts} attempt(s)`
+                      : null
+                  }
+                />
                 <Check1
                   ok={checks.face.passed}
                   label="Face matches the ID photo"

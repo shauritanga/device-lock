@@ -148,7 +148,7 @@ function Result({ customer, onRetry }: { customer: Customer; onRetry: () => void
         ['ID number is valid', c.idFormat.passed, c.idFormat.reason ?? undefined],
         ['ID is not used by another customer', c.duplicateId.passed, c.duplicateId.matches ? `Already registered to ${c.duplicateId.matches}` : undefined],
         ['ID front, ID back and selfie on file', c.photos.passed],
-        ['Live person (blinked on camera)', c.liveness.passed],
+        ['Live person (blinked on camera)', c.liveness.passed, c.liveness.info ? `Detector: ${c.liveness.info.fps} frames/s, face seen in ${c.liveness.info.faceFrames} of ${c.liveness.info.frames} frames, ${c.liveness.info.attempts} attempt(s)` : undefined],
         ['Face matches the ID photo', c.face.passed, `Distance ${c.face.distance.toFixed(2)} (match below ${c.face.matchBelow})`],
       ]
     : [];

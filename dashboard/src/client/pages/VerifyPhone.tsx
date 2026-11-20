@@ -97,6 +97,7 @@ export default function VerifyPhone() {
       const out = await upload('complete', r.selfie, {
         faceDistance: String(r.distance),
         livenessPassed: String(r.livenessPassed),
+        livenessInfo: JSON.stringify(r.info),
       });
       sessionStorage.removeItem(storeKey);
       setResult(out.status);

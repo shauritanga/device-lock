@@ -58,7 +58,7 @@ export interface VerificationChecks {
   idFormat: { passed: boolean; reason: string | null };
   duplicateId: { passed: boolean; matches: string | null };
   photos: { passed: boolean };
-  liveness: { passed: boolean };
+  liveness: { passed: boolean; info?: Record<string, number | boolean> | null };
   face: { passed: boolean; distance: number; matchBelow: number; reviewBelow: number };
 }
 

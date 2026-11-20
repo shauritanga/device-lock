@@ -97,6 +97,11 @@ export class VerifyCustomerDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   livenessPassed!: boolean;
+
+  /** JSON of what the blink detector measured, kept for diagnosing failed checks. */
+  @IsOptional()
+  @IsString()
+  livenessInfo?: string;
 }
 
 export class ReviewCustomerDto {

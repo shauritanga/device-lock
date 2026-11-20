@@ -140,7 +140,7 @@ export class CustomersService {
       idFormat: { passed: idCheck.valid, reason: idCheck.reason ?? null },
       duplicateId: { passed: !duplicateOf, matches: duplicateOf },
       photos: { passed: hasPhotos },
-      liveness: { passed: dto.livenessPassed },
+      liveness: { passed: dto.livenessPassed, info: parseInfo(dto.livenessInfo) },
       face: {
         passed: faceOk,
         distance: dto.faceDistance,
@@ -339,5 +339,20 @@ export class CustomersService {
       data: { completedAt: new Date() },
     });
     return { status: customer.verificationStatus };
+  }
+}
+
+/** The phone's blink-detector measurements: numbers and booleans only, kept small. */
+function parseInfo(raw?: string): Prisma.InputJsonObject | null {
+  if (!raw || raw.length > 2000) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, number | boolean> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'number' || typeof v === 'boolean') out[k] = v;
+    }
+    return out;
+  } catch {
+    return null;
   }
 }
