@@ -86,6 +86,14 @@ class AgentStore(context: Context) {
     val isEnrolled: Boolean
         get() = !agentToken.isNullOrBlank()
 
+    /**
+     * True while the phone is held for repeat lending: the loan is repaid, the app still
+     * holds device-owner, but nothing is restricted and nothing is locked.
+     */
+    var dormant: Boolean
+        get() = prefs.getBoolean(KEY_DORMANT, false)
+        set(value) = prefs.edit().putBoolean(KEY_DORMANT, value).apply()
+
     /** True once the phone was released to the customer: nothing is managed any more. */
     var released: Boolean
         get() = prefs.getBoolean(KEY_RELEASED, false)
@@ -111,6 +119,7 @@ class AgentStore(context: Context) {
         private const val LEGACY_PREFS = "device_lock_agent"
         private const val KEY_AGENT_TOKEN = "agent_token"
         private const val KEY_RELEASED = "released"
+        private const val KEY_DORMANT = "dormant"
         private const val KEY_SMS_SECRET = "sms_secret"
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_FCM_TOKEN = "fcm_token"

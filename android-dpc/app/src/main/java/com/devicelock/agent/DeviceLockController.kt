@@ -57,6 +57,28 @@ class DeviceLockController(private val context: Context) {
         }
     }
 
+    /**
+     * The loan is repaid but the lender keeps the phone enrolled for the next one. Unlock, and lift
+     * every restriction (factory reset included) so the customer is never trapped. The app stays
+     * device-owner, which is what lets a new loan start without wiping the phone.
+     */
+    fun relaxForRepeatLending() {
+        if (!isDeviceOwner()) return
+        if (isLocked()) unlock()
+        for (restriction in MANAGED_RESTRICTIONS) {
+            runCatching { dpm.clearUserRestriction(admin, restriction) }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching { dpm.setUserControlDisabledPackages(admin, emptyList()) }
+        }
+    }
+
+    /** A new loan started: apply the anti-removal restrictions again. */
+    fun rearm() {
+        if (!isDeviceOwner()) return
+        applyManagedRestrictions()
+    }
+
     fun managedRestrictionsApplied(): Boolean {
         if (!isDeviceOwner()) return false
         val restrictions = dpm.getUserRestrictions(admin)

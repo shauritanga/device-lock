@@ -189,17 +189,25 @@ export class DevicesService {
   findAll(query: ListDevicesQuery, actor?: AuthUser) {
     return this.prisma.scoped.device.findMany({
       where: {
-        ...this.agentScope(actor),
         archivedAt: null,
         ...(query.status ? { status: query.status } : {}),
         ...(query.customerId ? { customerId: query.customerId } : {}),
-        ...(query.available === 'true'
-          ? {
-              loan: { is: null },
-              customerId: null,
-              status: DeviceStatus.PENDING_ENROLLMENT,
-            }
-          : {}),
+        // Combined with AND so an agent's own-phones rule can never be overridden.
+        AND: [
+          this.agentScope(actor),
+          ...(query.available === 'true'
+            ? [
+                {
+                  loan: { is: null },
+                  OR: [
+                    { customerId: null, status: DeviceStatus.PENDING_ENROLLMENT },
+                    // Held for repeat lending: enrolled, unrestricted, waiting for its customer's next loan.
+                    { dormantSince: { not: null }, status: DeviceStatus.ACTIVE },
+                  ],
+                },
+              ]
+            : []),
+        ],
       },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -414,6 +422,9 @@ export class DevicesService {
 
     if (device.loan?.status === LoanStatus.COMPLETED) {
       return 'loan completed — device released';
+    }
+    if (!device.loan) {
+      return 'no active loan — phone released';
     }
     if (!force) {
       throw new ConflictException(

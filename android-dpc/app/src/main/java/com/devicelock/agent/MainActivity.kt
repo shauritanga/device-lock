@@ -74,7 +74,8 @@ class MainActivity : AppCompatActivity() {
 
         // Ensure anti-removal restrictions are in force for any managed device
         // (covers devices enrolled before this became automatic).
-        if (controller.isDeviceOwner()) controller.applyManagedRestrictions()
+        // A phone held between loans stays unrestricted when the customer opens the app.
+        if (controller.isDeviceOwner() && !AgentStore(applicationContext).dormant) controller.applyManagedRestrictions()
         if (agent.isEnrolled()) AgentSync.schedulePeriodic(applicationContext)
 
         refreshStatus()

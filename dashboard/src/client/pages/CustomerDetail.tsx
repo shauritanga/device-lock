@@ -23,7 +23,7 @@ import { Field, Input } from '@/shared/components/ui/Field';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Pill, StatusDot } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
-import { shortDate } from '@/shared/lib/format';
+import { money, shortDate } from '@/shared/lib/format';
 import { PhoneVerification } from '../components/PhoneVerification';
 import {
   GuardiansFooter,
@@ -376,6 +376,30 @@ export default function CustomerDetail() {
               <Row label="Address" value={c.address ?? '—'} />
               <Row label="Registered" value={shortDate(c.createdAt)} />
             </dl>
+          </Card>
+
+          <Card>
+            <CardHeader title="Loans" subtitle="Every loan this customer has taken with you" />
+            {c.loans && c.loans.length > 0 ? (
+              <ul className="mt-4 divide-y divide-line-soft border-t border-line-soft">
+                {c.loans.map((l) => (
+                  <li key={l.id}>
+                    <Link
+                      to={`/sales/${l.id}`}
+                      className="flex items-center gap-3 px-5 py-3 text-sm transition hover:bg-canvas/60 sm:px-6"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block tabular-nums text-ink">{money(l.principal, l.currency)}</span>
+                        <span className="block text-xs text-muted">Started {shortDate(l.startDate)}</span>
+                      </span>
+                      <StatusDot status={l.status} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-5 pb-5 pt-3 text-sm text-muted">No loans yet.</p>
+            )}
           </Card>
 
           <Card>

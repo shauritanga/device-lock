@@ -39,7 +39,10 @@ class BootReceiver : BroadcastReceiver() {
         // but re-applying is cheap insurance) and the lock if we were locked.
         val controller = DeviceLockController(appContext)
         if (controller.isDeviceOwner()) {
-            runCatching { controller.applyManagedRestrictions() }
+            // A phone held between loans stays unrestricted across reboots.
+            if (!AgentStore(appContext).dormant) {
+                runCatching { controller.applyManagedRestrictions() }
+            }
             if (controller.isLocked()) {
                 runCatching { controller.lock() }
             }

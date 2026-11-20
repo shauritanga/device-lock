@@ -194,6 +194,22 @@ export default function DeviceDetail() {
         ) : null}
       </div>
 
+      {device.dormantSince ? (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex gap-3 text-amber-800">
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-semibold">Held for {device.customer?.fullName ?? 'the customer'}'s next loan</p>
+              <p className="mt-1 text-sm">
+                The loan was repaid on {shortDate(device.dormantSince)}. The phone is unlocked and has no restrictions,
+                and stays enrolled so a new loan can start without resetting it. It is released automatically if no new
+                loan starts in time, or you can release it now.
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
       {managementWarning ? (
         <Card className="border-amber-200 bg-amber-50 p-4">
           <div className="flex gap-3 text-amber-800">

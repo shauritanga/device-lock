@@ -26,6 +26,7 @@ import { OutboundWebhooksService } from '../outbound-webhooks/outbound-webhooks.
 const STATUS_AFTER_ACK: Partial<Record<CommandType, DeviceStatus>> = {
   [CommandType.LOCK]: DeviceStatus.LOCKED,
   [CommandType.UNLOCK]: DeviceStatus.ACTIVE,
+  [CommandType.RELAX]: DeviceStatus.ACTIVE,
   [CommandType.RELEASE]: DeviceStatus.RELEASED,
 };
 

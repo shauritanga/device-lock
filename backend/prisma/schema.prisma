@@ -209,6 +209,14 @@ enum CommandType {
   REMIND // show a non-blocking reminder banner
   SYNC_POLICY // push new offline / grace settings
   WIPE // last resort, gated by role + policy
+  RELAX // loan repaid but the lender keeps the phone enrolled: unlock and lift every restriction
+  ARM // a new loan starts on a phone held for repeat lending: apply the restrictions again
+}
+
+/// What happens to a phone when its loan is fully repaid.
+enum AfterRepayment {
+  RELEASE // hand the phone over: the agent gives up device-owner (retail credit)
+  KEEP_ENROLLED // keep the phone enrolled but unrestricted, ready for the next loan (microfinance)
 }
 
 enum CommandStatus {
@@ -233,6 +241,10 @@ model Tenant {
   graceDays            Int       @default(3)
   maxOfflineDays       Int       @default(4)
   lockOnSimChange      Boolean   @default(true)
+  /// Release the phone when the loan is repaid, or keep it enrolled for repeat lending.
+  afterRepayment       AfterRepayment @default(RELEASE)
+  /// A phone held for repeat lending with no new loan for this many days is released.
+  retentionDays        Int       @default(90)
   billingPlan          String    @default("STARTER")
   subscriptionStatus   String    @default("ACTIVE")
   // Where collected instalments are disbursed (mobile money, 255XXXXXXXXX).
@@ -793,6 +805,10 @@ model Device {
   /// Set when the owner removes a released phone from the device list. The sale
   /// and payment records are kept; only the list entry is hidden.
   archivedAt DateTime?
+
+  /// Set while the phone is held for repeat lending: loan repaid, phone still enrolled
+  /// but unrestricted, waiting for the same customer's next loan.
+  dormantSince DateTime?
 
   assignedAgentId String?
   assignedAgent   User?   @relation("AgentStock", fields: [assignedAgentId], references: [id], onDelete: SetNull)

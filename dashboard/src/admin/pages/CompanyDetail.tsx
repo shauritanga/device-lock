@@ -17,6 +17,7 @@ import { PayoutAccountCard } from '../components/PayoutAccountCard';
 import { BillingTab } from '../components/company/BillingTab';
 import { CompanyHeader } from '../components/company/CompanyHeader';
 import { OverviewTab } from '../components/company/OverviewTab';
+import { RepaymentPolicyCard } from '../components/company/RepaymentPolicyCard';
 import type {
   BillingSummary,
   Invoice,
@@ -189,6 +190,7 @@ export default function CompanyDetail() {
           onActivate={openActivate}
         />
       ) : null}
+      {tab === 'overview' && isSuperAdmin && tenant.data ? <RepaymentPolicyCard tenant={tenant.data} /> : null}
 
       {tab === 'billing' ? (
         <BillingTab

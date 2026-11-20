@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, Plus, Trash2 } from '@/shared/icons';
 import { api } from '@/shared/api/client';
@@ -260,7 +261,14 @@ export function RegisteredTab() {
                     onChange={() => toggle(d.id)}
                   />
                 </td>
-                <td className="px-4 py-3 font-medium tabular-nums text-ink">{d.imei}</td>
+                <td className="px-4 py-3 font-medium tabular-nums text-ink">
+                  {d.imei}
+                  {d.dormantSince ? (
+                    <span className="mt-0.5 block text-xs font-normal text-amber-700">
+                      Held for {d.customer?.fullName ?? 'its customer'}'s next loan
+                    </span>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3 text-muted">
                   {[d.make, d.model].filter(Boolean).join(' ') || '—'}
                 </td>
@@ -269,6 +277,11 @@ export function RegisteredTab() {
                 </td>
                 <td className="px-4 py-3 text-muted">{shortDate(d.createdAt)}</td>
                 <td className="px-4 py-3 text-right">
+                  {d.dormantSince ? (
+                    <Link to={`/devices/${d.id}`} className="text-xs font-medium text-brand-600 hover:underline">
+                      Manage
+                    </Link>
+                  ) : (
                   <button
                     type="button"
                     title="Remove from stock"
@@ -292,6 +305,7 @@ export function RegisteredTab() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
+                  )}
                 </td>
               </Row>
             ))}

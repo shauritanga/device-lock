@@ -1,11 +1,14 @@
 import {
   IsBoolean,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
   Min,
   MinLength,
 } from 'class-validator';
+import { AfterRepayment } from '@prisma/client';
+import { Max } from 'class-validator';
 
 export class CreateTenantDto {
   @IsString()
@@ -40,6 +43,17 @@ export class CreateTenantDto {
 }
 
 export class UpdateTenantDto {
+  @IsOptional()
+  @IsEnum(AfterRepayment)
+  afterRepayment?: AfterRepayment;
+
+  /** Days a phone is held for repeat lending before it is released. */
+  @IsOptional()
+  @IsInt()
+  @Min(7)
+  @Max(365)
+  retentionDays?: number;
+
   @IsOptional()
   @IsString()
   @MinLength(2)

@@ -14,7 +14,7 @@ import {
 import axios from 'axios';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
-import type { Customer, Device, Loan } from '@/shared/api/types';
+import type { Customer, Device, Loan, TenantSettings } from '@/shared/api/types';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Combobox, type ComboOption } from '@/shared/components/ui/Combobox';
@@ -89,7 +89,12 @@ type SaleForm = typeof initialSale;
 
 const TERMS_VERSION = 'simulinda-v1';
 
-function buildTerms(customer: Customer, sale: SaleForm, totalRepayable: number) {
+function buildTerms(
+  customer: Customer,
+  sale: SaleForm,
+  totalRepayable: number,
+  keep?: { days: number },
+) {
   const idLabel = ID_TYPES.find((t) => t.value === customer.idDocumentType)?.label ?? 'ID';
   const unit = FREQUENCIES.find((f) => f.value === sale.frequency)?.unit ?? 'months';
   return [
@@ -108,7 +113,9 @@ function buildTerms(customer: Customer, sale: SaleForm, totalRepayable: number) 
     'The phone reports its last-known location to the seller while the loan is active, for follow-up on missed payments.',
     'The guardians recorded for this customer may be contacted if payments are missed.',
     'Emergency access remains available and personal data is not deleted.',
-    'After final settlement, the phone is released permanently to the customer.',
+    keep
+      ? `After final repayment the phone stays enrolled with the lender, unlocked and without restrictions, so a new loan can start without resetting it. It is released to the customer on request, or automatically after ${keep.days} days with no new loan.`
+      : 'After final settlement, the phone is released permanently to the customer.',
   ].join('\n');
 }
 
@@ -157,6 +164,11 @@ export default function Sales() {
     enabled: open,
   });
 
+  const { data: policy } = useQuery({
+    queryKey: ['tenant-settings'],
+    queryFn: async () => (await api.get<TenantSettings>('/tenant-settings')).data,
+  });
+
   // Registered, unsold phones. Agents only get the ones allocated to them.
   const { data: stock, isLoading: stockLoading } = useQuery({
     queryKey: ['devices', 'available'],
@@ -187,7 +199,14 @@ export default function Sales() {
       (stock ?? []).map((d) => ({
         value: d.id,
         label: d.imei,
-        sub: [d.make, d.model].filter(Boolean).join(' ') || undefined,
+        sub:
+          [
+            [d.make, d.model].filter(Boolean).join(' '),
+            d.dormantSince && d.customer ? `held for ${d.customer.fullName}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ') || undefined,
+        keywords: d.customer?.fullName ?? '',
       })),
     [stock],
   );
@@ -267,7 +286,12 @@ export default function Sales() {
         loanId: loan.id,
         language: 'en',
         termsVersion: TERMS_VERSION,
-        termsText: buildTerms(customer, sale, totalRepayable),
+        termsText: buildTerms(
+          customer,
+          sale,
+          totalRepayable,
+          policy?.afterRepayment === 'KEEP_ENROLLED' ? { days: policy.retentionDays } : undefined,
+        ),
         metadata: {
           acceptedFrom: 'dashboard-sale-wizard',
           customerPhone: phone,
@@ -583,7 +607,7 @@ export default function Sales() {
                   value={sale.deviceId}
                   onChange={(id) => {
                     const d = stock?.find((x) => x.id === id);
-                    if (d)
+                    if (d) {
                       setSale({
                         ...sale,
                         deviceId: d.id,
@@ -591,6 +615,9 @@ export default function Sales() {
                         make: d.make ?? '',
                         model: d.model ?? '',
                       });
+                      // A phone held for repeat lending belongs to the customer who repaid on it.
+                      if (d.dormantSince && d.customer?.id) setCustomerId(d.customer.id);
+                    }
                   }}
                   placeholder="Select phone from stock"
                   searchPlaceholder="IMEI or model"
@@ -732,7 +759,11 @@ export default function Sales() {
                   <li>The phone shares its last-known location with the seller while the loan is active.</li>
                   <li>Guardians on file may be contacted if payments are missed.</li>
                   <li>Emergency access remains; personal data is not deleted.</li>
-                  <li>After final settlement, the phone is permanently released.</li>
+                  <li>
+                    {policy?.afterRepayment === 'KEEP_ENROLLED'
+                      ? `After final repayment the phone stays enrolled, unlocked and unrestricted, for the next loan. It is released on request, or after ${policy.retentionDays} days with no new loan.`
+                      : 'After final settlement, the phone is permanently released.'}
+                  </li>
                 </ul>
                 <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-canvas px-3 py-3 text-sm text-ink">
                   <input

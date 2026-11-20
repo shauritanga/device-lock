@@ -20,6 +20,7 @@ import {
 import { ClsService } from 'nestjs-cls';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CommandsService } from '../commands/commands.service';
+import { DormancyService } from '../commands/dormancy.service';
 import {
   SNIPPE_MIN_COLLECTION,
   SnippePayment,
@@ -47,6 +48,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commands: CommandsService,
+    private readonly dormancy: DormancyService,
     private readonly snippe: SnippeService,
     private readonly payouts: PayoutsService,
     private readonly cls: ClsService,
@@ -506,6 +508,15 @@ export class PaymentsService {
       },
     });
     if (inFlight > 0) return;
+
+    // Microfinance lenders keep a repaid phone enrolled for the next loan instead of releasing it.
+    const full = await this.prisma.scoped.device.findFirst({
+      where: { id: device.id },
+      select: { tenantId: true, agentVersion: true },
+    });
+    if (full && (await this.dormancy.shouldKeepEnrolled(full.tenantId, full.agentVersion))) {
+      if (await this.dormancy.enter(loanId)) return;
+    }
 
     this.logger.log(`Releasing device ${device.id} — loan ${loanId} completed`);
     await this.commands.queue(device.id, CommandType.RELEASE, {

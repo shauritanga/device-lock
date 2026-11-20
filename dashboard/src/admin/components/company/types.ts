@@ -15,6 +15,8 @@ export type Tenant = {
   id: string;
   name: string;
   subscriptionRequired?: boolean;
+  afterRepayment?: 'RELEASE' | 'KEEP_ENROLLED';
+  retentionDays?: number;
   country?: string;
   isActive?: boolean;
   createdAt?: string;

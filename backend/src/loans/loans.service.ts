@@ -15,6 +15,7 @@ import {
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CommandsService } from '../commands/commands.service';
+import { DormancyService } from '../commands/dormancy.service';
 import { CollectionsService } from '../collections/collections.service';
 import { REQUIRED_GUARDIANS } from '../customers/customers.service';
 import { CreateLoanDto } from './dto/loan.dto';
@@ -26,6 +27,7 @@ export class LoansService {
     private readonly prisma: PrismaService,
     private readonly commands: CommandsService,
     private readonly collections: CollectionsService,
+    private readonly dormancy: DormancyService,
   ) {}
 
   async create(dto: CreateLoanDto, actor?: AuthUser) {
@@ -60,6 +62,12 @@ export class LoansService {
     if (!device) throw new NotFoundException('Device not found');
     if (device.loan) {
       throw new ConflictException('Device already has a loan');
+    }
+    // A phone held for repeat lending belongs to the customer whose loan was repaid.
+    if (device.dormantSince && device.customerId && device.customerId !== dto.customerId) {
+      throw new ConflictException(
+        'This phone is held for another customer who repaid a loan on it. Choose that customer, or release the phone first',
+      );
     }
     // Agents may only sell phones the owner allocated to them.
     if (
@@ -142,6 +150,10 @@ export class LoansService {
       };
     });
 
+    // A phone held for repeat lending goes back under control before anything else.
+    if (device.dormantSince) {
+      await this.dormancy.wake(dto.deviceId);
+    }
     // A phone that is already enrolled is locked right away until the deposit is paid.
     // (A phone not enrolled yet is locked the moment it enrolls.)
     if (downPayment > 0 && device.status === DeviceStatus.ACTIVE) {

@@ -43,6 +43,7 @@ export interface Customer {
   idCardBackPhotoUrl?: string | null;
   guardians?: Guardian[];
   devices?: Device[];
+  loans?: Loan[];
   _count?: { guardians: number };
   address?: string | null;
   verificationStatus?: VerificationStatus;
@@ -86,6 +87,8 @@ export interface Device {
   backgroundRestricted?: boolean | null;
   standbyBucket?: string | null;
   lockedAt?: string | null;
+  /** Set while the phone is held for repeat lending (loan repaid, phone still enrolled, unrestricted). */
+  dormantSince?: string | null;
   simIccid?: string | null;
   simOperator?: string | null;
   simCountryIso?: string | null;
@@ -392,4 +395,9 @@ export interface AgentDetail extends Omit<Agent, 'stockCount' | 'salesCount' | '
     customer?: { id: string; fullName: string };
     device?: Pick<Device, 'id' | 'imei' | 'make' | 'model' | 'status'>;
   }>;
+}
+
+export interface TenantSettings {
+  afterRepayment: 'RELEASE' | 'KEEP_ENROLLED';
+  retentionDays: number;
 }

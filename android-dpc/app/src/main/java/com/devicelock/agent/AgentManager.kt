@@ -221,6 +221,8 @@ class AgentManager(context: Context) {
 
     fun enforceOfflinePolicy(): String? {
         if (!store.isEnrolled || controller.isLocked() || !controller.isDeviceOwner()) return null
+        // Between loans nothing is owed, so no offline rule may lock the phone.
+        if (store.dormant) return null
 
         val now = System.currentTimeMillis()
         val lastCheckin = store.lastSuccessfulCheckinAt
@@ -289,6 +291,15 @@ class AgentManager(context: Context) {
                 // (or an owner forces it). The device has no local authority to
                 // release itself — see MainActivity.
                 "RELEASE" -> controller.releaseDevice()
+                // Repeat lending: stay enrolled between loans, without any restriction.
+                "RELAX" -> {
+                    controller.relaxForRepeatLending()
+                    store.dormant = true
+                }
+                "ARM" -> {
+                    controller.rearm()
+                    store.dormant = false
+                }
                 else -> throw IllegalArgumentException("Unknown command ${cmd.type}")
             }
         }

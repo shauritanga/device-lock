@@ -66,7 +66,11 @@ export class CustomersService {
   async findOne(id: string) {
     const customer = await this.prisma.scoped.customer.findFirst({
       where: { id },
-      include: { devices: true, loans: true, guardians: true },
+      include: {
+        devices: { where: { archivedAt: null } },
+        loans: { orderBy: { startDate: 'desc' } },
+        guardians: true,
+      },
     });
     if (!customer) throw new NotFoundException('Customer not found');
     return customer;
