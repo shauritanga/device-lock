@@ -300,7 +300,16 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
 }
 
 /** Records the three guardians one by one. Each is saved on its own. */
-function GuardiansStep({ customer, onSaved }: { customer: Customer; onSaved: () => void }) {
+function GuardiansStep({
+  customer,
+  onSaved,
+  onBack,
+}: {
+  customer: Customer;
+  onSaved: () => void;
+  /** Shows a Back button on the same row as the save button. */
+  onBack?: () => void;
+}) {
   const { data, refetch } = useQuery({
     queryKey: ['customer', customer.id],
     queryFn: async () => (await api.get<Customer>(`/customers/${customer.id}`)).data,
@@ -336,8 +345,15 @@ function GuardiansStep({ customer, onSaved }: { customer: Customer; onSaved: () 
 
   if (have >= REQUIRED_GUARDIANS) {
     return (
-      <div className="flex items-center gap-2 text-sm text-ink">
-        <Check className="h-4 w-4 text-emerald-600" /> All {REQUIRED_GUARDIANS} guardians are saved.
+      <div className="flex items-center gap-3">
+        {onBack ? (
+          <Button type="button" variant="secondary" onClick={onBack}>
+            Back
+          </Button>
+        ) : null}
+        <span className="flex items-center gap-2 text-sm text-ink">
+          <Check className="h-4 w-4 text-emerald-600" /> All {REQUIRED_GUARDIANS} guardians are saved.
+        </span>
       </div>
     );
   }
@@ -356,19 +372,26 @@ function GuardiansStep({ customer, onSaved }: { customer: Customer; onSaved: () 
         errors={{ ...errors, ...(showErrors && phoneClash ? { phone: 'Must differ from the customer' } : {}) }}
         hidePhoto
       />
-      <Button
-        type="button"
-        disabled={add.isPending}
-        onClick={() => {
-          if (Object.keys(validatePerson(g, 'guardian', { photoOptional: true })).length || phoneClash) {
-            setShowErrors(true);
-            return;
-          }
-          add.mutate();
-        }}
-      >
-        {add.isPending ? 'Saving…' : `Save guardian ${have + 1}`}
-      </Button>
+      <div className="flex items-center gap-2">
+        {onBack ? (
+          <Button type="button" variant="secondary" onClick={onBack}>
+            Back
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          disabled={add.isPending}
+          onClick={() => {
+            if (Object.keys(validatePerson(g, 'guardian', { photoOptional: true })).length || phoneClash) {
+              setShowErrors(true);
+              return;
+            }
+            add.mutate();
+          }}
+        >
+          {add.isPending ? 'Saving…' : 'Save and continue'}
+        </Button>
+      </div>
     </FormSection>
   );
 }
@@ -429,14 +452,7 @@ function CustomerDetail({
           </Button>
         </FormSection>
       ) : mode === 'guardians' ? (
-        <>
-          <GuardiansStep customer={c} onSaved={refresh} />
-          <div className="mt-4">
-            <Button variant="secondary" onClick={() => setMode('view')}>
-              Back
-            </Button>
-          </div>
-        </>
+        <GuardiansStep customer={c} onSaved={refresh} onBack={() => setMode('view')} />
       ) : (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
