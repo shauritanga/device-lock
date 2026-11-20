@@ -70,6 +70,31 @@ export class CommandsService {
     );
   }
 
+  /**
+   * A phone sold with a deposit stays locked until the deposit is paid. The deposit
+   * is installment 0, due immediately, so this is called when the sale is made (if
+   * the phone is already enrolled) and again when the phone enrolls.
+   */
+  async lockIfDepositDue(deviceId: string) {
+    const loan = await this.prisma.scoped.loan.findFirst({
+      where: { deviceId, status: LoanStatus.ACTIVE },
+      select: { id: true },
+    });
+    if (!loan) return null;
+    const deposit = await this.prisma.scoped.installment.findFirst({
+      where: {
+        loanId: loan.id,
+        sequence: 0,
+        status: { notIn: [InstallmentStatus.PAID, InstallmentStatus.WAIVED] },
+      },
+      select: { id: true },
+    });
+    if (!deposit) return null;
+    return this.queue(deviceId, CommandType.LOCK, {
+      reason: 'Deposit due: pay the deposit to unlock',
+    });
+  }
+
   /** Queue a command for a device and attempt instant push (fallback: check-in). */
   async queue(
     deviceId: string,

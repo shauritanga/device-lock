@@ -143,7 +143,7 @@ export default function LoanDetail() {
                 !settled && loanActive && i.sequence !== earliestUnpaid;
               return (
                 <Row key={i.id}>
-                  <td className="px-4 py-3 font-medium">{i.sequence}</td>
+                  <td className="px-4 py-3 font-medium">{i.sequence === 0 ? 'Deposit' : i.sequence}</td>
                   <td className="px-4 py-3 text-muted">{shortDate(i.dueDate)}</td>
                   <td className="px-4 py-3">{money(i.amount, loan.currency)}</td>
                   <td className="px-4 py-3 text-muted">{money(i.amountPaid, loan.currency)}</td>
@@ -159,8 +159,8 @@ export default function LoanDetail() {
                         disabled={blockedByEarlier}
                         title={
                           blockedByEarlier
-                            ? `Clear installment #${earliestUnpaid} first — payments apply oldest-first`
-                            : `Mark installment #${i.sequence} as paid`
+                            ? `Clear ${earliestUnpaid === 0 ? 'the deposit' : `installment #${earliestUnpaid}`} first — payments apply oldest-first`
+                            : (i.sequence === 0 ? 'Mark the deposit as paid' : `Mark installment #${i.sequence} as paid`)
                         }
                         onClick={() => openPay(i)}
                       >
@@ -234,7 +234,9 @@ export default function LoanDetail() {
         onClose={() => setSelected(null)}
         title={
           selected
-            ? `Mark installment #${selected.sequence} as paid`
+            ? selected.sequence === 0
+              ? 'Mark the deposit as paid'
+              : `Mark installment #${selected.sequence} as paid`
             : 'Mark installment as paid'
         }
       >
@@ -251,7 +253,7 @@ export default function LoanDetail() {
               <span className="font-semibold text-ink">
                 {money(outstandingOf(selected), loan.currency)}
               </span>{' '}
-              outstanding on installment #{selected.sequence} (due{' '}
+              outstanding on {selected.sequence === 0 ? 'the deposit' : `installment #${selected.sequence}`} (due{' '}
               {shortDate(selected.dueDate)}). Use this when the customer pays
               cash at the till or otherwise pays outside the mobile-money
               gateway — including paying early, before the due date.

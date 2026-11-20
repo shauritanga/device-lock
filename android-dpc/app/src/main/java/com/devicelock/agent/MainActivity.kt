@@ -268,7 +268,7 @@ class MainActivity : AppCompatActivity() {
             if (summary.installments.isEmpty()) append("No installments found")
             summary.installments.forEach {
                 appendLine(
-                    "#${it.sequence}  ${formatApiDate(it.dueDate)}  ${formatMoney(it.amount, loan?.currency ?: "")}  ${it.status}",
+                    "${if (it.sequence == 0) "Deposit" else "#${it.sequence}"}  ${formatApiDate(it.dueDate)}  ${formatMoney(it.amount, loan?.currency ?: "")}  ${it.status}",
                 )
             }
         }

@@ -132,6 +132,34 @@ export class InstallmentsEvaluator {
       const installment = loan.installments[0];
       if (!installment || !loan.device || !loan.customer?.phone) continue;
 
+      // The deposit (installment 0) has no grace period and no reminders: the phone
+      // stays locked until it is paid. A phone not enrolled yet gets the lock queued
+      // so it applies the moment it enrolls.
+      if (installment.sequence === 0) {
+        const pending = await this.prisma.scoped.deviceCommand.findFirst({
+          where: {
+            deviceId: loan.device.id,
+            type: CommandType.LOCK,
+            status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+          },
+          select: { id: true },
+        });
+        const lockable =
+          loan.device.status === DeviceStatus.ACTIVE ||
+          loan.device.status === DeviceStatus.PENDING_ENROLLMENT;
+        if (lockable && !pending) {
+          await this.commands.queue(loan.device.id, CommandType.LOCK, {
+            reason: 'Deposit due: pay the deposit to unlock',
+          });
+          await this.auditEvent(loan.device.id, 'LOCK_QUEUED_DEPOSIT', {
+            installmentId: installment.id,
+            amountDue: Math.max(Number(installment.amount) - Number(installment.amountPaid), 0),
+          });
+          locked++;
+        }
+        continue;
+      }
+
       // A tenant-wide grace of several days would span multiple daily
       // installments, so daily loans get at most 1 day unless overridden per device.
       const tenantGrace =

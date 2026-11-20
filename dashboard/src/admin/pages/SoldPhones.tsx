@@ -197,6 +197,16 @@ export default function SoldPhones() {
                     (() => {
                       const due = new Date(d.loan.nextDue.dueDate);
                       const late = Math.floor((Date.now() - due.getTime()) / 86_400_000);
+                      if (d.loan.nextDue.sequence === 0) {
+                        return (
+                          <>
+                            <div className="font-medium text-rose-600">Deposit not paid</div>
+                            <div className="text-xs tabular-nums text-muted">
+                              {money(d.loan.nextDue.amountDue, d.loan.currency)}
+                            </div>
+                          </>
+                        );
+                      }
                       return late >= 1 ? (
                         <>
                           <div className="font-medium text-rose-600">

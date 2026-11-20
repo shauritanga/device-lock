@@ -81,6 +81,8 @@ const initialSale = {
   frequency: 'MONTHLY' as Frequency,
   termPeriods: '6',
   startDate: new Date().toISOString().slice(0, 10),
+  /** The deposit was handed over in cash at the counter, so record it with the sale. */
+  depositPaidNow: false,
   consentAccepted: false,
 };
 type SaleForm = typeof initialSale;
@@ -256,6 +258,10 @@ export default function Sales() {
           startDate: new Date(sale.startDate).toISOString(),
         })
       ).data;
+
+      if (sale.depositPaidNow && Number(sale.downPayment) > 0) {
+        await api.post('/payments', { loanId: loan.id, amount: Number(sale.downPayment), method: 'CASH' });
+      }
 
       await api.post('/contracts', {
         loanId: loan.id,
@@ -611,7 +617,15 @@ export default function Sales() {
                   onChange={(e) => setSale({ ...sale, principal: e.target.value })}
                 />
               </Field>
-              <Field label="Deposit (TZS)" error={err('downPayment')}>
+              <Field
+                label="Deposit (TZS)"
+                error={err('downPayment')}
+                hint={
+                  Number(sale.downPayment) > 0
+                    ? 'The phone is locked until the deposit is paid.'
+                    : undefined
+                }
+              >
                 <Input
                   type="number"
                   min="0"
@@ -630,6 +644,23 @@ export default function Sales() {
                 />
               </Field>
             </div>
+
+            {Number(sale.downPayment) > 0 ? (
+              <label className="-mt-1 flex cursor-pointer items-start gap-3 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-line accent-brand-600"
+                  checked={sale.depositPaidNow}
+                  onChange={(e) => setSale({ ...sale, depositPaidNow: e.target.checked })}
+                />
+                <span>
+                  The customer paid the deposit in cash just now
+                  <span className="block text-xs text-muted">
+                    Leave this unticked if they will pay by mobile money: the phone then stays locked until it is paid.
+                  </span>
+                </span>
+              </label>
+            ) : null}
 
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Pays" required>

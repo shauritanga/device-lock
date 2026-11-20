@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  DeviceStatus,
   LoanStatus,
   PaymentFrequency,
   UserRole,
@@ -13,13 +14,17 @@ import {
 } from '@prisma/client';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { CommandsService } from '../commands/commands.service';
 import { REQUIRED_GUARDIANS } from '../customers/customers.service';
 import { CreateLoanDto } from './dto/loan.dto';
 import { approxMonths, generateSchedule } from './installment.util';
 
 @Injectable()
 export class LoansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commands: CommandsService,
+  ) {}
 
   async create(dto: CreateLoanDto, actor?: AuthUser) {
     const downPayment = dto.downPayment ?? 0;
@@ -76,7 +81,7 @@ export class LoansService {
       startDate,
     });
 
-    return this.prisma.scoped.$transaction(async (tx) => {
+    const created = await this.prisma.scoped.$transaction(async (tx) => {
       const loan = await tx.loan.create({
         data: {
           tenantId: customer.tenantId,
@@ -93,12 +98,25 @@ export class LoansService {
           startDate,
           status: LoanStatus.ACTIVE,
           installments: {
-            create: schedule.lines.map((l) => ({
-              tenantId: customer.tenantId,
-              sequence: l.sequence,
-              dueDate: l.dueDate,
-              amount: l.amount,
-            })),
+            create: [
+              // The deposit is installment 0, due now: the phone stays locked until it is paid.
+              ...(downPayment > 0
+                ? [
+                    {
+                      tenantId: customer.tenantId,
+                      sequence: 0,
+                      dueDate: new Date(),
+                      amount: downPayment.toFixed(2),
+                    },
+                  ]
+                : []),
+              ...schedule.lines.map((l) => ({
+                tenantId: customer.tenantId,
+                sequence: l.sequence,
+                dueDate: l.dueDate,
+                amount: l.amount,
+              })),
+            ],
           },
         },
         include: { installments: { orderBy: { sequence: 'asc' } } },
@@ -121,6 +139,13 @@ export class LoansService {
         },
       };
     });
+
+    // A phone that is already enrolled is locked right away until the deposit is paid.
+    // (A phone not enrolled yet is locked the moment it enrolls.)
+    if (downPayment > 0 && device.status === DeviceStatus.ACTIVE) {
+      await this.commands.lockIfDepositDue(dto.deviceId);
+    }
+    return created;
   }
 
   /** Agents only see the sales they made themselves. */

@@ -11,6 +11,8 @@ import {
   LoanStatus,
   PaymentStatus,
 } from '@prisma/client';
+import { ClsService } from 'nestjs-cls';
+import { TENANT_ID_KEY } from '../common/tenant/tenant-context';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CommandsService } from '../commands/commands.service';
 import { randomToken, sha256 } from '../common/crypto.util';
@@ -29,6 +31,7 @@ export class AgentService {
     private readonly prisma: PrismaService,
     private readonly commands: CommandsService,
     private readonly payments: PaymentsService,
+    private readonly cls: ClsService,
   ) {}
 
   /** Consume an enrollment token and bind the device to its agent credentials. */
@@ -82,6 +85,10 @@ export class AgentService {
         },
       }),
     ]);
+
+    // A phone sold with a deposit is locked from its first check-in until the deposit is paid.
+    this.cls.set(TENANT_ID_KEY, token.tenantId);
+    await this.commands.lockIfDepositDue(token.deviceId);
 
     return {
       deviceId: token.deviceId,
