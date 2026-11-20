@@ -2,6 +2,8 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { TokenPair } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/v1';
+/** For calls that must not carry a staff login, such as the phone verification link. */
+export const API_BASE_URL = BASE_URL;
 const ACCESS_KEY = 'dl_access';
 const REFRESH_KEY = 'dl_refresh';
 

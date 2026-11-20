@@ -25,7 +25,7 @@ import {
   type PersonErrors,
   type PersonForm,
 } from '../components/PersonFields';
-import { VerifyIdentity } from '../components/VerifyIdentity';
+import { PhoneVerification } from '../components/PhoneVerification';
 import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 const REQUIRED_GUARDIANS = 3;
@@ -297,9 +297,9 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
       {step === 1 && customer ? (
         <FormSection
           title="Check ID and face"
-          description="The ID photo is compared with a live camera capture. The number is checked for format and duplicates."
+          description="Done on your phone: the ID front and back are photographed, then a live check. The number is also checked for format and duplicates."
         >
-          <VerifyIdentity customer={customer} onComplete={(c) => { setCustomer(c); onSaved(); }} />
+          <PhoneVerification customer={customer} onComplete={(c) => { setCustomer(c); onSaved(); }} />
         </FormSection>
       ) : null}
 
@@ -480,7 +480,7 @@ function CustomerDetail({
         </Center>
       ) : mode === 'verify' ? (
         <FormSection title="Check ID and face">
-          <VerifyIdentity customer={c} onComplete={refresh} />
+          <PhoneVerification customer={c} onComplete={refresh} />
         </FormSection>
       ) : mode === 'guardians' ? (
         <GuardiansStep customer={c} onSaved={refresh} onStatus={setGStatus} />

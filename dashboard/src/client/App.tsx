@@ -17,6 +17,7 @@ import Payouts from './pages/Payouts';
 import Staff from './pages/Staff';
 import Billing from './pages/Billing';
 import Agreement from './pages/Agreement';
+import VerifyPhone from './pages/VerifyPhone';
 import Developers from './pages/Developers';
 import CollectionsService from './pages/CollectionsService';
 import Profile from '@/shared/pages/Profile';
@@ -45,6 +46,8 @@ export default function ClientApp() {
   return (
     <Routes>
       <Route path="/login" element={<Login app="client" brand={CLIENT_BRAND} />} />
+      {/* Opened on a phone from the verification QR code: no login, the link is the credential. */}
+      <Route path="/verify/:token" element={<VerifyPhone />} />
 
       <Route path="/" element={<Shell><Dashboard /></Shell>} />
       <Route path="/sales" element={<Shell><Sales /></Shell>} />

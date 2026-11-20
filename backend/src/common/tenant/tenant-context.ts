@@ -14,6 +14,7 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   'User',
   'Customer',
   'Guardian',
+  'VerificationSession',
   'Device',
   'EnrollmentToken',
   'Loan',

@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Env } from '../config/env.validation';
@@ -17,6 +18,8 @@ import {
   VerifyCustomerDto,
 } from './dto/customer.dto';
 import { checkIdNumber, FACE_MATCH_MAX, FACE_REVIEW_MAX } from './id-rules';
+import { randomToken, sha256 } from '../common/crypto.util';
+import { VerificationIdentity } from '../common/guards/verification-session.guard';
 
 export const MAX_GUARDIANS = 5;
 
@@ -122,7 +125,8 @@ export class CustomersService {
       duplicateOf = dup ? dup.fullName : null;
     }
 
-    const hasPhotos = !!customer.selfiePhotoUrl && !!customer.idCardPhotoUrl;
+    const hasPhotos =
+      !!customer.selfiePhotoUrl && !!customer.idCardPhotoUrl && !!customer.idCardBackPhotoUrl;
     const faceOk = dto.faceDistance <= FACE_MATCH_MAX;
     const faceBorderline = dto.faceDistance > FACE_MATCH_MAX && dto.faceDistance <= FACE_REVIEW_MAX;
 
@@ -202,30 +206,138 @@ export class CustomersService {
     });
   }
 
-  /** Saves the customer's photo (selfie) and optional ID-card photo. */
-  async savePhotos(
-    id: string,
-    files: { photo?: Express.Multer.File[]; idCard?: Express.Multer.File[] },
+  /** Stores one verification photo and invalidates any earlier result. */
+  private async savePhoto(
+    customerId: string,
+    kind: 'selfie' | 'idFront' | 'idBack',
+    file: Express.Multer.File | undefined,
   ) {
-    await this.findOne(id); // tenant-scoped existence check
-    const photo = files.photo?.[0];
-    const idCard = files.idCard?.[0];
-    if (!photo && !idCard) throw new BadRequestException('No photo uploaded');
-
-    const dir = path.join(this.uploadsRoot, 'kyc', id);
+    if (!file) throw new BadRequestException('No photo received');
+    const dir = path.join(this.uploadsRoot, 'kyc', customerId);
     fs.mkdirSync(dir, { recursive: true });
-    const write = (field: string, file: Express.Multer.File) => {
-      const name = `${field}-${Date.now()}${path.extname(file.originalname)}`;
-      fs.writeFileSync(path.join(dir, name), file.buffer);
-      return `${this.publicBaseUrl}/uploads/kyc/${id}/${name}`;
-    };
-    return this.prisma.scoped.customer.update({
-      where: { id },
+    const name = `${kind}-${Date.now()}${path.extname(file.originalname) || '.jpg'}`;
+    fs.writeFileSync(path.join(dir, name), file.buffer);
+    const url = `${this.publicBaseUrl}/uploads/kyc/${customerId}/${name}`;
+    const field =
+      kind === 'selfie' ? 'selfiePhotoUrl' : kind === 'idFront' ? 'idCardPhotoUrl' : 'idCardBackPhotoUrl';
+    await this.prisma.scoped.customer.update({
+      where: { id: customerId },
+      data: { [field]: url, ...RESET_VERIFICATION },
+    });
+  }
+
+  // ---- Phone verification sessions -------------------------------------
+
+  /** Staff starts a verification: returns the one-time token to put in a QR code. */
+  async createVerificationSession(customerId: string, actorId: string) {
+    const customer = await this.findOne(customerId);
+    if (!customer.nationalId || !customer.idDocumentType) {
+      throw new BadRequestException('Add the customer\'s ID number before verifying');
+    }
+    // Only one live link per customer.
+    await this.prisma.scoped.verificationSession.updateMany({
+      where: { customerId, completedAt: null, cancelledAt: null },
+      data: { cancelledAt: new Date() },
+    });
+    const token = randomToken(32);
+    const session = await this.prisma.scoped.verificationSession.create({
       data: {
-        ...(photo ? { selfiePhotoUrl: write('selfie', photo) } : {}),
-        ...(idCard ? { idCardPhotoUrl: write('idCard', idCard) } : {}),
-        ...RESET_VERIFICATION, // new photos need a new check
+        tenantId: customer.tenantId,
+        customerId,
+        tokenHash: sha256(token),
+        createdById: actorId,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
       },
     });
+    return { id: session.id, token, expiresAt: session.expiresAt };
+  }
+
+  /** Progress of a session, polled by the staff screen while the phone works. */
+  async verificationSessionStatus(customerId: string, sessionId: string) {
+    const session = await this.prisma.scoped.verificationSession.findFirst({
+      where: { id: sessionId, customerId },
+    });
+    if (!session) throw new NotFoundException('Verification not found');
+    const expired = !session.completedAt && session.expiresAt.getTime() < Date.now();
+    const customer = session.completedAt
+      ? await this.prisma.scoped.customer.findFirst({
+          where: { id: customerId },
+          select: {
+            id: true,
+            verificationStatus: true,
+            verificationChecks: true,
+            faceDistance: true,
+            selfiePhotoUrl: true,
+            idCardPhotoUrl: true,
+            idCardBackPhotoUrl: true,
+          },
+        })
+      : null;
+    return {
+      id: session.id,
+      idFront: !!session.idFrontAt,
+      idBack: !!session.idBackAt,
+      completed: !!session.completedAt,
+      cancelled: !!session.cancelledAt,
+      expired,
+      expiresAt: session.expiresAt,
+      result: customer,
+    };
+  }
+
+  async cancelVerificationSession(customerId: string, sessionId: string) {
+    await this.prisma.scoped.verificationSession.updateMany({
+      where: { id: sessionId, customerId, completedAt: null },
+      data: { cancelledAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  // ---- What the phone does with its link --------------------------------
+
+  async phoneSessionInfo(v: VerificationIdentity) {
+    const [customer, session] = await Promise.all([
+      this.prisma.scoped.customer.findFirst({
+        where: { id: v.customerId },
+        select: { fullName: true },
+      }),
+      this.prisma.scoped.verificationSession.findFirst({ where: { id: v.sessionId } }),
+    ]);
+    return {
+      customerName: customer?.fullName ?? '',
+      expiresAt: session?.expiresAt,
+      idFront: !!session?.idFrontAt,
+      idBack: !!session?.idBackAt,
+    };
+  }
+
+  async phoneSaveId(v: VerificationIdentity, side: 'front' | 'back', file?: Express.Multer.File) {
+    await this.savePhoto(v.customerId, side === 'front' ? 'idFront' : 'idBack', file);
+    await this.prisma.scoped.verificationSession.update({
+      where: { id: v.sessionId },
+      data: side === 'front' ? { idFrontAt: new Date() } : { idBackAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  /** The live check is the last step: store the selfie, score the whole verification, close the link. */
+  async phoneComplete(
+    v: VerificationIdentity,
+    selfie: Express.Multer.File | undefined,
+    dto: VerifyCustomerDto,
+  ) {
+    const session = await this.prisma.scoped.verificationSession.findFirst({
+      where: { id: v.sessionId },
+    });
+    if (!session?.idFrontAt || !session.idBackAt) {
+      throw new ConflictException('Take the front and back of the ID first');
+    }
+    await this.savePhoto(v.customerId, 'selfie', selfie);
+    const customer = await this.verify(v.customerId, dto, v.createdById);
+    await this.prisma.scoped.verificationSession.update({
+      where: { id: v.sessionId },
+      data: { completedAt: new Date() },
+    });
+    return { status: customer.verificationStatus };
   }
 }

@@ -1,26 +1,25 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
   UploadedFile,
-  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthUser } from '../auth/auth.types';
-import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CustomersService } from './customers.service';
 import {
   CreateCustomerDto,
   CreateGuardianDto,
   ReviewCustomerDto,
   UpdateCustomerDto,
-  VerifyCustomerDto,
 } from './dto/customer.dto';
 
 const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
@@ -50,13 +49,20 @@ export class CustomersController {
     return this.customers.update(id, dto);
   }
 
-  @Post(':id/verify')
-  verify(
-    @Param('id') id: string,
-    @Body() dto: VerifyCustomerDto,
-    @CurrentUser() actor: AuthUser,
-  ) {
-    return this.customers.verify(id, dto, actor.userId);
+  /** Starts a phone verification: the dashboard turns the token into a QR code. */
+  @Post(':id/verification-sessions')
+  startVerification(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    return this.customers.createVerificationSession(id, actor.userId);
+  }
+
+  @Get(':id/verification-sessions/:sid')
+  verificationStatus(@Param('id') id: string, @Param('sid') sid: string) {
+    return this.customers.verificationSessionStatus(id, sid);
+  }
+
+  @Delete(':id/verification-sessions/:sid')
+  cancelVerification(@Param('id') id: string, @Param('sid') sid: string) {
+    return this.customers.cancelVerificationSession(id, sid);
   }
 
   @Post(':id/review')
@@ -67,27 +73,6 @@ export class CustomersController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.customers.review(id, dto, actor.userId);
-  }
-
-  @Post(':id/photos')
-  @UseInterceptors(
-    FileFieldsInterceptor(
-      [
-        { name: 'photo', maxCount: 1 },
-        { name: 'idCard', maxCount: 1 },
-      ],
-      {
-        limits: { fileSize: PHOTO_MAX_BYTES },
-        fileFilter: (_req, file, cb) => cb(null, PHOTO_TYPES.has(file.mimetype)),
-      },
-    ),
-  )
-  uploadPhotos(
-    @Param('id') id: string,
-    @UploadedFiles()
-    files: { photo?: Express.Multer.File[]; idCard?: Express.Multer.File[] },
-  ) {
-    return this.customers.savePhotos(id, files ?? {});
   }
 
   @Post(':id/guardians')

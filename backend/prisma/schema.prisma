@@ -266,6 +266,7 @@ model Tenant {
   collectionsInvoices     CollectionsInvoice[]
   demoRequests            DemoRequest[]
   guardians               Guardian[]
+  verificationSessions    VerificationSession[]
   serviceAgreements       ServiceAgreement[]
   apiClientGrants         ApiClientGrant[]
 
@@ -682,6 +683,7 @@ model Customer {
 
   // KYC / employment info (collections staff app)
   idCardPhotoUrl String?
+  idCardBackPhotoUrl String?
   selfiePhotoUrl String?
   occupation     String?
   employerName   String?
@@ -710,11 +712,33 @@ model Customer {
   callAttempts    CallAttempt[]
   collectionCases CollectionCase[]
   guardians       Guardian[]
+  verificationSessions VerificationSession[]
   // ContactSession / CommunicationLog / PromiseToPay keyed via case/loan; no reverse needed on Customer for MVP
 
   @@unique([tenantId, phone])
   @@unique([tenantId, externalId])
   @@index([tenantId])
+}
+
+/// A short-lived link that lets a staff member verify a customer on their own phone:
+/// ID front, ID back, then a live selfie. Only a hash of the token is stored.
+model VerificationSession {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique
+  createdById String
+  expiresAt   DateTime
+  idFrontAt   DateTime?
+  idBackAt    DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([customerId])
 }
 
 /// A person who vouches for a customer's loan. Each customer needs three.

@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
@@ -85,12 +86,15 @@ export class CreateGuardianDto {
 
 export class VerifyCustomerDto {
   /** Euclidean distance between the live selfie and the ID-card face (0 = identical). */
+  @Transform(({ value }) => (typeof value === 'string' ? Number(value) : value))
   @IsNumber()
   @Min(0)
   @Max(2)
   faceDistance!: number;
 
   /** Whether the live blink challenge was passed. */
+  // Arrives as a string in multipart form data. Only the literal "true" counts.
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   livenessPassed!: boolean;
 }
