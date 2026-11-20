@@ -30,10 +30,10 @@ import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { cn } from '@/shared/lib/cn';
 import { money, shortDate, termLabel } from '@/shared/lib/format';
 import { ID_TYPES } from '../components/PersonFields';
+import { REQUIRED_GUARDIANS } from '../components/customer';
 
 type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
-const REQUIRED_GUARDIANS = 3;
 
 const FREQUENCIES: Array<{
   value: Frequency;

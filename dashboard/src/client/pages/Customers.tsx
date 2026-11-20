@@ -27,10 +27,9 @@ import {
 } from '../components/PersonFields';
 import { PhoneVerification } from '../components/PhoneVerification';
 import {
+  GuardiansFooter,
   GuardiansStep,
-  GUARDIAN_FORM_ID,
   idTypeLabel,
-  REQUIRED_GUARDIANS,
   VerificationDot,
   type GuardianStatus,
 } from '../components/customer';
@@ -146,7 +145,7 @@ export default function Customers() {
                   <VerificationDot status={c.verificationStatus} />
                 </td>
                 <td className="px-4 py-3 text-muted">
-                  {c._count?.guardians ?? 0} of {REQUIRED_GUARDIANS}
+                  {c._count?.guardians ?? 0}
                 </td>
                 <td className="px-4 py-3 text-right text-muted">{shortDate(c.createdAt)}</td>
               </Row>
@@ -177,7 +176,7 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
   const [showErrors, setShowErrors] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState('');
-  const [gStatus, setGStatus] = useState<GuardianStatus>({ done: false, pending: false });
+  const [gStatus, setGStatus] = useState<GuardianStatus>({ done: false, full: false, pending: false });
 
   const errors: PersonErrors = showErrors ? validatePerson(person, 'customer', { photoOptional: true }) : {};
 
@@ -237,19 +236,8 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
           Next: guardians
         </Button>
       </>
-    ) : gStatus.done ? (
-      <Button type="button" onClick={onClose}>
-        Done
-      </Button>
     ) : (
-      <>
-        <Button variant="secondary" type="button" onClick={onClose}>
-          Finish later
-        </Button>
-        <Button type="submit" form={GUARDIAN_FORM_ID} disabled={gStatus.pending}>
-          {gStatus.pending ? 'Saving…' : 'Save and continue'}
-        </Button>
-      </>
+      <GuardiansFooter status={gStatus} onClose={onClose} closeLabel="Finish later" />
     );
 
   return (
@@ -257,7 +245,7 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
       open
       onClose={onClose}
       title="Register customer"
-      subtitle={`Step ${step + 1} of 3 · ${['Details', 'ID and face check', 'Guardians'][step]}`}
+      subtitle={`Step ${step + 1} of 3 · ${['Details', 'ID and face check', 'Guardian'][step]}`}
       size="md"
       dirty={dirty && step < 2}
       footer={footer}

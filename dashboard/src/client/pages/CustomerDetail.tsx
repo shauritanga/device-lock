@@ -26,8 +26,9 @@ import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { shortDate } from '@/shared/lib/format';
 import { PhoneVerification } from '../components/PhoneVerification';
 import {
-  GUARDIAN_FORM_ID,
+  GuardiansFooter,
   GuardiansStep,
+  MAX_GUARDIANS,
   idTypeLabel,
   REQUIRED_GUARDIANS,
   type GuardianStatus,
@@ -85,7 +86,7 @@ export default function CustomerDetail() {
   const { confirm, dialog } = useConfirm();
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [guardiansOpen, setGuardiansOpen] = useState(false);
-  const [gStatus, setGStatus] = useState<GuardianStatus>({ done: false, pending: false });
+  const [gStatus, setGStatus] = useState<GuardianStatus>({ done: false, full: false, pending: false });
   const [photo, setPhoto] = useState<{ src: string; label: string } | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
@@ -166,15 +167,15 @@ export default function CustomerDetail() {
                 <ShieldCheck className="h-4 w-4" /> Verify identity
               </Button>
             ) : null}
-            {guardians.length < REQUIRED_GUARDIANS ? (
+            {guardians.length < MAX_GUARDIANS ? (
               <Button
                 variant="secondary"
                 onClick={() => {
-                  setGStatus({ done: false, pending: false });
+                  setGStatus({ done: false, full: false, pending: false });
                   setGuardiansOpen(true);
                 }}
               >
-                <Plus className="h-4 w-4" /> Add guardians
+                <Plus className="h-4 w-4" /> {guardians.length === 0 ? 'Add guardian' : 'Add another guardian'}
               </Button>
             ) : null}
           </div>
@@ -184,7 +185,7 @@ export default function CustomerDetail() {
           <p className="flex items-center gap-2 border-t border-line-soft bg-emerald-500/5 px-5 py-3 text-sm text-emerald-700 sm:px-6">
             <CheckCircle2 className="h-4 w-4" /> Verified{c.verifiedAt ? ` on ${shortDate(c.verifiedAt)}` : ''}. This
             customer can buy on credit
-            {guardians.length < REQUIRED_GUARDIANS ? ' once all three guardians are added.' : '.'}
+            {guardians.length < REQUIRED_GUARDIANS ? ' once a guardian is added.' : '.'}
           </p>
         ) : status === 'NEEDS_REVIEW' ? (
           <p className="flex items-center gap-2 border-t border-line-soft bg-amber-500/5 px-5 py-3 text-sm text-amber-700 sm:px-6">
@@ -333,7 +334,7 @@ export default function CustomerDetail() {
           <Card>
             <CardHeader
               title="Guardians"
-              subtitle={`${guardians.length} of ${REQUIRED_GUARDIANS} added. Three are needed before a sale.`}
+              subtitle={`${guardians.length} added. One is required before a sale; up to ${MAX_GUARDIANS} can be added.`}
             />
             {guardians.length === 0 ? (
               <div className="p-5">
@@ -424,23 +425,10 @@ export default function CustomerDetail() {
       <Modal
         open={guardiansOpen}
         onClose={() => setGuardiansOpen(false)}
-        title="Add guardians"
+        title="Guardians"
         subtitle={c.fullName}
         size="md"
-        footer={
-          gStatus.done ? (
-            <Button onClick={() => setGuardiansOpen(false)}>Done</Button>
-          ) : (
-            <>
-              <Button variant="secondary" onClick={() => setGuardiansOpen(false)}>
-                Close
-              </Button>
-              <Button type="submit" form={GUARDIAN_FORM_ID} disabled={gStatus.pending}>
-                {gStatus.pending ? 'Saving…' : 'Save and continue'}
-              </Button>
-            </>
-          )
-        }
+        footer={<GuardiansFooter status={gStatus} onClose={() => setGuardiansOpen(false)} />}
       >
         {guardiansOpen ? <GuardiansStep customer={c} onSaved={refresh} onStatus={setGStatus} /> : null}
       </Modal>

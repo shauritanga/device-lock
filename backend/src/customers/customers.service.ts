@@ -21,7 +21,7 @@ import { checkIdNumber, FACE_MATCH_MAX, FACE_REVIEW_MAX } from './id-rules';
 import { randomToken, sha256 } from '../common/crypto.util';
 import { VerificationIdentity } from '../common/guards/verification-session.guard';
 
-export const MAX_GUARDIANS = 5;
+export const MAX_GUARDIANS = 3;
 
 const RESET_VERIFICATION = {
   verificationStatus: VerificationStatus.UNVERIFIED,
@@ -32,7 +32,8 @@ const RESET_VERIFICATION = {
   verifiedById: null,
   verificationNotes: null,
 };
-export const REQUIRED_GUARDIANS = 3;
+/** One guardian is required before a credit sale; up to MAX_GUARDIANS can be added. */
+export const REQUIRED_GUARDIANS = 1;
 
 @Injectable()
 export class CustomersService {

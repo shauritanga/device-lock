@@ -5,10 +5,13 @@ import { api } from '@/shared/api/client';
 import { apiErrorMessage } from '@/shared/agreements/apiError';
 import type { Customer, Guardian, VerificationStatus } from '@/shared/api/types';
 import { FormSection } from '@/shared/components/ui/FormSection';
+import { Button } from '@/shared/components/ui/Button';
 import { StatusDot } from '@/shared/components/ui/Pill';
 import { emptyPerson, ID_TYPES, PersonFields, validatePerson, type PersonForm } from './PersonFields';
 
-export const REQUIRED_GUARDIANS = 3;
+/** One guardian is needed before a sale; up to three can be added. */
+export const REQUIRED_GUARDIANS = 1;
+export const MAX_GUARDIANS = 3;
 
 export function idTypeLabel(type?: string | null) {
   return ID_TYPES.find((t) => t.value === type)?.label ?? 'ID';
@@ -27,10 +30,47 @@ export function VerificationDot({ status }: { status?: VerificationStatus }) {
 }
 
 
-/** Records the three guardians one by one. Each is saved on its own. */
+/** Records guardians one by one: one is required, up to three can be added. Each is saved on its own. */
 export const GUARDIAN_FORM_ID = 'guardian-form';
 
-export type GuardianStatus = { done: boolean; pending: boolean };
+/** `done`: the required minimum is saved. `full`: no more can be added. */
+export type GuardianStatus = { done: boolean; full: boolean; pending: boolean };
+
+/** Footer buttons for any modal that hosts GuardiansStep, so they are identical everywhere. */
+export function GuardiansFooter({
+  status,
+  onClose,
+  closeLabel = 'Close',
+}: {
+  status: GuardianStatus;
+  onClose: () => void;
+  closeLabel?: string;
+}) {
+  if (!status.done) {
+    return (
+      <>
+        <Button variant="secondary" type="button" onClick={onClose}>
+          {closeLabel}
+        </Button>
+        <Button type="submit" form={GUARDIAN_FORM_ID} disabled={status.pending}>
+          {status.pending ? 'Saving…' : 'Save and continue'}
+        </Button>
+      </>
+    );
+  }
+  return (
+    <>
+      {status.full ? null : (
+        <Button variant="secondary" type="submit" form={GUARDIAN_FORM_ID} disabled={status.pending}>
+          {status.pending ? 'Saving…' : 'Add another guardian'}
+        </Button>
+      )}
+      <Button type="button" onClick={onClose}>
+        Done
+      </Button>
+    </>
+  );
+}
 
 /** The form has no buttons of its own: the modal footer submits it via GUARDIAN_FORM_ID. */
 export function GuardiansStep({
@@ -76,22 +116,27 @@ export function GuardiansStep({
   const phoneClash = g.phone.replace(/\D/g, '') === customer.phone.replace(/\D/g, '');
 
   const done = have >= REQUIRED_GUARDIANS;
+  const full = have >= MAX_GUARDIANS;
   useEffect(() => {
-    onStatus({ done, pending: add.isPending });
-  }, [done, add.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
+    onStatus({ done, full, pending: add.isPending });
+  }, [done, full, add.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (done) {
+  if (full) {
     return (
       <p className="flex items-center gap-2 text-sm text-ink">
-        <Check className="h-4 w-4 text-emerald-600" /> All {REQUIRED_GUARDIANS} guardians are saved.
+        <Check className="h-4 w-4 text-emerald-600" /> {MAX_GUARDIANS} guardians are saved. That is the maximum.
       </p>
     );
   }
 
   return (
     <FormSection
-      title={`Guardian ${have + 1} of ${REQUIRED_GUARDIANS}`}
-      description="Someone who vouches for the customer. Each needs a phone, ID and address."
+      title={done ? `Another guardian (optional)` : 'Guardian (required)'}
+      description={
+        done
+          ? `${have} saved. You can add up to ${MAX_GUARDIANS - have} more, or press Done.`
+          : 'One person who vouches for the customer. They need a phone, ID and address.'
+      }
     >
       <form
         id={GUARDIAN_FORM_ID}

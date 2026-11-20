@@ -36,7 +36,7 @@ export class LoansService {
     if (!customer) throw new NotFoundException('Customer not found');
     if (customer._count.guardians < REQUIRED_GUARDIANS) {
       throw new BadRequestException(
-        `Customer needs ${REQUIRED_GUARDIANS} guardians before a loan can be created`,
+        `Customer needs at least ${REQUIRED_GUARDIANS} guardian${REQUIRED_GUARDIANS === 1 ? '' : 's'} before a loan can be created`,
       );
     }
 
