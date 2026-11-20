@@ -49,10 +49,15 @@ export class CustomersService {
     ).replace(/\/$/, '');
   }
 
-  create(dto: CreateCustomerDto) {
+  create(dto: CreateCustomerDto, actorId?: string) {
     this.assertIdFormat(dto.idDocumentType, dto.nationalId);
+    const { resetConsent, ...rest } = dto;
     return this.prisma.scoped.customer.create({
-      data: { ...dto, tenantId: this.prisma.currentTenantId },
+      data: {
+        ...rest,
+        tenantId: this.prisma.currentTenantId,
+        ...(resetConsent ? { resetConsentAt: new Date(), resetConsentById: actorId ?? null } : {}),
+      },
     });
   }
 
@@ -76,21 +81,29 @@ export class CustomersService {
     return customer;
   }
 
-  async update(id: string, dto: UpdateCustomerDto) {
+  async update(id: string, dto: UpdateCustomerDto, actorId?: string) {
     const current = await this.findOne(id);
-    const idType = dto.idDocumentType ?? current.idDocumentType;
-    const idNumber = dto.nationalId ?? current.nationalId;
-    if ((dto.idDocumentType || dto.nationalId) && idType && idNumber) {
+    const { resetConsent, ...changes } = dto;
+    const idType = changes.idDocumentType ?? current.idDocumentType;
+    const idNumber = changes.nationalId ?? current.nationalId;
+    if ((changes.idDocumentType || changes.nationalId) && idType && idNumber) {
       this.assertIdFormat(idType, idNumber);
     }
     // Changing who the customer is invalidates earlier checks.
     const identityChanged =
-      (dto.nationalId !== undefined && dto.nationalId !== current.nationalId) ||
-      (dto.idDocumentType !== undefined && dto.idDocumentType !== current.idDocumentType) ||
-      (dto.fullName !== undefined && dto.fullName !== current.fullName);
+      (changes.nationalId !== undefined && changes.nationalId !== current.nationalId) ||
+      (changes.idDocumentType !== undefined && changes.idDocumentType !== current.idDocumentType) ||
+      (changes.fullName !== undefined && changes.fullName !== current.fullName);
     return this.prisma.scoped.customer.update({
       where: { id },
-      data: { ...dto, ...(identityChanged ? RESET_VERIFICATION : {}) },
+      data: {
+        ...changes,
+        ...(identityChanged ? RESET_VERIFICATION : {}),
+        // Consent is recorded once and never silently overwritten.
+        ...(resetConsent && !current.resetConsentAt
+          ? { resetConsentAt: new Date(), resetConsentById: actorId ?? null }
+          : {}),
+      },
     });
   }
 

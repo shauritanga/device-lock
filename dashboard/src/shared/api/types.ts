@@ -52,6 +52,8 @@ export interface Customer {
   verificationChecks?: VerificationChecks | null;
   verifiedAt?: string | null;
   verificationNotes?: string | null;
+  /** When the customer agreed to a factory reset of their own phone. */
+  resetConsentAt?: string | null;
   createdAt: string;
 }
 

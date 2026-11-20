@@ -719,6 +719,10 @@ model Customer {
   verifiedById       String?
   verificationNotes  String?
 
+  /// The customer agreed to a factory reset of their own phone (and has backed up their data).
+  resetConsentAt     DateTime?
+  resetConsentById   String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

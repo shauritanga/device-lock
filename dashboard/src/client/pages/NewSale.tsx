@@ -178,12 +178,18 @@ export default function Sales() {
   });
 
   const customer = knownCustomers?.find((c) => c.id === customerId) ?? null;
-  const canSellTo = (c: Customer) =>
-    c.verificationStatus === 'VERIFIED' && (c._count?.guardians ?? 0) >= REQUIRED_GUARDIANS;
+  // Lenders that keep phones enrolled also need the customer's factory-reset agreement on record.
+  const needsConsent = policy?.afterRepayment === 'KEEP_ENROLLED';
+  const missingFor = (c: Customer) => {
+    const missing: string[] = [];
+    const guardianGap = REQUIRED_GUARDIANS - (c._count?.guardians ?? 0);
+    if (guardianGap > 0) missing.push(`${guardianGap} more guardian${guardianGap === 1 ? '' : 's'}`);
+    if (needsConsent && !c.resetConsentAt) missing.push('the factory-reset agreement');
+    return missing;
+  };
+  const canSellTo = (c: Customer) => c.verificationStatus === 'VERIFIED' && missingFor(c).length === 0;
   // Verified, but not yet allowed to buy: tell the seller why instead of hiding them silently.
-  const almostReady = (knownCustomers ?? []).filter(
-    (c) => c.verificationStatus === 'VERIFIED' && (c._count?.guardians ?? 0) < REQUIRED_GUARDIANS,
-  );
+  const almostReady = (knownCustomers ?? []).filter((c) => c.verificationStatus === 'VERIFIED' && !canSellTo(c));
   const customerOptions: ComboOption[] = useMemo(
     () =>
       (knownCustomers ?? []).filter(canSellTo).map((c) => ({
@@ -576,11 +582,10 @@ export default function Sales() {
                     almostReady.length > 0 ? (
                       <div className="border-t border-line-soft bg-canvas/60 px-3.5 py-2.5 text-xs">
                         <p className="font-medium text-amber-700">
-                          Not listed: verified, but guardians are missing
+                          Not listed: verified, but something is missing
                         </p>
                         <ul className="mt-1 space-y-0.5 text-muted">
                           {almostReady.map((c) => {
-                            const need = REQUIRED_GUARDIANS - (c._count?.guardians ?? 0);
                             return (
                               <li key={c.id}>
                                 <Link
@@ -591,7 +596,7 @@ export default function Sales() {
                                 >
                                   {c.fullName}
                                 </Link>{' '}
-                                needs {need} more guardian{need === 1 ? '' : 's'}
+                                needs {missingFor(c).join(' and ')}
                               </li>
                             );
                           })}

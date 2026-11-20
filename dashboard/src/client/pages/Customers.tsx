@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Check, Plus, ShieldCheck } from '@/shared/icons';
 import { api } from '@/shared/api/client';
 import { apiErrorMessage } from '@/shared/agreements/apiError';
-import type { Customer, Guardian, VerificationStatus } from '@/shared/api/types';
+import type { Customer, Guardian, TenantSettings, VerificationStatus } from '@/shared/api/types';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Field, Input } from '@/shared/components/ui/Field';
@@ -177,6 +177,14 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState('');
   const [gStatus, setGStatus] = useState<GuardianStatus>({ done: false, full: false, pending: false });
+  // Lenders that keep phones enrolled wipe the customer's own phone at enrolment.
+  const { data: policy } = useQuery({
+    queryKey: ['tenant-settings'],
+    queryFn: async () => (await api.get<TenantSettings>('/tenant-settings')).data,
+  });
+  const needsConsent = policy?.afterRepayment === 'KEEP_ENROLLED';
+  const [resetConsent, setResetConsent] = useState(false);
+  const consentMissing = needsConsent && !resetConsent;
 
   const errors: PersonErrors = showErrors ? validatePerson(person, 'customer', { photoOptional: true }) : {};
 
@@ -194,7 +202,7 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
       if (all.some((c) => normalizePhone(c.phone) === normalizePhone(phone))) {
         throw new Error('A customer with this phone number is already registered');
       }
-      return (await api.post<Customer>('/customers', { ...base, phone })).data;
+      return (await api.post<Customer>('/customers', { ...base, phone, ...(needsConsent ? { resetConsent: true } : {}) })).data;
     },
     onSuccess: (c) => {
       setCustomer(c);
@@ -217,7 +225,7 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
           type="button"
           disabled={save.isPending}
           onClick={() => {
-            if (Object.keys(validatePerson(person, 'customer', { photoOptional: true })).length) {
+            if (Object.keys(validatePerson(person, 'customer', { photoOptional: true })).length || consentMissing) {
               setShowErrors(true);
               return;
             }
@@ -259,6 +267,27 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
       {step === 0 ? (
         <FormSection title="Customer details" description="Exactly as written on the ID.">
           <PersonFields kind="customer" value={person} onChange={setPerson} errors={errors} hidePhoto />
+          {needsConsent && !customer ? (
+            <div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-canvas px-3 py-3 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-line accent-brand-600"
+                  checked={resetConsent}
+                  onChange={(e) => setResetConsent(e.target.checked)}
+                />
+                <span>
+                  The customer agreed to a factory reset of their own phone and has backed up their data
+                  <span className="block text-xs text-muted">
+                    The phone is wiped once, when it is enrolled. Everything on it is erased.
+                  </span>
+                </span>
+              </label>
+              {showErrors && consentMissing ? (
+                <span className="mt-1 block text-xs text-rose-600">Confirm the customer agreed before continuing</span>
+              ) : null}
+            </div>
+          ) : null}
         </FormSection>
       ) : null}
 

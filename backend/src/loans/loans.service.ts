@@ -49,6 +49,17 @@ export class LoansService {
       );
     }
 
+    // Lenders that keep phones enrolled wipe the customer's own phone at enrolment: the
+    // customer's agreement to that must be on record before a sale.
+    const policy = await this.prisma.tenant.findUnique({
+      where: { id: customer.tenantId },
+      select: { afterRepayment: true },
+    });
+    if (policy?.afterRepayment === 'KEEP_ENROLLED' && !customer.resetConsentAt) {
+      throw new BadRequestException(
+        'Record the customer\'s agreement to the factory reset of their phone before selling on credit',
+      );
+    }
     if (customer.verificationStatus !== VerificationStatus.VERIFIED) {
       throw new BadRequestException(
         'Verify the customer (ID and face) on the Customers page before selling on credit',

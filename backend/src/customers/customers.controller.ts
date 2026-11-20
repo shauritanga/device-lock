@@ -30,8 +30,8 @@ export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 
   @Post()
-  create(@Body() dto: CreateCustomerDto) {
-    return this.customers.create(dto);
+  create(@Body() dto: CreateCustomerDto, @CurrentUser() actor: AuthUser) {
+    return this.customers.create(dto, actor.userId);
   }
 
   @Get()
@@ -45,8 +45,8 @@ export class CustomersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
-    return this.customers.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateCustomerDto, @CurrentUser() actor: AuthUser) {
+    return this.customers.update(id, dto, actor.userId);
   }
 
   /** Starts a phone verification: the dashboard turns the token into a QR code. */

@@ -15,7 +15,7 @@ import { api } from '@/shared/api/client';
 import { apiErrorMessage } from '@/shared/agreements/apiError';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { usePageTrail } from '@/shared/layout/PageTrail';
-import type { Customer, VerificationChecks, VerificationStatus } from '@/shared/api/types';
+import type { Customer, TenantSettings, VerificationChecks, VerificationStatus } from '@/shared/api/types';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
@@ -102,6 +102,15 @@ export default function CustomerDetail() {
     qc.invalidateQueries({ queryKey: ['customer', id] });
     qc.invalidateQueries({ queryKey: ['customers'] });
   };
+
+  const { data: policy } = useQuery({
+    queryKey: ['tenant-settings'],
+    queryFn: async () => (await api.get<TenantSettings>('/tenant-settings')).data,
+  });
+  const recordConsent = useMutation({
+    mutationFn: async () => (await api.patch(`/customers/${id}`, { resetConsent: true })).data,
+    onSuccess: refresh,
+  });
 
   const review = useMutation({
     mutationFn: async (decision: 'VERIFIED' | 'FAILED') =>
@@ -375,7 +384,37 @@ export default function CustomerDetail() {
               <Row label="ID number" value={c.nationalId ?? '—'} />
               <Row label="Address" value={c.address ?? '—'} />
               <Row label="Registered" value={shortDate(c.createdAt)} />
+              {policy?.afterRepayment === 'KEEP_ENROLLED' || c.resetConsentAt ? (
+                <Row
+                  label="Phone reset consent"
+                  value={c.resetConsentAt ? `Agreed ${shortDate(c.resetConsentAt)}` : 'Not recorded'}
+                />
+              ) : null}
             </dl>
+            {policy?.afterRepayment === 'KEEP_ENROLLED' && !c.resetConsentAt ? (
+              <div className="border-t border-line-soft px-5 py-4 sm:px-6">
+                <p className="mb-2 text-xs text-muted">
+                  Needed before a sale: the customer agrees to a factory reset of their own phone.
+                </p>
+                <Button
+                  variant="secondary"
+                  disabled={recordConsent.isPending}
+                  onClick={async () => {
+                    if (
+                      await confirm({
+                        title: 'Record the customer’s agreement?',
+                        message:
+                          'Confirm that the customer agreed to a factory reset of their own phone and has backed up their data. This is saved with the date.',
+                        confirmLabel: 'Record agreement',
+                      })
+                    )
+                      recordConsent.mutate();
+                  }}
+                >
+                  Record agreement
+                </Button>
+              </div>
+            ) : null}
           </Card>
 
           <Card>

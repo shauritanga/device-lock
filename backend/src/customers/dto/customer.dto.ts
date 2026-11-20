@@ -30,9 +30,18 @@ export class CreateCustomerDto {
   @IsString()
   @MinLength(3)
   address!: string;
+
+  /** The customer agreed to a factory reset of their own phone and has backed up their data. */
+  @IsOptional()
+  @IsBoolean()
+  resetConsent?: boolean;
 }
 
 export class UpdateCustomerDto {
+  @IsOptional()
+  @IsBoolean()
+  resetConsent?: boolean;
+
   @IsOptional()
   @IsString()
   @MinLength(2)
