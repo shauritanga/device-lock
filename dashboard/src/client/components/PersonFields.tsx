@@ -61,6 +61,12 @@ export const emptyPerson = (): PersonForm => ({
   photo: null,
 });
 
+/** NIDA numbers are 20 digits written YYYYMMDD-XXXXX-XXXXX-XX: keep digits only and add the dashes as the user types. */
+export function formatNida(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 20);
+  return [d.slice(0, 8), d.slice(8, 13), d.slice(13, 18), d.slice(18, 20)].filter(Boolean).join('-');
+}
+
 export type PersonErrors = Partial<Record<keyof PersonForm, string>>;
 
 export function validatePerson(
@@ -72,7 +78,9 @@ export function validatePerson(
   if (p.fullName.trim().length < 2) e.fullName = 'Enter the full name';
   if (kind === 'guardian' && !p.relationship) e.relationship = 'Select the relationship';
   if (p.phone.replace(/\D/g, '').length < 7) e.phone = 'Enter a valid phone number';
-  if (p.nationalId.trim().length < 4) e.nationalId = 'Enter the ID number';
+  if (p.idDocumentType === 'NATIONAL_ID') {
+    if (p.nationalId.replace(/\D/g, '').length !== 20) e.nationalId = 'A NIDA number has 20 digits';
+  } else if (p.nationalId.trim().length < 4) e.nationalId = 'Enter the ID number';
   if (p.address.trim().length < 3) e.address = 'Enter the physical address';
   if (!p.photo && !opts.photoOptional) e.photo = 'Take or upload a photo';
   return e;
@@ -165,7 +173,14 @@ export function PersonFields({
         <Field label="ID type" required>
           <Select
             value={value.idDocumentType}
-            onChange={(e) => set('idDocumentType', e.target.value as IdDocumentType)}
+            onChange={(e) => {
+              const idDocumentType = e.target.value as IdDocumentType;
+              onChange({
+                ...value,
+                idDocumentType,
+                nationalId: idDocumentType === 'NATIONAL_ID' ? formatNida(value.nationalId) : value.nationalId,
+              });
+            }}
           >
             {ID_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -177,8 +192,12 @@ export function PersonFields({
         <Field label="ID number" required error={errors.nationalId}>
           <Input
             value={value.nationalId}
-            onChange={(e) => set('nationalId', e.target.value)}
+            onChange={(e) =>
+              set('nationalId', value.idDocumentType === 'NATIONAL_ID' ? formatNida(e.target.value) : e.target.value)
+            }
             placeholder={`e.g. ${ID_PLACEHOLDER[value.idDocumentType]}`}
+            inputMode={value.idDocumentType === 'NATIONAL_ID' ? 'numeric' : undefined}
+            maxLength={value.idDocumentType === 'NATIONAL_ID' ? 23 : undefined}
             autoComplete="off"
           />
         </Field>

@@ -126,6 +126,7 @@ export default function Sales() {
   const navigate = useNavigate();
   const [customerId, setCustomerId] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
+  const [customerOpen, setCustomerOpen] = useState(false);
   const [sale, setSale] = useState<SaleForm>(initialSale);
   const [result, setResult] = useState<SaleResult | null>(null);
   const [open, setOpen] = useState(false);
@@ -184,25 +185,18 @@ export default function Sales() {
   }, [stock, stockQuery]);
 
   const customer = knownCustomers?.find((c) => c.id === customerId) ?? null;
-  const customerRows = useMemo(() => {
-    const q = customerQuery.trim().toLowerCase();
-    return (knownCustomers ?? []).filter(
-      (c) =>
-        !q ||
-        [c.fullName, c.phone, c.nationalId].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
-    );
-  }, [knownCustomers, customerQuery]);
   const canSellTo = (c: Customer) =>
     c.verificationStatus === 'VERIFIED' && (c._count?.guardians ?? 0) >= REQUIRED_GUARDIANS;
-  const blockedReason = (c: Customer) =>
-    c.verificationStatus !== 'VERIFIED'
-      ? c.verificationStatus === 'NEEDS_REVIEW'
-        ? 'Waiting for a manager to review'
-        : c.verificationStatus === 'FAILED'
-          ? 'Verification failed'
-          : 'Not verified yet'
-      : `${REQUIRED_GUARDIANS - (c._count?.guardians ?? 0)} guardian(s) missing`;
-
+  const customerRows = useMemo(() => {
+    const q = customerQuery.trim().toLowerCase();
+    return (knownCustomers ?? [])
+      .filter(canSellTo)
+      .filter(
+        (c) =>
+          !q ||
+          [c.fullName, c.phone, c.nationalId].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
+      );
+  }, [knownCustomers, customerQuery]);
   const financed = Math.max(
     (Number(sale.principal) || 0) - (Number(sale.downPayment) || 0),
     0,
@@ -214,7 +208,7 @@ export default function Sales() {
 
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
-    if (!customer || !canSellTo(customer)) e.customer = 'Pick a verified customer';
+    if (!customer || !canSellTo(customer)) e.customer = 'Pick the customer';
     if (!sale.deviceId) e.imei = 'Pick the phone being sold';
     if (!(Number(sale.principal) > 0)) e.principal = 'Enter the phone price';
     if (Number(sale.downPayment) >= Number(sale.principal) && Number(sale.principal) > 0)
@@ -250,6 +244,7 @@ export default function Sales() {
   function resetAll() {
     setCustomerId('');
     setCustomerQuery('');
+    setCustomerOpen(false);
     setSale({ ...initialSale, startDate: new Date().toISOString().slice(0, 10) });
     setStep(0);
     setShowErrors(false);
@@ -571,68 +566,53 @@ export default function Sales() {
 
           <div className="space-y-6">
             {step === 0 ? (
-              <FormSection
-                icon={UserRound}
-                title="Customer"
-                description="Only customers whose ID and face are verified, with three guardians, can buy on credit. Register and verify new customers on the Customers page."
-              >
-                <Input
-                  value={customerQuery}
-                  onChange={(e) => setCustomerQuery(e.target.value)}
-                  placeholder="Search name, phone or ID number"
-                  autoFocus
-                />
-                {!knownCustomers ? (
-                  <Center>
-                    <Spinner />
-                  </Center>
-                ) : knownCustomers.length === 0 ? (
-                  <EmptyState
-                    title="No customers yet"
-                    hint="Register and verify the customer first."
+              <FormSection icon={UserRound} title="Customer" description="Search and pick the customer buying on credit.">
+                <div className="relative">
+                  <Input
+                    value={customer && !customerOpen ? `${customer.fullName} · ${customer.phone}` : customerQuery}
+                    onChange={(e) => {
+                      setCustomerQuery(e.target.value);
+                      setCustomerId('');
+                      setCustomerOpen(true);
+                    }}
+                    onFocus={() => {
+                      setCustomerOpen(true);
+                      if (customer) setCustomerQuery('');
+                    }}
+                    onBlur={() => setTimeout(() => setCustomerOpen(false), 120)}
+                    placeholder="Search name, phone or ID number"
+                    autoFocus
+                    autoComplete="off"
                   />
-                ) : customerRows.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted">No customer matches that search.</p>
-                ) : (
-                  <ul
-                    role="radiogroup"
-                    aria-label="Customers"
-                    className="max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line"
-                  >
-                    {customerRows.map((c) => {
-                      const ok = canSellTo(c);
-                      return (
-                        <li key={c.id}>
-                          <label
-                            className={cn(
-                              'flex items-center gap-3 px-4 py-2.5 text-sm',
-                              ok ? 'cursor-pointer hover:bg-canvas/60' : 'cursor-not-allowed opacity-60',
-                              customerId === c.id && 'bg-brand-600/10',
-                            )}
-                          >
-                            <input
-                              type="radio"
-                              name="sale-customer"
-                              className="h-4 w-4 accent-brand-600"
-                              disabled={!ok}
-                              checked={customerId === c.id}
-                              onChange={() => setCustomerId(c.id)}
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block font-medium text-ink">{c.fullName}</span>
-                              <span className="block text-xs text-muted">{c.phone}</span>
-                            </span>
-                            {ok ? (
-                              <StatusDot status="ACTIVE" label="Verified" />
-                            ) : (
-                              <span className="text-xs text-amber-700">{blockedReason(c)}</span>
-                            )}
-                          </label>
+                  {customerOpen ? (
+                    <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-line bg-surface shadow-lg">
+                      {customerRows.length === 0 ? (
+                        <li className="px-4 py-3 text-sm text-muted">
+                          {knownCustomers && knownCustomers.some(canSellTo)
+                            ? 'No customer matches that search.'
+                            : 'No customer is ready yet. Verify a customer on the Customers page first.'}
                         </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                      ) : (
+                        customerRows.map((c) => (
+                          <li key={c.id}>
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setCustomerId(c.id);
+                                setCustomerOpen(false);
+                              }}
+                              className="flex w-full flex-col px-4 py-2.5 text-left text-sm hover:bg-canvas/60"
+                            >
+                              <span className="font-medium text-ink">{c.fullName}</span>
+                              <span className="text-xs text-muted">{c.phone}</span>
+                            </button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  ) : null}
+                </div>
                 {err('customer') ? <p className="text-xs text-rose-600">{err('customer')}</p> : null}
               </FormSection>
             ) : null}
