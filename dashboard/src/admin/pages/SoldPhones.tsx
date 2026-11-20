@@ -158,7 +158,7 @@ export default function SoldPhones() {
           <PanelEmpty>No phones match your search.</PanelEmpty>
         ) : (
           <Table
-            columns={['Shop', 'Customer', 'Phone type', 'IMEI', 'Lock status', 'Next due', 'Price', 'Paid', 'Sold']}
+            columns={['Shop', 'Customer', 'Phone type', 'IMEI', 'Lock status', 'Payment due', 'Price', 'Paid', 'Sold']}
           >
             {rows.map((d) => (
               <Row key={d.id}>
@@ -185,20 +185,28 @@ export default function SoldPhones() {
                 </td>
                 <td className="px-4 py-3">
                   {d.loan.nextDue ? (
-                    <>
-                      <div
-                        className={
-                          new Date(d.loan.nextDue.dueDate) < new Date()
-                            ? 'font-medium text-rose-600'
-                            : 'text-ink'
-                        }
-                      >
-                        {shortDate(d.loan.nextDue.dueDate)}
-                      </div>
-                      <div className="text-xs tabular-nums text-muted">
-                        {money(d.loan.nextDue.amountDue, d.loan.currency)}
-                      </div>
-                    </>
+                    (() => {
+                      const due = new Date(d.loan.nextDue.dueDate);
+                      const late = Math.floor((Date.now() - due.getTime()) / 86_400_000);
+                      return late >= 1 ? (
+                        <>
+                          <div className="font-medium text-rose-600">
+                            Overdue {late} {late === 1 ? 'day' : 'days'}
+                          </div>
+                          <div className="text-xs tabular-nums text-muted">
+                            since {shortDate(d.loan.nextDue.dueDate)} ·{' '}
+                            {money(d.loan.nextDue.amountDue, d.loan.currency)}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-ink">{shortDate(d.loan.nextDue.dueDate)}</div>
+                          <div className="text-xs tabular-nums text-muted">
+                            {money(d.loan.nextDue.amountDue, d.loan.currency)}
+                          </div>
+                        </>
+                      );
+                    })()
                   ) : d.loan.status === 'COMPLETED' ? (
                     <span className="text-emerald-600">Completed</span>
                   ) : (
