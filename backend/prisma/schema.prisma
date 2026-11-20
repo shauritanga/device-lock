@@ -50,12 +50,17 @@ enum CollectionCaseStatus {
   PAID
   ESCALATED
   CLOSED
+  /// Enrolled phone sent to the call centre automatically; nothing is overdue yet, so
+  /// it is under management (the platform can lock/unlock it) but not in anyone's queue.
+  MONITORING
 }
 
 enum CollectionCaseSource {
   AUTO_OVERDUE
   MANUAL
   SELLER_HANDOFF
+  /// Created when the phone was enrolled, with no action from the seller.
+  AUTO_ENROLLED
 }
 
 enum ContactChannel {

@@ -353,13 +353,9 @@ export class DevicesService {
     });
     if (!device) throw new NotFoundException('Device not found');
     const caseStatus = device.loan?.collectionCase?.status;
-    if (
-      !caseStatus ||
-      caseStatus === CollectionCaseStatus.PAID ||
-      caseStatus === CollectionCaseStatus.CLOSED
-    ) {
+    if (!caseStatus || caseStatus === CollectionCaseStatus.CLOSED) {
       throw new ForbiddenException(
-        'This phone has not been handed over for collections follow-up, so it cannot be locked or unlocked by the platform',
+        'This phone is not under call centre management (the shop has no active collections subscription, or the loan is closed), so it cannot be locked or unlocked by the platform',
       );
     }
     if (

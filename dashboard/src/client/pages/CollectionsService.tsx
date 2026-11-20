@@ -137,8 +137,11 @@ export default function CollectionsService() {
 
   const sub = mySub.data;
   const isActive = sub?.subscription?.status === 'ACTIVE';
-  const pending = (referable.data ?? []).filter((l) => !l.caseId);
-  const handedOver = (referable.data ?? []).filter((l) => l.caseSource === 'SELLER_HANDOFF');
+  const all = referable.data ?? [];
+  const sent = all.filter((l) => !!l.caseId);
+  const waiting = all.filter((l) => !l.caseId);
+  // Phones already with the call centre but resting (nothing overdue) can still be moved up early.
+  const early = all.filter((l) => !l.caseId || l.caseStatus === 'MONITORING');
   const openCases = (cases.data ?? []).filter((c) => OPEN_CASE.has(c.status));
   const amountUnderCollection = openCases.reduce((sum, c) => sum + Number(c.amountDue), 0);
   const a = activity.data;
@@ -191,7 +194,7 @@ export default function CollectionsService() {
         onChange={setTab}
         tabs={[
           { id: 'cases', label: 'Cases', count: openCases.length },
-          { id: 'handover', label: 'Hand over', count: handedOver.length },
+          { id: 'handover', label: 'Call centre', count: sent.length },
           { id: 'activity', label: 'Collector activity' },
           { id: 'billing', label: 'Plan & invoices' },
         ]}
@@ -212,18 +215,34 @@ export default function CollectionsService() {
         <>
           <Card>
             <PanelHeader
-              title="Hand a customer to the call centre"
-              sub="Ask our collectors to follow up this account now, instead of waiting for the nightly overdue sweep"
-              right={handedOver.length > 0 ? <Pill tone="brand">{handedOver.length} handed over</Pill> : undefined}
+              title="Phones with the call centre"
+              sub="Every enrolled phone is sent to the call centre automatically. There is nothing to hand over."
+              right={sent.length > 0 ? <Pill tone="brand">{sent.length} with the call centre</Pill> : undefined}
             />
             {!isActive ? (
               <div className="p-5">
                 <EmptyState
                   title="Subscription required"
-                  hint="Handing accounts to the call centre needs an active managed collections subscription."
+                  hint="The call centre follows up your phones once you have an active managed collections subscription. Enrolled phones are then sent to it automatically."
                 />
               </div>
             ) : (
+              <p className="px-5 pb-4 text-sm text-muted">
+                A phone is sent the moment it is enrolled. Collectors start calling only when a payment is overdue, and
+                can lock or unlock the phone on your behalf.
+                {waiting.length > 0
+                  ? ` ${waiting.length} loan${waiting.length === 1 ? ' is' : 's are'} not sent yet because the phone has not been enrolled.`
+                  : ''}
+              </p>
+            )}
+          </Card>
+
+          {isActive && early.length > 0 ? (
+            <Card>
+              <PanelHeader
+                title="Ask for follow-up now (optional)"
+                sub="Use this to move one customer to the front of the queue before a payment is overdue"
+              />
               <form
                 className="grid gap-3 p-5 md:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_auto]"
                 onSubmit={(e) => {
@@ -232,11 +251,9 @@ export default function CollectionsService() {
                 }}
               >
                 <Field label="Customer / loan">
-                  <Select value={loanId} onChange={(e) => setLoanId(e.target.value)} required disabled={pending.length === 0}>
-                    <option value="">
-                      {pending.length === 0 ? 'Every active loan is already with the call centre' : 'Select a customer…'}
-                    </option>
-                    {pending.map((l) => (
+                  <Select value={loanId} onChange={(e) => setLoanId(e.target.value)} required>
+                    <option value="">Select a customer…</option>
+                    {early.map((l) => (
                       <option key={l.loanId} value={l.loanId}>
                         {l.customerName} · {l.deviceModel ?? l.deviceImei}
                         {l.isOverdue ? ` · ${l.daysOverdue}d overdue` : ' · not yet due'}
@@ -255,32 +272,36 @@ export default function CollectionsService() {
                 <div className="flex items-end">
                   <Button type="submit" disabled={refer.isPending || !loanId} className="w-full">
                     <Send className="h-4 w-4" />
-                    {refer.isPending ? 'Sending…' : 'Hand over'}
+                    {refer.isPending ? 'Sending…' : 'Ask for follow-up'}
                   </Button>
                 </div>
                 {refer.isError ? (
                   <p className="text-sm text-rose-600 md:col-span-3">
-                    Could not hand this account over. Check the loan is still active and your subscription has not lapsed.
+                    Could not send this request. Check the loan is still active and your subscription has not lapsed.
                   </p>
                 ) : null}
                 {refer.isSuccess ? (
                   <p className="text-sm text-emerald-700 md:col-span-3">
-                    Handed over. It is now in the platform work queue for assignment.
+                    Done. It is now in the platform work queue for assignment.
                   </p>
                 ) : null}
               </form>
-            )}
-          </Card>
+            </Card>
+          ) : null}
 
-          {handedOver.length > 0 ? (
+          {sent.length > 0 ? (
             <Card>
-              <PanelHeader title="Handed over by you" sub={`${handedOver.length} account${handedOver.length === 1 ? '' : 's'}`} />
-              <Table columns={['Customer', 'Device', 'Handed over', 'Status']}>
-                {handedOver.map((l) => (
+              <PanelHeader title="With the call centre" sub={`${sent.length} account${sent.length === 1 ? '' : 's'}`} />
+              <Table columns={['Customer', 'Phone', 'Sent', 'Status']}>
+                {sent.map((l) => (
                   <Row key={l.loanId}>
                     <td className="px-4 py-3 font-medium text-ink">{l.customerName}</td>
                     <td className="px-4 py-3 text-muted">{l.deviceModel ?? l.deviceImei ?? dash}</td>
-                    <td className="px-4 py-3 text-muted">{l.referredAt ? shortDate(l.referredAt) : dash}</td>
+                    <td className="px-4 py-3 text-muted">
+                      {l.caseSource === 'SELLER_HANDOFF'
+                        ? `By you${l.referredAt ? ` · ${shortDate(l.referredAt)}` : ''}`
+                        : 'Automatically'}
+                    </td>
                     <td className="px-4 py-3 text-right">{l.caseStatus ? <StatusDot status={l.caseStatus} /> : dash}</td>
                   </Row>
                 ))}

@@ -12,6 +12,7 @@ import {
   PaymentStatus,
 } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
+import { CollectionsService } from '../collections/collections.service';
 import { TENANT_ID_KEY } from '../common/tenant/tenant-context';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CommandsService } from '../commands/commands.service';
@@ -32,6 +33,7 @@ export class AgentService {
     private readonly commands: CommandsService,
     private readonly payments: PaymentsService,
     private readonly cls: ClsService,
+    private readonly collections: CollectionsService,
   ) {}
 
   /** Consume an enrollment token and bind the device to its agent credentials. */
@@ -89,6 +91,10 @@ export class AgentService {
     // A phone sold with a deposit is locked from its first check-in until the deposit is paid.
     this.cls.set(TENANT_ID_KEY, token.tenantId);
     await this.commands.lockIfDepositDue(token.deviceId);
+    // Enrolled phones are sent to the call centre automatically: the shop hands nothing over.
+    await this.collections
+      .ensureMonitoringCases(token.tenantId, token.deviceId)
+      .catch(() => undefined);
 
     return {
       deviceId: token.deviceId,

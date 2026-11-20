@@ -182,18 +182,10 @@ export class CollectionsService {
     const q = query.q?.trim();
     return this.prisma.device.findMany({
       where: {
-        // Only phones handed over for follow-up (an active collections case).
+        // Phones under the call centre's management: a case exists and is not closed.
+        // Enrolled phones get a case automatically, so shops do not hand them over.
         loan: {
-          collectionCase: {
-            status: {
-              in: [
-                CollectionCaseStatus.OPEN,
-                CollectionCaseStatus.IN_PROGRESS,
-                CollectionCaseStatus.PROMISED,
-                CollectionCaseStatus.ESCALATED,
-              ],
-            },
-          },
+          collectionCase: { is: { status: { not: CollectionCaseStatus.CLOSED } } },
         },
         ...(query.tenantId ? { tenantId: query.tenantId } : {}),
         ...(query.located === 'true' ? { lastLat: { not: null } } : {}),
@@ -517,6 +509,44 @@ export class CollectionsService {
   }
 
   /**
+   * Every enrolled phone with a live loan is sent to the call centre automatically,
+   * so the shop never has to hand it over. The case rests at MONITORING (outside
+   * every work queue) until a payment goes overdue. Only for shops with an ACTIVE
+   * collections subscription. Returns how many cases were created.
+   */
+  async ensureMonitoringCases(tenantId: string, onlyDeviceId?: string): Promise<number> {
+    const sub = await this.prisma.collectionsSubscription.findUnique({ where: { tenantId } });
+    if (!sub || sub.status !== CollectionsSubscriptionStatus.ACTIVE) return 0;
+
+    const loans = await this.prisma.loan.findMany({
+      where: {
+        tenantId,
+        status: LoanStatus.ACTIVE,
+        collectionCase: { is: null },
+        device: {
+          status: { in: [DeviceStatus.ACTIVE, DeviceStatus.LOCKED] },
+          ...(onlyDeviceId ? { id: onlyDeviceId } : {}),
+        },
+      },
+      select: { id: true, customerId: true, deviceId: true, currency: true },
+    });
+    for (const loan of loans) {
+      await this.prisma.collectionCase.create({
+        data: {
+          tenantId,
+          loanId: loan.id,
+          customerId: loan.customerId,
+          deviceId: loan.deviceId,
+          status: CollectionCaseStatus.MONITORING,
+          source: CollectionCaseSource.AUTO_ENROLLED,
+          currency: loan.currency,
+        },
+      });
+    }
+    return loans.length;
+  }
+
+  /**
    * Create/update CollectionCase rows for every ACTIVE loan with an OVERDUE
    * installment, when the tenant has an ACTIVE collections subscription.
    */
@@ -527,6 +557,8 @@ export class CollectionsService {
     if (!sub || sub.status !== CollectionsSubscriptionStatus.ACTIVE) {
       return 0;
     }
+    // Enrolled phones are handed over automatically; overdue ones then reopen below.
+    await this.ensureMonitoringCases(tenantId);
 
     const loans = await this.prisma.loan.findMany({
       where: {
@@ -598,7 +630,8 @@ export class CollectionsService {
     });
     return (
       existing?.status === CollectionCaseStatus.PAID ||
-      existing?.status === CollectionCaseStatus.CLOSED
+      existing?.status === CollectionCaseStatus.CLOSED ||
+      existing?.status === CollectionCaseStatus.MONITORING
     );
   }
 
@@ -665,6 +698,10 @@ export class CollectionsService {
       where.status = query.status;
     } else if (!query.status && actor.role === UserRole.COLLECTOR) {
       where.status = { in: OPEN_STATUSES };
+    } else {
+      // Phones merely being monitored have nothing to work: keep them out of case lists
+      // unless the status is asked for explicitly.
+      where.status = { not: CollectionCaseStatus.MONITORING };
     }
 
     const rows = await this.prisma.collectionCase.findMany({
@@ -1711,6 +1748,12 @@ export class CollectionsService {
     const loanCompleted = loan?.status === LoanStatus.COMPLETED;
     const phoneReleased = loan?.device?.status === DeviceStatus.RELEASED;
     const fullySettled = loanCompleted && phoneReleased;
+
+    // A phone that is only being monitored has nothing to close: it simply stays monitored
+    // until the loan is completed.
+    if (caseRow.status === CollectionCaseStatus.MONITORING && !loanCompleted) {
+      return { caseUpdated: false, ptpKept };
+    }
 
     let caseUpdated = false;
     if (

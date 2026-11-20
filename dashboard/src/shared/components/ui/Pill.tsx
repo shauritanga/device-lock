@@ -60,6 +60,7 @@ export function statusTone(status: string): Tone {
       return 'amber';
     case 'SENT':
     case 'CONTACTED':
+    case 'MONITORING':
       return 'blue';
     case 'RELEASED':
     case 'CANCELLED':

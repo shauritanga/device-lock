@@ -15,6 +15,7 @@ import {
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CommandsService } from '../commands/commands.service';
+import { CollectionsService } from '../collections/collections.service';
 import { REQUIRED_GUARDIANS } from '../customers/customers.service';
 import { CreateLoanDto } from './dto/loan.dto';
 import { approxMonths, generateSchedule } from './installment.util';
@@ -24,6 +25,7 @@ export class LoansService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commands: CommandsService,
+    private readonly collections: CollectionsService,
   ) {}
 
   async create(dto: CreateLoanDto, actor?: AuthUser) {
@@ -144,6 +146,12 @@ export class LoansService {
     // (A phone not enrolled yet is locked the moment it enrolls.)
     if (downPayment > 0 && device.status === DeviceStatus.ACTIVE) {
       await this.commands.lockIfDepositDue(dto.deviceId);
+    }
+    // An already-enrolled phone goes to the call centre automatically with its sale.
+    if (device.status === DeviceStatus.ACTIVE) {
+      await this.collections
+        .ensureMonitoringCases(customer.tenantId, dto.deviceId)
+        .catch(() => undefined);
     }
     return created;
   }

@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { LoansService } from './loans.service';
 import { LoansController } from './loans.controller';
 import { CommandsModule } from '../commands/commands.module';
+import { CollectionsModule } from '../collections/collections.module';
 
 @Module({
-  imports: [CommandsModule],
+  imports: [CommandsModule, CollectionsModule],
   providers: [LoansService],
   controllers: [LoansController],
 })
