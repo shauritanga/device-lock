@@ -4,10 +4,10 @@ import { api } from '@/shared/api/client';
 import { Card } from '@/shared/components/ui/Card';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { StatusDot } from '@/shared/components/ui/Pill';
-import { Select } from '@/shared/components/ui/Field';
+import { Input, Select } from '@/shared/components/ui/Field';
+import { Search } from '@/shared/icons';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { FigureStrip } from '@/shared/components/FigureStrip';
-import { ListToolbar } from '@/shared/components/ListToolbar';
 import { PanelEmpty } from '@/shared/components/Panel';
 import { money, shortDate } from '@/shared/lib/format';
 
@@ -35,12 +35,9 @@ type SoldPhone = {
 };
 
 const STATUSES = [
-  { value: 'ALL', label: 'All statuses' },
-  { value: 'ACTIVE', label: 'Active' },
+  { value: 'ALL', label: 'All phones' },
   { value: 'LOCKED', label: 'Locked' },
-  { value: 'PENDING_ENROLLMENT', label: 'Not enrolled yet' },
-  { value: 'RELEASED', label: 'Released' },
-  { value: 'DEFAULTED', label: 'Defaulted' },
+  { value: 'UNLOCKED', label: 'Unlocked' },
 ];
 
 /**
@@ -59,7 +56,7 @@ export default function SoldPhones() {
         await api.get<SoldPhone[]>('/collections/sold-devices', {
           params: {
             ...(tenantId ? { tenantId } : {}),
-            ...(status !== 'ALL' ? { status } : {}),
+            ...(status === 'LOCKED' ? { status } : {}),
           },
         })
       ).data,
@@ -73,12 +70,13 @@ export default function SoldPhones() {
     const q = query.trim().toLowerCase();
     return (data ?? []).filter(
       (d) =>
-        !q ||
+        (status !== 'UNLOCKED' || d.status !== 'LOCKED') &&
+        (!q ||
         [d.imei, d.model, d.make, d.customer?.fullName, d.customer?.phone, d.tenant.name, d.loan.soldBy?.fullName]
           .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(q)),
+          .some((v) => String(v).toLowerCase().includes(q))),
     );
-  }, [data, query]);
+  }, [data, query, status]);
 
   const figures = useMemo(() => {
     const all = rows;
@@ -112,27 +110,38 @@ export default function SoldPhones() {
       />
 
       <Card>
-        <ListToolbar
-          title="Sold phones"
-          noun="phone"
-          count={rows.length}
-          query={query}
-          onQuery={setQuery}
-          placeholder="Search customer, IMEI, shop, seller"
-          filter={{ value: status, onChange: setStatus, options: STATUSES }}
-        />
-        <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-5 py-2.5">
-          <span className="text-xs text-muted">Company</span>
+        <div className="flex flex-col gap-2 border-b border-line-soft px-5 py-3.5 sm:flex-row sm:items-center">
+          <div className="relative sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search customer, IMEI, shop, seller"
+              className="!w-full !pl-9"
+            />
+          </div>
           <Select
             value={tenantId}
             onChange={(e) => setTenantId(e.target.value)}
-            className="!w-auto"
+            className="sm:!w-48"
             aria-label="Filter by company"
           >
             <option value="">All companies</option>
             {(tenants ?? []).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="sm:!w-44"
+            aria-label="Filter by status"
+          >
+            {STATUSES.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </Select>
@@ -168,10 +177,11 @@ export default function SoldPhones() {
                 </td>
                 <td className="px-4 py-3 tabular-nums text-ink">{d.imei}</td>
                 <td className="px-4 py-3">
-                  <div className="space-y-1">
-                    <StatusDot status={d.status} />
-                    {d.loan.overdueInstallments > 0 ? <StatusDot status="OVERDUE" /> : null}
-                  </div>
+                  {d.status === 'LOCKED' ? (
+                    <StatusDot status="LOCKED" label="Locked" />
+                  ) : (
+                    <StatusDot status="ACTIVE" label="Unlocked" />
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {d.loan.nextDue ? (
