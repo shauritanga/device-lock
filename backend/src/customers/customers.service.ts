@@ -8,13 +8,27 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Env } from '../config/env.validation';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { IdDocumentType, Prisma, VerificationStatus } from '@prisma/client';
 import {
   CreateCustomerDto,
   CreateGuardianDto,
+  ReviewCustomerDto,
   UpdateCustomerDto,
+  VerifyCustomerDto,
 } from './dto/customer.dto';
+import { checkIdNumber, FACE_MATCH_MAX, FACE_REVIEW_MAX } from './id-rules';
 
 export const MAX_GUARDIANS = 5;
+
+const RESET_VERIFICATION = {
+  verificationStatus: VerificationStatus.UNVERIFIED,
+  faceDistance: null,
+  livenessPassed: null,
+  verificationChecks: Prisma.DbNull,
+  verifiedAt: null,
+  verifiedById: null,
+  verificationNotes: null,
+};
 export const REQUIRED_GUARDIANS = 3;
 
 @Injectable()
@@ -32,6 +46,7 @@ export class CustomersService {
   }
 
   create(dto: CreateCustomerDto) {
+    this.assertIdFormat(dto.idDocumentType, dto.nationalId);
     return this.prisma.scoped.customer.create({
       data: { ...dto, tenantId: this.prisma.currentTenantId },
     });
@@ -54,8 +69,108 @@ export class CustomersService {
   }
 
   async update(id: string, dto: UpdateCustomerDto) {
+    const current = await this.findOne(id);
+    const idType = dto.idDocumentType ?? current.idDocumentType;
+    const idNumber = dto.nationalId ?? current.nationalId;
+    if ((dto.idDocumentType || dto.nationalId) && idType && idNumber) {
+      this.assertIdFormat(idType, idNumber);
+    }
+    // Changing who the customer is invalidates earlier checks.
+    const identityChanged =
+      (dto.nationalId !== undefined && dto.nationalId !== current.nationalId) ||
+      (dto.idDocumentType !== undefined && dto.idDocumentType !== current.idDocumentType) ||
+      (dto.fullName !== undefined && dto.fullName !== current.fullName);
+    return this.prisma.scoped.customer.update({
+      where: { id },
+      data: { ...dto, ...(identityChanged ? RESET_VERIFICATION : {}) },
+    });
+  }
+
+  private assertIdFormat(type: IdDocumentType, number: string) {
+    const check = checkIdNumber(type, number);
+    if (!check.valid) throw new BadRequestException(check.reason);
+  }
+
+  /**
+   * Runs the onboarding checks and stores the outcome. The face distance and
+   * liveness result come from the browser (the live camera session runs there);
+   * the format, duplicate and photo checks are done here.
+   */
+  async verify(id: string, dto: VerifyCustomerDto, actorId: string) {
+    const customer = await this.findOne(id);
+
+    const idCheck =
+      customer.nationalId && customer.idDocumentType
+        ? checkIdNumber(customer.idDocumentType, customer.nationalId)
+        : { valid: false, reason: 'No ID number on file', normalized: '' };
+
+    let duplicateOf: string | null = null;
+    if (idCheck.valid && customer.idDocumentType) {
+      const sameType = await this.prisma.scoped.customer.findMany({
+        where: {
+          id: { not: id },
+          idDocumentType: customer.idDocumentType,
+          nationalId: { not: null },
+        },
+        select: { id: true, fullName: true, nationalId: true },
+      });
+      const dup = sameType.find(
+        (c) =>
+          c.nationalId &&
+          checkIdNumber(customer.idDocumentType!, c.nationalId).normalized === idCheck.normalized,
+      );
+      duplicateOf = dup ? dup.fullName : null;
+    }
+
+    const hasPhotos = !!customer.selfiePhotoUrl && !!customer.idCardPhotoUrl;
+    const faceOk = dto.faceDistance <= FACE_MATCH_MAX;
+    const faceBorderline = dto.faceDistance > FACE_MATCH_MAX && dto.faceDistance <= FACE_REVIEW_MAX;
+
+    let status: VerificationStatus;
+    if (!idCheck.valid || duplicateOf || !hasPhotos) status = VerificationStatus.FAILED;
+    else if (faceOk && dto.livenessPassed) status = VerificationStatus.VERIFIED;
+    else if (faceBorderline || (faceOk && !dto.livenessPassed)) status = VerificationStatus.NEEDS_REVIEW;
+    else status = VerificationStatus.FAILED;
+
+    const checks: Prisma.InputJsonObject = {
+      idFormat: { passed: idCheck.valid, reason: idCheck.reason ?? null },
+      duplicateId: { passed: !duplicateOf, matches: duplicateOf },
+      photos: { passed: hasPhotos },
+      liveness: { passed: dto.livenessPassed },
+      face: {
+        passed: faceOk,
+        distance: dto.faceDistance,
+        matchBelow: FACE_MATCH_MAX,
+        reviewBelow: FACE_REVIEW_MAX,
+      },
+    };
+
+    return this.prisma.scoped.customer.update({
+      where: { id },
+      data: {
+        verificationStatus: status,
+        faceDistance: dto.faceDistance,
+        livenessPassed: dto.livenessPassed,
+        verificationChecks: checks,
+        verifiedAt: new Date(),
+        verifiedById: actorId,
+        verificationNotes: null,
+      },
+    });
+  }
+
+  /** A manager's decision on a customer the automatic checks could not settle. */
+  async review(id: string, dto: ReviewCustomerDto, actorId: string) {
     await this.findOne(id);
-    return this.prisma.scoped.customer.update({ where: { id }, data: dto });
+    return this.prisma.scoped.customer.update({
+      where: { id },
+      data: {
+        verificationStatus: dto.decision,
+        verifiedAt: new Date(),
+        verifiedById: actorId,
+        verificationNotes: dto.notes?.trim() || null,
+      },
+    });
   }
 
   async addGuardian(
@@ -106,6 +221,7 @@ export class CustomersService {
       data: {
         ...(photo ? { selfiePhotoUrl: write('selfie', photo) } : {}),
         ...(idCard ? { idCardPhotoUrl: write('idCard', idCard) } : {}),
+        ...RESET_VERIFICATION, // new photos need a new check
       },
     });
   }

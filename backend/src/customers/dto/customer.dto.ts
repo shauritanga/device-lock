@@ -1,4 +1,13 @@
-import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { IdDocumentType } from '@prisma/client';
 
 export class CreateCustomerDto {
@@ -72,4 +81,25 @@ export class CreateGuardianDto {
   @IsString()
   @MinLength(3)
   address!: string;
+}
+
+export class VerifyCustomerDto {
+  /** Euclidean distance between the live selfie and the ID-card face (0 = identical). */
+  @IsNumber()
+  @Min(0)
+  @Max(2)
+  faceDistance!: number;
+
+  /** Whether the live blink challenge was passed. */
+  @IsBoolean()
+  livenessPassed!: boolean;
+}
+
+export class ReviewCustomerDto {
+  @IsEnum(['VERIFIED', 'FAILED'])
+  decision!: 'VERIFIED' | 'FAILED';
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

@@ -97,6 +97,7 @@ export function PersonFields({
   existingPhoto,
   afterPhone,
   photoLabel,
+  hidePhoto,
 }: {
   kind: 'customer' | 'guardian';
   value: PersonForm;
@@ -105,6 +106,8 @@ export function PersonFields({
   existingPhoto?: boolean;
   afterPhone?: ReactNode;
   photoLabel?: string;
+  /** The photo is captured elsewhere (e.g. the live identity check). */
+  hidePhoto?: boolean;
 }) {
   const set = <K extends keyof PersonForm>(k: K, v: PersonForm[K]) =>
     onChange({ ...value, [k]: v });
@@ -190,13 +193,15 @@ export function PersonFields({
           </Field>
         </div>
       </FieldGrid>
-      <PhotoCapture
-        label={photoLabel ?? 'Photo'}
-        file={value.photo}
-        hasExisting={existingPhoto}
-        error={errors.photo}
-        onChange={(f) => set('photo', f)}
-      />
+      {hidePhoto ? null : (
+        <PhotoCapture
+          label={photoLabel ?? 'Photo'}
+          file={value.photo}
+          hasExisting={existingPhoto}
+          error={errors.photo}
+          onChange={(f) => set('photo', f)}
+        />
+      )}
     </div>
   );
 }

@@ -153,6 +153,14 @@ enum IdDocumentType {
   PASSPORT
 }
 
+/// Outcome of onboarding checks (ID format, duplicate ID, live selfie, face match).
+enum VerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  NEEDS_REVIEW
+  FAILED
+}
+
 enum PaymentFrequency {
   DAILY
   WEEKLY
@@ -679,6 +687,18 @@ model Customer {
   employerName   String?
   employerPhone  String?
   monthlyIncome  Decimal? @db.Decimal(14, 2)
+
+  // Identity verification (onboarding)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  /// Distance between the live selfie and the ID-card photo (lower is closer).
+  faceDistance       Float?
+  livenessPassed     Boolean?
+  /// Individual check results, kept for audit (idFormat, duplicateId, photos, face).
+  verificationChecks Json?
+  verifiedAt         DateTime?
+  /// Staff member who ran the check or made the manual decision.
+  verifiedById       String?
+  verificationNotes  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

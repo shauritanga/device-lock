@@ -9,12 +9,18 @@ import {
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { AuthUser } from '../auth/auth.types';
 import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { CustomersService } from './customers.service';
 import {
   CreateCustomerDto,
   CreateGuardianDto,
+  ReviewCustomerDto,
   UpdateCustomerDto,
+  VerifyCustomerDto,
 } from './dto/customer.dto';
 
 const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
@@ -42,6 +48,25 @@ export class CustomersController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
     return this.customers.update(id, dto);
+  }
+
+  @Post(':id/verify')
+  verify(
+    @Param('id') id: string,
+    @Body() dto: VerifyCustomerDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.customers.verify(id, dto, actor.userId);
+  }
+
+  @Post(':id/review')
+  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  review(
+    @Param('id') id: string,
+    @Body() dto: ReviewCustomerDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.customers.review(id, dto, actor.userId);
   }
 
   @Post(':id/photos')

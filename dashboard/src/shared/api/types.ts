@@ -43,7 +43,23 @@ export interface Customer {
   guardians?: Guardian[];
   _count?: { guardians: number };
   address?: string | null;
+  verificationStatus?: VerificationStatus;
+  faceDistance?: number | null;
+  livenessPassed?: boolean | null;
+  verificationChecks?: VerificationChecks | null;
+  verifiedAt?: string | null;
+  verificationNotes?: string | null;
   createdAt: string;
+}
+
+export type VerificationStatus = 'UNVERIFIED' | 'VERIFIED' | 'NEEDS_REVIEW' | 'FAILED';
+
+export interface VerificationChecks {
+  idFormat: { passed: boolean; reason: string | null };
+  duplicateId: { passed: boolean; matches: string | null };
+  photos: { passed: boolean };
+  liveness: { passed: boolean };
+  face: { passed: boolean; distance: number; matchBelow: number; reviewBelow: number };
 }
 
 export type DeviceStatus =

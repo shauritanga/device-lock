@@ -12,15 +12,13 @@ import {
   Loader2,
   Plus,
   QrCode,
-  ShieldCheck,
   Smartphone,
   UserRound,
-  Users,
 } from '@/shared/icons';
 import axios from 'axios';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
-import type { Customer, Device, Guardian, Loan } from '@/shared/api/types';
+import type { Customer, Device, Loan } from '@/shared/api/types';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Field, Input } from '@/shared/components/ui/Field';
@@ -34,15 +32,7 @@ import { Row, Table } from '@/shared/components/ui/Table';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { cn } from '@/shared/lib/cn';
 import { money, shortDate, termLabel } from '@/shared/lib/format';
-import {
-  emptyPerson,
-  ID_TYPES,
-  PersonFields,
-  useObjectUrl,
-  validatePerson,
-  type PersonErrors,
-  type PersonForm,
-} from '../components/PersonFields';
+import { ID_TYPES, useObjectUrl } from '../components/PersonFields';
 
 type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
@@ -62,8 +52,7 @@ const FREQUENCIES: Array<{
 ];
 
 const STEPS = [
-  { label: 'Customer', hint: 'Who is buying on credit' },
-  { label: 'Guardians', hint: 'Three people who vouch for the customer' },
+  { label: 'Customer', hint: 'Pick a verified customer' },
   { label: 'Phone', hint: 'Pick the phone from stock' },
   { label: 'Plan', hint: 'Price, deposit and repayment schedule' },
   { label: 'Review', hint: 'Confirm with the customer' },
@@ -107,7 +96,7 @@ type SaleForm = typeof initialSale;
 
 const TERMS_VERSION = 'simulinda-v1';
 
-function buildTerms(customer: PersonForm, sale: SaleForm, totalRepayable: number) {
+function buildTerms(customer: Customer, sale: SaleForm, totalRepayable: number) {
   const idLabel = ID_TYPES.find((t) => t.value === customer.idDocumentType)?.label ?? 'ID';
   const unit = FREQUENCIES.find((f) => f.value === sale.frequency)?.unit ?? 'months';
   return [
@@ -115,7 +104,7 @@ function buildTerms(customer: PersonForm, sale: SaleForm, totalRepayable: number
     `Customer: ${customer.fullName}`,
     `Phone: ${[sale.make, sale.model].filter(Boolean).join(' ') || sale.imei}`,
     `Device ID/IMEI: ${sale.imei}`,
-    `${idLabel}: ${customer.nationalId}`,
+    `${idLabel}: ${customer.nationalId ?? ''}`,
     `Phone price: TZS ${Number(sale.principal || 0).toLocaleString('en-US')}`,
     `Deposit: TZS ${Number(sale.downPayment || 0).toLocaleString('en-US')}`,
     `Total repayable: TZS ${totalRepayable.toLocaleString('en-US')}`,
@@ -124,26 +113,20 @@ function buildTerms(customer: PersonForm, sale: SaleForm, totalRepayable: number
     'The customer understands that reminders will be sent before restriction.',
     'If payments are missed after the grace period, the phone may be restricted until payment is confirmed.',
     'The phone reports its last-known location to the seller while the loan is active, for follow-up on missed payments.',
-    'The three guardians named in this sale were informed and may be contacted if payments are missed.',
+    'The guardians recorded for this customer may be contacted if payments are missed.',
     'Emergency access remains available and personal data is not deleted.',
     'After final settlement, the phone is released permanently to the customer.',
   ].join('\n');
 }
-
-const prefixErrors = (prefix: string, e: PersonErrors) =>
-  Object.fromEntries(Object.entries(e).map(([k, v]) => [`${prefix}.${k}`, v as string]));
 
 export default function Sales() {
   const { user } = useAuth();
   const isAgent = user?.role === 'AGENT';
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [customer, setCustomer] = useState<PersonForm>(emptyPerson());
-  const [guardians, setGuardians] = useState<PersonForm[]>(() =>
-    Array.from({ length: REQUIRED_GUARDIANS }, emptyPerson),
-  );
+  const [customerId, setCustomerId] = useState('');
+  const [customerQuery, setCustomerQuery] = useState('');
   const [sale, setSale] = useState<SaleForm>(initialSale);
-  const [activeGuardian, setActiveGuardian] = useState(0);
   const [result, setResult] = useState<SaleResult | null>(null);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -200,28 +183,25 @@ export default function Sales() {
     );
   }, [stock, stockQuery]);
 
-  const matched = customer.phone.trim()
-    ? knownCustomers?.find(
-        (c) => normalizePhone(c.phone) === normalizePhone(customer.phone),
-      )
-    : undefined;
-  const existingPhotoOk = !!matched?.selfiePhotoUrl;
-  const haveGuardians = matched?._count?.guardians ?? 0;
-  const neededGuardians = Math.max(REQUIRED_GUARDIANS - haveGuardians, 0);
-
-  // Prefill blank fields from a matched customer so the seller doesn't retype.
-  useEffect(() => {
-    if (!matched) return;
-    setCustomer((c) => ({
-      ...c,
-      fullName: c.fullName || matched.fullName,
-      nationalId: c.nationalId || matched.nationalId || '',
-      address: c.address || matched.address || '',
-      idDocumentType: matched.nationalId
-        ? (matched.idDocumentType ?? c.idDocumentType)
-        : c.idDocumentType,
-    }));
-  }, [matched?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const customer = knownCustomers?.find((c) => c.id === customerId) ?? null;
+  const customerRows = useMemo(() => {
+    const q = customerQuery.trim().toLowerCase();
+    return (knownCustomers ?? []).filter(
+      (c) =>
+        !q ||
+        [c.fullName, c.phone, c.nationalId].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
+    );
+  }, [knownCustomers, customerQuery]);
+  const canSellTo = (c: Customer) =>
+    c.verificationStatus === 'VERIFIED' && (c._count?.guardians ?? 0) >= REQUIRED_GUARDIANS;
+  const blockedReason = (c: Customer) =>
+    c.verificationStatus !== 'VERIFIED'
+      ? c.verificationStatus === 'NEEDS_REVIEW'
+        ? 'Waiting for a manager to review'
+        : c.verificationStatus === 'FAILED'
+          ? 'Verification failed'
+          : 'Not verified yet'
+      : `${REQUIRED_GUARDIANS - (c._count?.guardians ?? 0)} guardian(s) missing`;
 
   const financed = Math.max(
     (Number(sale.principal) || 0) - (Number(sale.downPayment) || 0),
@@ -234,21 +214,7 @@ export default function Sales() {
 
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
-    Object.assign(
-      e,
-      prefixErrors('c', validatePerson(customer, 'customer', { photoOptional: existingPhotoOk })),
-    );
-    const phones = [customer.phone.replace(/\D/g, '')];
-    for (let i = 0; i < neededGuardians; i++) {
-      const g = guardians[i];
-      const ge = validatePerson(g, 'guardian');
-      const digits = g.phone.replace(/\D/g, '');
-      if (!ge.phone && phones.includes(digits)) {
-        ge.phone = 'Must differ from the customer and other guardians';
-      }
-      phones.push(digits);
-      Object.assign(e, prefixErrors(`g${i}`, ge));
-    }
+    if (!customer || !canSellTo(customer)) e.customer = 'Pick a verified customer';
     if (!sale.deviceId) e.imei = 'Pick the phone being sold';
     if (!(Number(sale.principal) > 0)) e.principal = 'Enter the phone price';
     if (Number(sale.downPayment) >= Number(sale.principal) && Number(sale.principal) > 0)
@@ -259,41 +225,22 @@ export default function Sales() {
     else if (t > 730) e.termPeriods = 'Maximum 730';
     if (!sale.startDate) e.startDate = 'Pick a start date';
     return e;
-  }, [customer, guardians, sale, existingPhotoOk, neededGuardians]);
+  }, [customer, sale]);
 
   const stepOwns = (i: number, key: string) =>
     i === 0
-      ? key.startsWith('c.')
+      ? key === 'customer'
       : i === 1
-        ? /^g\d\./.test(key)
+        ? key === 'imei'
         : i === 2
-          ? key === 'imei'
-          : i === 3
-            ? ['principal', 'downPayment', 'termPeriods', 'startDate'].includes(key)
-            : false;
+          ? ['principal', 'downPayment', 'termPeriods', 'startDate'].includes(key)
+          : false;
   const stepErrorKeys = (i: number) => Object.keys(errors).filter((k) => stepOwns(i, k));
-  const personErrors = (prefix: string): PersonErrors =>
-    showErrors
-      ? Object.fromEntries(
-          Object.entries(errors)
-            .filter(([k]) => k.startsWith(`${prefix}.`))
-            .map(([k, v]) => [k.slice(prefix.length + 1), v]),
-        )
-      : {};
   const err = (k: string) => (showErrors ? errors[k] : undefined);
-  const guardianHasError = (i: number) =>
-    Object.keys(errors).some((k) => k.startsWith(`g${i}.`));
-
   function next() {
     const bad = stepErrorKeys(step);
     if (bad.length) {
       setShowErrors(true);
-      if (step === 1) {
-        const first = Array.from({ length: neededGuardians }).findIndex((_, i) =>
-          guardianHasError(i),
-        );
-        if (first >= 0) setActiveGuardian(first);
-      }
       return;
     }
     setShowErrors(false);
@@ -301,55 +248,20 @@ export default function Sales() {
   }
 
   function resetAll() {
-    setCustomer(emptyPerson());
-    setGuardians(Array.from({ length: REQUIRED_GUARDIANS }, emptyPerson));
+    setCustomerId('');
+    setCustomerQuery('');
     setSale({ ...initialSale, startDate: new Date().toISOString().slice(0, 10) });
     setStep(0);
-    setActiveGuardian(0);
     setShowErrors(false);
     setStockQuery('');
   }
 
   const createSale = useMutation({
     mutationFn: async () => {
-      const phone = customer.phone.trim();
-      const base = {
-        fullName: customer.fullName.trim(),
-        nationalId: customer.nationalId.trim(),
-        idDocumentType: customer.idDocumentType,
-        address: customer.address.trim(),
-      };
-
-      const existingCustomers = (await api.get<Customer[]>('/customers')).data;
-      const existing = existingCustomers.find(
-        (c) => normalizePhone(c.phone) === normalizePhone(phone),
-      );
-
-      let created: Customer = existing
-        ? (await api.patch<Customer>(`/customers/${existing.id}`, base)).data
-        : (await api.post<Customer>('/customers', { ...base, phone })).data;
-
-      if (customer.photo) {
-        const body = new FormData();
-        body.append('photo', customer.photo);
-        created = (await api.post<Customer>(`/customers/${created.id}/photos`, body)).data;
-      }
-
-      // Re-read how many guardians are saved (a previous attempt may have added some).
-      const saved = (await api.get<Customer>(`/customers/${created.id}`)).data.guardians ?? [];
-      const remaining = Math.max(REQUIRED_GUARDIANS - saved.length, 0);
-      const toCreate = guardians.slice(0, neededGuardians).slice(neededGuardians - remaining);
-      for (const g of toCreate) {
-        const body = new FormData();
-        body.append('fullName', g.fullName.trim());
-        body.append('relationship', g.relationship);
-        body.append('phone', g.phone.trim());
-        body.append('idDocumentType', g.idDocumentType);
-        body.append('nationalId', g.nationalId.trim());
-        body.append('address', g.address.trim());
-        body.append('photo', g.photo as File);
-        await api.post<Guardian>(`/customers/${created.id}/guardians`, body);
-      }
+      if (!customer) throw new Error('Pick a customer');
+      const created = customer;
+      const phone = customer.phone;
+      const base = { nationalId: customer.nationalId ?? '' };
 
       // The phone was registered ahead of time; fetch it for its enrollment token.
       const registered = (await api.get<Device>(`/devices/${sale.deviceId}`)).data;
@@ -423,12 +335,7 @@ export default function Sales() {
   const hasUnsavedInput =
     open &&
     !createSale.isSuccess &&
-    (step > 0 ||
-      !!customer.phone ||
-      !!customer.fullName ||
-      !!customer.photo ||
-      !!sale.deviceId ||
-      guardians.some((g) => g.fullName || g.phone));
+    (step > 0 || !!customerId || !!sale.deviceId);
 
   const modalFooter = (
     <>
@@ -612,7 +519,7 @@ export default function Sales() {
           <div className="p-5">
             <EmptyState
               title="No sales yet"
-              hint="A credit sale creates the customer, device, loan, and contract together."
+              hint="A credit sale sells a stocked phone to a verified customer and creates the loan and contract."
             />
           </div>
         ) : saleRows.length === 0 ? (
@@ -666,93 +573,71 @@ export default function Sales() {
             {step === 0 ? (
               <FormSection
                 icon={UserRound}
-                title="Customer details"
-                description="Phone, photo, ID and address are all required."
+                title="Customer"
+                description="Only customers whose ID and face are verified, with three guardians, can buy on credit. Register and verify new customers on the Customers page."
               >
-                <PersonFields
-                  kind="customer"
-                  value={customer}
-                  onChange={setCustomer}
-                  errors={personErrors('c')}
-                  existingPhoto={existingPhotoOk}
-                  photoLabel="Customer photo"
-                  afterPhone={
-                    matched ? (
-                      <p className="flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                        <span>
-                          Existing customer <b>{matched.fullName}</b> ({haveGuardians} of{' '}
-                          {REQUIRED_GUARDIANS} guardians on file). Details are filled in below;
-                          changes you make update their record.
-                        </span>
-                      </p>
-                    ) : null
-                  }
+                <Input
+                  value={customerQuery}
+                  onChange={(e) => setCustomerQuery(e.target.value)}
+                  placeholder="Search name, phone or ID number"
+                  autoFocus
                 />
+                {!knownCustomers ? (
+                  <Center>
+                    <Spinner />
+                  </Center>
+                ) : knownCustomers.length === 0 ? (
+                  <EmptyState
+                    title="No customers yet"
+                    hint="Register and verify the customer first."
+                  />
+                ) : customerRows.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted">No customer matches that search.</p>
+                ) : (
+                  <ul
+                    role="radiogroup"
+                    aria-label="Customers"
+                    className="max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line"
+                  >
+                    {customerRows.map((c) => {
+                      const ok = canSellTo(c);
+                      return (
+                        <li key={c.id}>
+                          <label
+                            className={cn(
+                              'flex items-center gap-3 px-4 py-2.5 text-sm',
+                              ok ? 'cursor-pointer hover:bg-canvas/60' : 'cursor-not-allowed opacity-60',
+                              customerId === c.id && 'bg-brand-600/10',
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name="sale-customer"
+                              className="h-4 w-4 accent-brand-600"
+                              disabled={!ok}
+                              checked={customerId === c.id}
+                              onChange={() => setCustomerId(c.id)}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-medium text-ink">{c.fullName}</span>
+                              <span className="block text-xs text-muted">{c.phone}</span>
+                            </span>
+                            {ok ? (
+                              <StatusDot status="ACTIVE" label="Verified" />
+                            ) : (
+                              <span className="text-xs text-amber-700">{blockedReason(c)}</span>
+                            )}
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {err('customer') ? <p className="text-xs text-rose-600">{err('customer')}</p> : null}
               </FormSection>
             ) : null}
 
             {step === 1 ? (
-              neededGuardians === 0 ? (
-                <FormSection
-                  icon={ShieldCheck}
-                  title="Guardians already on file"
-                  description={`${matched?.fullName} already has ${REQUIRED_GUARDIANS} guardians, so nothing to add.`}
-                >
-                  <p className="text-sm text-muted">Continue to the next step.</p>
-                </FormSection>
-              ) : (
-                <FormSection
-                  icon={Users}
-                  title={`Guardian ${activeGuardian + 1} of ${neededGuardians}`}
-                  description="Each guardian needs the same details as the customer, plus their relationship."
-                >
-                  <div role="tablist" className="mb-4 flex flex-wrap gap-2">
-                    {Array.from({ length: neededGuardians }).map((_, i) => {
-                      const done = !Object.keys(errors).some((k) => k.startsWith(`g${i}.`));
-                      const bad = showErrors && !done;
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          role="tab"
-                          aria-selected={activeGuardian === i}
-                          onClick={() => setActiveGuardian(i)}
-                          className={cn(
-                            'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm transition',
-                            activeGuardian === i
-                              ? 'border-brand-500 bg-brand-600/10 font-medium text-brand-700'
-                              : 'border-line bg-surface text-ink hover:bg-canvas',
-                            bad && 'border-rose-300',
-                          )}
-                        >
-                          {done ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-600" />
-                          ) : bad ? (
-                            <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
-                          ) : (
-                            <span className="h-2 w-2 rounded-full bg-line" />
-                          )}
-                          {guardians[i].fullName.trim().split(' ')[0] || `Guardian ${i + 1}`}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <PersonFields
-                    key={activeGuardian}
-                    kind="guardian"
-                    value={guardians[activeGuardian]}
-                    onChange={(g) =>
-                      setGuardians((all) => all.map((x, i) => (i === activeGuardian ? g : x)))
-                    }
-                    errors={personErrors(`g${activeGuardian}`)}
-                    photoLabel="Guardian photo"
-                  />
-                </FormSection>
-              )
-            ) : null}
-
-            {step === 2 ? (
               <FormSection
                 icon={Smartphone}
                 title="Phone being financed"
@@ -823,7 +708,7 @@ export default function Sales() {
               </FormSection>
             ) : null}
 
-            {step === 3 ? (
+            {step === 2 ? (
               <>
                 <FormSection icon={CreditCard} title="Price & deposit">
                   <FieldGrid className="sm:grid-cols-3">
@@ -942,33 +827,21 @@ export default function Sales() {
               </>
             ) : null}
 
-            {step === 4 ? (
+            {step === 3 ? (
               <>
                 <FormSection icon={CheckCircle2} title="Review" description="Check everything with the customer before creating the sale.">
                   <dl className="space-y-3 text-sm">
-                    <ReviewRow
-                      title="Customer"
-                      photo={customer.photo}
-                      lines={[
-                        customer.fullName,
-                        customer.phone,
-                        `${ID_TYPES.find((t) => t.value === customer.idDocumentType)?.label} · ${customer.nationalId}`,
-                        customer.address,
-                      ]}
-                    />
-                    {Array.from({ length: neededGuardians }).map((_, i) => (
+                    {customer ? (
                       <ReviewRow
-                        key={i}
-                        title={`Guardian ${i + 1} · ${guardians[i].relationship}`}
-                        photo={guardians[i].photo}
+                        title="Customer"
                         lines={[
-                          guardians[i].fullName,
-                          guardians[i].phone,
-                          `${ID_TYPES.find((t) => t.value === guardians[i].idDocumentType)?.label} · ${guardians[i].nationalId}`,
-                          guardians[i].address,
+                          customer.fullName,
+                          customer.phone,
+                          `${ID_TYPES.find((t) => t.value === customer.idDocumentType)?.label} · ${customer.nationalId}`,
+                          customer.address ?? '',
                         ]}
                       />
-                    ))}
+                    ) : null}
                     <ReviewRow
                       title="Phone"
                       lines={[
@@ -1004,7 +877,7 @@ export default function Sales() {
                       until payment is confirmed.
                     </li>
                     <li>The phone shares its last-known location with the seller while the loan is active.</li>
-                    <li>Guardians may be contacted if payments are missed.</li>
+                    <li>Guardians on file may be contacted if payments are missed.</li>
                     <li>Emergency access remains; personal data is not deleted.</li>
                     <li>After final settlement, the phone is permanently released.</li>
                   </ul>

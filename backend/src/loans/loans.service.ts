@@ -5,7 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { LoanStatus, PaymentFrequency, UserRole } from '@prisma/client';
+import {
+  LoanStatus,
+  PaymentFrequency,
+  UserRole,
+  VerificationStatus,
+} from '@prisma/client';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { REQUIRED_GUARDIANS } from '../customers/customers.service';
@@ -32,6 +37,12 @@ export class LoansService {
     if (customer._count.guardians < REQUIRED_GUARDIANS) {
       throw new BadRequestException(
         `Customer needs ${REQUIRED_GUARDIANS} guardians before a loan can be created`,
+      );
+    }
+
+    if (customer.verificationStatus !== VerificationStatus.VERIFIED) {
+      throw new BadRequestException(
+        'Verify the customer (ID and face) on the Customers page before selling on credit',
       );
     }
 
