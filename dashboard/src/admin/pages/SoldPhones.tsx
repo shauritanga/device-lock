@@ -199,6 +199,8 @@ export default function SoldPhones() {
                         {money(d.loan.nextDue.amountDue, d.loan.currency)}
                       </div>
                     </>
+                  ) : d.loan.status === 'COMPLETED' ? (
+                    <span className="text-emerald-600">Completed</span>
                   ) : (
                     <span className="text-muted">—</span>
                   )}
