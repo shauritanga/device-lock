@@ -9,7 +9,7 @@ import { Search } from '@/shared/icons';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { FigureStrip } from '@/shared/components/FigureStrip';
 import { PanelEmpty } from '@/shared/components/Panel';
-import { money, shortDate } from '@/shared/lib/format';
+import { ago, isStale, money, shortDate } from '@/shared/lib/format';
 
 type SoldPhone = {
   id: string;
@@ -181,6 +181,13 @@ export default function SoldPhones() {
                     <StatusDot status="LOCKED" label="Locked" />
                   ) : (
                     <StatusDot status="ACTIVE" label="Unlocked" />
+                  )}
+                  {d.status === 'PENDING_ENROLLMENT' ? (
+                    <div className="mt-0.5 text-xs text-amber-700">Not enrolled</div>
+                  ) : (
+                    <div className={isStale(d.lastCheckInAt) ? 'mt-0.5 text-xs text-rose-600' : 'mt-0.5 text-xs text-muted'}>
+                      Seen {ago(d.lastCheckInAt)}
+                    </div>
                   )}
                 </td>
                 <td className="px-4 py-3">

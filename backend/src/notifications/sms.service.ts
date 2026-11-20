@@ -13,6 +13,7 @@ export class SmsService {
   private readonly sendUrl: string;
   private readonly senderId: string;
   private readonly authHeader?: string;
+  private lastFundsAlertAt = 0;
 
   constructor(config: ConfigService) {
     this.sendUrl = config.get<string>('BEEM_SEND_URL')!;
@@ -52,6 +53,12 @@ export class SmsService {
       if (!res.ok) {
         const body = (await res.text().catch(() => '')).slice(0, 300);
         this.logger.warn(`Beem send failed ${res.status} (to ${normalizeMsisdn(dest)}): ${body}`);
+        if (body.includes('INSUFFICIENT_FUNDS') && Date.now() - this.lastFundsAlertAt > 30 * 60 * 1000) {
+          this.lastFundsAlertAt = Date.now();
+          this.logger.error(
+            'BEEM BALANCE EXHAUSTED: signed-SMS lock commands, payment reminders and voice calls are all failing. Top up the Beem account.',
+          );
+        }
         return false;
       }
       return true;

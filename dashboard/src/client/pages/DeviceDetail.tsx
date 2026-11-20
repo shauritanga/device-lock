@@ -23,7 +23,7 @@ import { Card, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
-import { shortDate } from '@/shared/lib/format';
+import { ago, isStale, shortDate } from '@/shared/lib/format';
 
 type EnrollmentPayload = {
   enrollmentToken: string;
@@ -297,7 +297,14 @@ export default function DeviceDetail() {
                 {pendingCmd.type === 'LOCK' ? 'Lock' : 'Unlock'} pending
               </span>{' '}
               — {pendingCmd.status === 'QUEUED' ? 'queued' : 'sent'}, waiting for the
-              phone to check in.
+              phone to check in.{' '}
+              {isStale(device.lastCheckInAt) ? (
+                <span className="font-medium text-amber-700">
+                  The Linda app on this phone has not contacted the server for{' '}
+                  {ago(device.lastCheckInAt).replace(' ago', '')}, so it cannot receive this
+                  command until it does. Having internet is not enough: the app itself must be running.
+                </span>
+              ) : null}
             </p>
           </div>
         ) : null}
@@ -341,7 +348,7 @@ export default function DeviceDetail() {
           <dl className="grid grid-cols-2 gap-4 p-6 text-sm">
             <Info label="Customer" value={device.customer?.fullName ?? '—'} />
             <Info label="Phone" value={device.customer?.phone ?? '—'} />
-            <Info label="Last check-in" value={shortDate(device.lastCheckInAt)} />
+            <Info label="Last check-in" value={`${shortDate(device.lastCheckInAt)} · ${ago(device.lastCheckInAt)}`} />
             <Info label="Locked at" value={shortDate(device.lockedAt)} />
             <Info
               label="Loan"
@@ -523,7 +530,9 @@ function statusDetail(device: Device) {
   const checkIn = `Last check-in ${shortDate(device.lastCheckInAt)}`;
   switch (device.status) {
     case 'ACTIVE':
-      return `In good standing · ${checkIn}`;
+      return isStale(device.lastCheckInAt)
+        ? `Not reporting · the Linda app last contacted the server ${ago(device.lastCheckInAt)}`
+        : `Reporting · last contact ${ago(device.lastCheckInAt)}`;
     case 'LOCKED':
       return `Locked ${shortDate(device.lockedAt)} · ${checkIn}`;
     case 'PENDING_ENROLLMENT':
