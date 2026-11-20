@@ -87,6 +87,14 @@ signing, agent check-ins, locking and payment webhooks must never be blocked by 
 must not import from each other; shared code lives in `src/shared` and is imported
 through the `@` alias.
 
+**Released APKs stay supported.** Phones in the field run old builds and cannot be updated
+without a new install (the app has no self-update, and updates need the original release
+signing key). The `/v1/agent/*` API must therefore stay backward compatible: never remove or
+rename an endpoint, a request field or a response field the app uses, and only add optional
+fields. A phone on an old build must always still be able to check in, receive LOCK, UNLOCK
+and RELEASE, acknowledge them and pay. The release keystore is not in the repo: its SHA-256
+certificate fingerprint is `4A:EE:EE:35:8D:7A:09:93:40:39:15:FD:97:66:09:28:49:28:02:C8:13:EE:AF:A2:26:B5:CD:E7:AB:2D:7C:55`.
+
 **Android URLs.** Both apps bake in `https://api.linda.co.tz/v1`, HTTPS only. A phone
 is only truly controlled when the agent is Device Owner, which requires QR
 provisioning on a factory-reset phone.

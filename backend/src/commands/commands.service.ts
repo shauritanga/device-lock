@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CommandStatus,
   CommandType,
@@ -218,6 +219,80 @@ export class CommandsService {
         metadata: { commandId: command.id, commandType: command.type },
       },
     });
+  }
+
+  /**
+   * A phone that goes silent never sees the push or the check-in, so a lock, unlock or
+   * release can wait for it for weeks. The signed SMS is its other way in (it needs only
+   * a cell signal), but it is normally sent once, when the command is queued. This resends
+   * it for commands still waiting on a silent phone, at most once a day per command, with
+   * a fresh expiry so an old command can still be accepted. Free when the balance is empty.
+   */
+  @Cron(CronExpression.EVERY_6_HOURS)
+  async retryStuckSms() {
+    const now = Date.now();
+    const waiting = await this.prisma.deviceCommand.findMany({
+      where: {
+        status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+        type: { in: [CommandType.LOCK, CommandType.UNLOCK, CommandType.RELEASE] },
+        createdAt: { lt: new Date(now - 60 * 60 * 1000) },
+        device: {
+          lastCheckInAt: { lt: new Date(now - 2 * 60 * 60 * 1000) },
+          smsSecret: { not: null },
+          status: { not: DeviceStatus.RELEASED },
+        },
+      },
+      include: {
+        device: {
+          select: {
+            id: true,
+            tenantId: true,
+            smsSecret: true,
+            simPhoneNumber: true,
+            customer: { select: { phone: true } },
+          },
+        },
+      },
+      take: 200,
+    });
+
+    let sent = 0;
+    for (const cmd of waiting) {
+      const d = cmd.device;
+      const phone = d.simPhoneNumber ?? d.customer?.phone;
+      if (!phone || !d.smsSecret) continue;
+
+      const recent = await this.prisma.deviceEvent.findFirst({
+        where: {
+          deviceId: d.id,
+          type: { in: ['SMS_COMMAND_SENT', 'SMS_COMMAND_RETRIED'] },
+          createdAt: { gte: new Date(now - 24 * 60 * 60 * 1000) },
+          metadata: { path: ['commandId'], equals: cmd.id },
+        },
+        select: { id: true },
+      });
+      if (recent) continue;
+
+      const expiresAt = new Date(now + 7 * 24 * 60 * 60 * 1000);
+      const payload = `DL1|${cmd.id}|${cmd.type}|${expiresAt.getTime()}`;
+      const sig = createHmac('sha256', d.smsSecret).update(payload).digest('base64url').slice(0, 32);
+      if (!(await this.sms.send(phone, `${payload}|${sig}`))) continue; // provider down: try again next round
+
+      await this.prisma.deviceCommand.update({ where: { id: cmd.id }, data: { expiresAt } });
+      await this.prisma.deviceEvent.create({
+        data: {
+          tenantId: d.tenantId,
+          deviceId: d.id,
+          type: 'SMS_COMMAND_RETRIED',
+          metadata: { commandId: cmd.id, commandType: cmd.type },
+        },
+      });
+      sent++;
+    }
+    if (waiting.length > 0) {
+      this.logger.log(`SMS retry: ${sent} of ${waiting.length} stuck command(s) re-sent`);
+    }
+    return { stuck: waiting.length, resent: sent };
   }
 
   listForDevice(deviceId: string) {
