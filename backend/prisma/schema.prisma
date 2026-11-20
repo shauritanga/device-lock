@@ -751,6 +751,12 @@ model Device {
   serialNumber String?
   make         String?
   model        String?
+
+  // What the phone reports about its own health at each check-in.
+  agentVersion        String?
+  ignoresBatteryOpt   Boolean?
+  backgroundRestricted Boolean?
+  standbyBucket       String?
   /// The id this device has in the partner's own system (API sync).
   externalId   String?
 

@@ -33,6 +33,7 @@ object AgentSync {
         work.cancelUniqueWork(IMMEDIATE_WORK)
         work.cancelUniqueWork(ENROLL_WORK)
         work.cancelUniqueWork(OFFLINE_POLICY_WORK)
+        Heartbeat.cancel(context)
     }
 
     fun schedulePeriodic(context: Context) {
@@ -58,7 +59,17 @@ object AgentSync {
             ExistingPeriodicWorkPolicy.UPDATE,
             PeriodicWorkRequestBuilder<OfflinePolicyWorker>(15, TimeUnit.MINUTES).build(),
         )
+        Heartbeat.schedule(context)
         requestImmediateSync(context)
+    }
+
+    /** One-off offline-policy pass (no network needed), triggered by the heartbeat alarm. */
+    fun requestOfflinePolicyCheck(context: Context) {
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "device-lock-offline-policy-now",
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<OfflinePolicyWorker>().build(),
+        )
     }
 
     /**

@@ -58,6 +58,22 @@ export class CheckinDto {
 
   @IsOptional()
   @IsString()
+  appVersion?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  ignoringBatteryOptimizations?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  backgroundRestricted?: boolean;
+
+  @IsOptional()
+  @IsString()
+  standbyBucket?: string;
+
+  @IsOptional()
+  @IsString()
   lockState?: string;
 
   @IsOptional()

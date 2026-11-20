@@ -61,6 +61,34 @@ export class CommandsService {
     });
     if (!device) throw new NotFoundException('Device not found');
 
+    // The last instruction wins. A command still waiting for the phone is
+    // replaced by a newer opposite one (LOCK vs UNLOCK), and repeating the same
+    // one returns the waiting command instead of stacking duplicates.
+    if (type === CommandType.LOCK || type === CommandType.UNLOCK) {
+      const opposite = type === CommandType.LOCK ? CommandType.UNLOCK : CommandType.LOCK;
+      const waiting = await this.prisma.scoped.deviceCommand.findMany({
+        where: {
+          deviceId,
+          type: { in: [CommandType.LOCK, CommandType.UNLOCK] },
+          status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      const same = waiting.find((c) => c.type === type);
+      const stale = waiting.filter((c) => c.type === opposite);
+      if (stale.length) {
+        await this.prisma.scoped.deviceCommand.updateMany({
+          where: { id: { in: stale.map((c) => c.id) } },
+          data: { status: CommandStatus.EXPIRED },
+        });
+      }
+      if (same) {
+        // Still nudge the phone: the admin pressing again usually means "try now".
+        await this.push.notifyCommandPending({ deviceId, fcmToken: device.fcmToken });
+        return same;
+      }
+    }
+
     const command = await this.prisma.scoped.deviceCommand.create({
       data: {
         tenantId: device.tenantId,

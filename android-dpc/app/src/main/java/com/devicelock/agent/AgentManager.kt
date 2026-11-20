@@ -104,6 +104,7 @@ class AgentManager(context: Context) {
             controller.managedRestrictionsApplied(),
             readSimInfo(),
             readLastLocation(),
+            readHealth(),
         )
         store.lastSuccessfulCheckinAt = System.currentTimeMillis()
         checkin.smsSecret?.let { store.smsSecret = it }
@@ -184,6 +185,38 @@ class AgentManager(context: Context) {
             }
             main.post { onResult(result) }
         }
+    }
+
+    /** Battery and standby state, so the server can see why a phone stops reporting. */
+    private fun readHealth(): DeviceHealth {
+        val version = runCatching {
+            appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName
+        }.getOrNull() ?: "unknown"
+        val power = appContext.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
+        val activity = appContext.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+        val usage = appContext.getSystemService(android.content.Context.USAGE_STATS_SERVICE) as? android.app.usage.UsageStatsManager
+        val sdk = android.os.Build.VERSION.SDK_INT
+        return DeviceHealth(
+            appVersion = version,
+            ignoringBatteryOptimizations = runCatching { power?.isIgnoringBatteryOptimizations(appContext.packageName) }.getOrNull(),
+            backgroundRestricted = if (sdk >= 28) runCatching { activity?.isBackgroundRestricted }.getOrNull() else null,
+            standbyBucket = if (sdk >= 28) {
+                runCatching {
+                    when (usage?.appStandbyBucket) {
+                        5 -> "EXEMPTED"
+                        10 -> "ACTIVE"
+                        20 -> "WORKING_SET"
+                        30 -> "FREQUENT"
+                        40 -> "RARE"
+                        45 -> "RESTRICTED"
+                        null -> null
+                        else -> "OTHER"
+                    }
+                }.getOrNull()
+            } else {
+                null
+            },
+        )
     }
 
     fun enforceOfflinePolicy(): String? {

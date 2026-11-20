@@ -38,6 +38,7 @@ const STATUSES = [
   { value: 'ALL', label: 'All phones' },
   { value: 'LOCKED', label: 'Locked' },
   { value: 'UNLOCKED', label: 'Unlocked' },
+  { value: 'SILENT', label: 'Not reporting' },
 ];
 
 /**
@@ -71,6 +72,7 @@ export default function SoldPhones() {
     return (data ?? []).filter(
       (d) =>
         (status !== 'UNLOCKED' || d.status !== 'LOCKED') &&
+        (status !== 'SILENT' || (d.status !== 'PENDING_ENROLLMENT' && isStale(d.lastCheckInAt))) &&
         (!q ||
         [d.imei, d.model, d.make, d.customer?.fullName, d.customer?.phone, d.tenant.name, d.loan.soldBy?.fullName]
           .filter(Boolean)

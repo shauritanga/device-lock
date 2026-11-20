@@ -79,6 +79,10 @@ export interface Device {
   customerId?: string | null;
   assignedAgent?: { id: string; fullName: string } | null;
   lastCheckInAt?: string | null;
+  agentVersion?: string | null;
+  ignoresBatteryOpt?: boolean | null;
+  backgroundRestricted?: boolean | null;
+  standbyBucket?: string | null;
   lockedAt?: string | null;
   simIccid?: string | null;
   simOperator?: string | null;

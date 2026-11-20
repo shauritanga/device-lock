@@ -350,6 +350,17 @@ export default function DeviceDetail() {
             <Info label="Phone" value={device.customer?.phone ?? '—'} />
             <Info label="Last check-in" value={`${shortDate(device.lastCheckInAt)} · ${ago(device.lastCheckInAt)}`} />
             <Info label="Locked at" value={shortDate(device.lockedAt)} />
+            <Info label="Agent app" value={device.agentVersion ?? 'Not reported yet'} />
+            <Info
+              label="Background running"
+              value={
+                device.backgroundRestricted
+                  ? 'Restricted by the phone'
+                  : device.standbyBucket
+                    ? `${device.standbyBucket.replace('_', ' ').toLowerCase()}${device.ignoresBatteryOpt ? ' · battery exempt' : ''}`
+                    : 'Not reported yet'
+              }
+            />
             <Info
               label="Loan"
               value={

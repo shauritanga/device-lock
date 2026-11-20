@@ -101,6 +101,14 @@ export class AgentService {
       data: {
         lastCheckInAt: new Date(),
         ...(dto.fcmToken ? { fcmToken: dto.fcmToken } : {}),
+        ...(dto.appVersion ? { agentVersion: dto.appVersion } : {}),
+        ...(dto.ignoringBatteryOptimizations !== undefined
+          ? { ignoresBatteryOpt: dto.ignoringBatteryOptimizations }
+          : {}),
+        ...(dto.backgroundRestricted !== undefined
+          ? { backgroundRestricted: dto.backgroundRestricted }
+          : {}),
+        ...(dto.standbyBucket ? { standbyBucket: dto.standbyBucket } : {}),
         ...sim,
         ...(simFingerprint ? { simFingerprint } : {}),
         ...(dto.latitude != null && dto.longitude != null

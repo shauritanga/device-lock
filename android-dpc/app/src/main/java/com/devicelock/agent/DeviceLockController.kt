@@ -42,6 +42,19 @@ class DeviceLockController(private val context: Context) {
             dpm.addUserRestriction(admin, restriction)
         }
         grantAgentPermissions()
+        protectFromForceStop()
+    }
+
+    /**
+     * Stops the user from force-stopping the agent or clearing its data from
+     * Settings (Android 11+). A force-stopped app receives no push and runs no
+     * background work until it is opened again, which silently disables locking.
+     */
+    private fun protectFromForceStop() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        runCatching {
+            dpm.setUserControlDisabledPackages(admin, listOf(context.packageName))
+        }
     }
 
     fun managedRestrictionsApplied(): Boolean {

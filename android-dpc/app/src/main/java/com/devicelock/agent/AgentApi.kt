@@ -101,12 +101,19 @@ object AgentApi {
         managedRestrictionsApplied: Boolean,
         simInfo: SimInfo,
         location: LocationFix? = null,
+        health: DeviceHealth? = null,
     ): CheckinResult {
         val body = JSONObject()
             .put("lockState", lockState)
             .put("isDeviceOwner", isDeviceOwner)
             .put("managedRestrictionsApplied", managedRestrictionsApplied)
         fcmToken?.let { body.put("fcmToken", it) }
+        health?.let {
+            body.put("appVersion", it.appVersion)
+            it.ignoringBatteryOptimizations?.let { v -> body.put("ignoringBatteryOptimizations", v) }
+            it.backgroundRestricted?.let { v -> body.put("backgroundRestricted", v) }
+            it.standbyBucket?.let { v -> body.put("standbyBucket", v) }
+        }
         putSimInfo(body, simInfo)
         location?.let {
             body.put("latitude", it.latitude)
@@ -297,3 +304,11 @@ object AgentApi {
 
 /** Last-known GPS/network fix attached to a check-in. */
 data class LocationFix(val latitude: Double, val longitude: Double, val accuracy: Float?)
+
+/** What the phone reports about its own ability to run in the background. */
+data class DeviceHealth(
+    val appVersion: String,
+    val ignoringBatteryOptimizations: Boolean?,
+    val backgroundRestricted: Boolean?,
+    val standbyBucket: String?,
+)
