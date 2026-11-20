@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Check, Plus, ShieldCheck } from '@/shared/icons';
 import { api } from '@/shared/api/client';
@@ -196,6 +196,7 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
   const [showErrors, setShowErrors] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState('');
+  const [gStatus, setGStatus] = useState<GuardianStatus>({ done: false, pending: false });
 
   const errors: PersonErrors = showErrors ? validatePerson(person, 'customer', { photoOptional: true }) : {};
 
@@ -255,10 +256,19 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
           Next: guardians
         </Button>
       </>
-    ) : (
+    ) : gStatus.done ? (
       <Button type="button" onClick={onClose}>
         Done
       </Button>
+    ) : (
+      <>
+        <Button variant="secondary" type="button" onClick={onClose}>
+          Finish later
+        </Button>
+        <Button type="submit" form={GUARDIAN_FORM_ID} disabled={gStatus.pending}>
+          {gStatus.pending ? 'Saving…' : 'Save and continue'}
+        </Button>
+      </>
     );
 
   return (
@@ -267,7 +277,7 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
       onClose={onClose}
       title="Register customer"
       subtitle={`Step ${step + 1} of 3 · ${['Details', 'ID and face check', 'Guardians'][step]}`}
-      size="lg"
+      size="md"
       dirty={dirty && step < 2}
       footer={footer}
     >
@@ -293,22 +303,26 @@ function Onboarding({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
       ) : null}
 
       {step === 2 && customer ? (
-        <GuardiansStep customer={customer} onSaved={onSaved} />
+        <GuardiansStep customer={customer} onSaved={onSaved} onStatus={setGStatus} />
       ) : null}
     </Modal>
   );
 }
 
 /** Records the three guardians one by one. Each is saved on its own. */
+export const GUARDIAN_FORM_ID = 'guardian-form';
+
+type GuardianStatus = { done: boolean; pending: boolean };
+
+/** The form has no buttons of its own: the modal footer submits it via GUARDIAN_FORM_ID. */
 function GuardiansStep({
   customer,
   onSaved,
-  onBack,
+  onStatus,
 }: {
   customer: Customer;
   onSaved: () => void;
-  /** Shows a Back button on the same row as the save button. */
-  onBack?: () => void;
+  onStatus: (s: GuardianStatus) => void;
 }) {
   const { data, refetch } = useQuery({
     queryKey: ['customer', customer.id],
@@ -343,18 +357,16 @@ function GuardiansStep({
   const errors = showErrors ? validatePerson(g, 'guardian', { photoOptional: true }) : {};
   const phoneClash = g.phone.replace(/\D/g, '') === customer.phone.replace(/\D/g, '');
 
-  if (have >= REQUIRED_GUARDIANS) {
+  const done = have >= REQUIRED_GUARDIANS;
+  useEffect(() => {
+    onStatus({ done, pending: add.isPending });
+  }, [done, add.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (done) {
     return (
-      <div className="flex items-center gap-3">
-        {onBack ? (
-          <Button type="button" variant="secondary" onClick={onBack}>
-            Back
-          </Button>
-        ) : null}
-        <span className="flex items-center gap-2 text-sm text-ink">
-          <Check className="h-4 w-4 text-emerald-600" /> All {REQUIRED_GUARDIANS} guardians are saved.
-        </span>
-      </div>
+      <p className="flex items-center gap-2 text-sm text-ink">
+        <Check className="h-4 w-4 text-emerald-600" /> All {REQUIRED_GUARDIANS} guardians are saved.
+      </p>
     );
   }
 
@@ -363,35 +375,28 @@ function GuardiansStep({
       title={`Guardian ${have + 1} of ${REQUIRED_GUARDIANS}`}
       description="Someone who vouches for the customer. Each needs a phone, ID and address."
     >
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-      <PersonFields
-        key={have}
-        kind="guardian"
-        value={g}
-        onChange={setG}
-        errors={{ ...errors, ...(showErrors && phoneClash ? { phone: 'Must differ from the customer' } : {}) }}
-        hidePhoto
-      />
-      <div className="flex items-center gap-2">
-        {onBack ? (
-          <Button type="button" variant="secondary" onClick={onBack}>
-            Back
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          disabled={add.isPending}
-          onClick={() => {
-            if (Object.keys(validatePerson(g, 'guardian', { photoOptional: true })).length || phoneClash) {
-              setShowErrors(true);
-              return;
-            }
-            add.mutate();
-          }}
-        >
-          {add.isPending ? 'Saving…' : 'Save and continue'}
-        </Button>
-      </div>
+      <form
+        id={GUARDIAN_FORM_ID}
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (Object.keys(validatePerson(g, 'guardian', { photoOptional: true })).length || phoneClash) {
+            setShowErrors(true);
+            return;
+          }
+          add.mutate();
+        }}
+      >
+        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+        <PersonFields
+          key={have}
+          kind="guardian"
+          value={g}
+          onChange={setG}
+          errors={{ ...errors, ...(showErrors && phoneClash ? { phone: 'Must differ from the customer' } : {}) }}
+          hidePhoto
+        />
+      </form>
     </FormSection>
   );
 }
@@ -412,6 +417,7 @@ function CustomerDetail({
   const [mode, setMode] = useState<'view' | 'verify' | 'guardians'>('view');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [gStatus, setGStatus] = useState<GuardianStatus>({ done: false, pending: false });
 
   const { data: c, isLoading } = useQuery({
     queryKey: ['customer', id],
@@ -439,7 +445,31 @@ function CustomerDetail({
   const guardianCount = c?.guardians?.length ?? 0;
 
   return (
-    <Modal open onClose={onClose} title={c?.fullName ?? 'Customer'} subtitle={c?.phone} size="lg">
+    <Modal
+      open
+      onClose={onClose}
+      title={c?.fullName ?? 'Customer'}
+      subtitle={c?.phone}
+      size="md"
+      footer={
+        mode === 'verify' ? (
+          <Button variant="secondary" onClick={() => setMode('view')}>
+            Back
+          </Button>
+        ) : mode === 'guardians' ? (
+          <>
+            <Button variant="secondary" onClick={() => setMode('view')}>
+              Back
+            </Button>
+            {!gStatus.done ? (
+              <Button type="submit" form={GUARDIAN_FORM_ID} disabled={gStatus.pending}>
+                {gStatus.pending ? 'Saving…' : 'Save and continue'}
+              </Button>
+            ) : null}
+          </>
+        ) : undefined
+      }
+    >
       {isLoading || !c ? (
         <Center>
           <Spinner />
@@ -447,12 +477,9 @@ function CustomerDetail({
       ) : mode === 'verify' ? (
         <FormSection title="Check ID and face">
           <VerifyIdentity customer={c} onComplete={refresh} />
-          <Button variant="secondary" onClick={() => setMode('view')}>
-            Back
-          </Button>
         </FormSection>
       ) : mode === 'guardians' ? (
-        <GuardiansStep customer={c} onSaved={refresh} onBack={() => setMode('view')} />
+        <GuardiansStep customer={c} onSaved={refresh} onStatus={setGStatus} />
       ) : (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
