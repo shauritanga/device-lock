@@ -60,6 +60,13 @@ class MainActivity : AppCompatActivity() {
         binding.btnDebugRelease.setOnClickListener { requestDebugRelease() }
         binding.btnNotifications.setOnClickListener { toast("No new notifications") }
         binding.btnPayNow.setOnClickListener { payNowFromSummary() }
+        // Optionally pay from another wallet (a relative's, a different SIM). The
+        // payment still counts toward this device's loan.
+        binding.btnPayOtherNumber.setOnClickListener {
+            val show = binding.editPayPhone.visibility != View.VISIBLE
+            binding.editPayPhone.visibility = if (show) View.VISIBLE else View.GONE
+            if (show) binding.editPayPhone.requestFocus() else binding.editPayPhone.text.clear()
+        }
         binding.bottomNav.setOnItemSelectedListener {
             showPage(it.itemId)
             true
@@ -322,8 +329,16 @@ class MainActivity : AppCompatActivity() {
         val amount = summary.nextPayment?.let { (it.amount - it.amountPaid).coerceAtLeast(0.0) }
             ?: loan.remainingAmount
         if (amount <= 0.0) return toast("Nothing to pay")
+
+        // Another number only when the customer chose to type one; otherwise the registered number.
+        val other = binding.editPayPhone.visibility == View.VISIBLE
+        val typed = if (other) binding.editPayPhone.text.toString().filter { it.isDigit() } else ""
+        if (other && !Msisdn.isValidTz(typed)) {
+            binding.editPayPhone.error = getString(R.string.lock_pay_other_invalid)
+            return
+        }
         toast(getString(R.string.pay_now_starting))
-        agent.payNow(amount, summary.customer?.phone) { result ->
+        agent.payNow(amount, typed.ifEmpty { summary.customer?.phone }) { result ->
             result
                 .onSuccess {
                     toast(getString(R.string.pay_now_started))

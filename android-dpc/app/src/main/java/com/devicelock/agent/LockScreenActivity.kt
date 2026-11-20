@@ -132,9 +132,7 @@ class LockScreenActivity : AppCompatActivity() {
         }
     }
 
-    /** 07XXXXXXXX / 06XXXXXXXX, 7XXXXXXXX / 6XXXXXXXX, or 2557XXXXXXXX / 2556XXXXXXXX. */
-    private fun isValidTzMobile(d: String): Boolean =
-        Regex("^(255|0)?[67]\\d{8}$").matches(d)
+    private fun isValidTzMobile(d: String): Boolean = Msisdn.isValidTz(d)
 
     /**
      * Open the dialer with [number] pre-filled. We use ACTION_DIAL rather than
