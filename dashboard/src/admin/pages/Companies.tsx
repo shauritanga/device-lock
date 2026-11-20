@@ -12,6 +12,7 @@ import { EmptyState, Center, Spinner } from '@/shared/components/ui/misc';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { money } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 type PackageDef = {
   code: string;
@@ -56,6 +57,7 @@ type CompanyRow = {
  * /companies/:id.
  */
 export default function Companies() {
+  const { confirm, dialog } = useConfirm();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [activateOpen, setActivateOpen] = useState(false);
@@ -175,6 +177,7 @@ export default function Companies() {
 
   return (
     <div className="space-y-6">
+      {dialog}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Companies</h1>
@@ -186,7 +189,17 @@ export default function Companies() {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => processPastDue.mutate()}
+            onClick={async () => {
+              if (
+                await confirm({
+                  title: 'Process past-due invoices?',
+                  message: 'Companies with an overdue package invoice become read-only until they pay. This applies to every company at once.',
+                  confirmLabel: 'Process past due',
+                  danger: true,
+                })
+              )
+                processPastDue.mutate();
+            }}
             disabled={processPastDue.isPending}
           >
             Process past due

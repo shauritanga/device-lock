@@ -9,8 +9,10 @@ import { Table, Row } from '@/shared/components/ui/Table';
 import { StatCard } from '@/shared/components/StatCard';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { money, shortDate } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 export default function Billing() {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const summary = useQuery({
     queryKey: ['billing', 'summary'],
@@ -28,6 +30,7 @@ export default function Billing() {
 
   return (
     <div className="space-y-6">
+      {dialog}
       <Card className="p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -47,7 +50,19 @@ export default function Billing() {
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
+            <Button
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: 'Generate the invoice?',
+                    message: 'This creates the invoice for the current billing period. It cannot be undone from here.',
+                    confirmLabel: 'Generate invoice',
+                  })
+                )
+                  generate.mutate();
+              }}
+              disabled={generate.isPending}
+            >
               <ReceiptText className="h-4 w-4" />
               {generate.isPending ? 'Generating…' : 'Generate invoice'}
             </Button>

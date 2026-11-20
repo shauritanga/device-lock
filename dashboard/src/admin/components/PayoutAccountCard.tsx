@@ -14,12 +14,14 @@ import {
 } from '@/shared/components/PayoutAccountModal';
 import { Spinner } from '@/shared/components/ui/misc';
 import { money } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 /**
  * Where this company's collected instalments are paid out, plus payout history.
  * Super admin only: the endpoints behind it are restricted to that role.
  */
 export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
 
@@ -85,6 +87,7 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="space-y-8">
+      {dialog}
       {section(
         'Payout account',
         <Card>
@@ -111,7 +114,17 @@ export function PayoutAccountCard({ tenantId }: { tenantId: string }) {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => disburse.mutate()}
+                onClick={async () => {
+                  if (
+                    await confirm({
+                      title: 'Pay out now?',
+                      message: 'Everything currently owed to this company is sent to its payout number. Money sent cannot be recalled from here.',
+                      confirmLabel: 'Pay out now',
+                      danger: true,
+                    })
+                  )
+                    disburse.mutate();
+                }}
                 disabled={disburse.isPending || !hasAccount}
                 title="Send everything currently owed to this company"
               >

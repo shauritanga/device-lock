@@ -26,6 +26,7 @@ import {
   type PersonForm,
 } from '../components/PersonFields';
 import { VerifyIdentity } from '../components/VerifyIdentity';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 const REQUIRED_GUARDIANS = 3;
 
@@ -413,6 +414,7 @@ function CustomerDetail({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const [mode, setMode] = useState<'view' | 'verify' | 'guardians'>('view');
   const [notes, setNotes] = useState('');
@@ -445,6 +447,8 @@ function CustomerDetail({
   const guardianCount = c?.guardians?.length ?? 0;
 
   return (
+    <>
+      {dialog}
     <Modal
       open
       onClose={onClose}
@@ -547,10 +551,29 @@ function CustomerDetail({
                 <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Why you approved or rejected" />
               </Field>
               <div className="flex gap-2">
-                <Button disabled={review.isPending || !notes.trim()} onClick={() => review.mutate('VERIFIED')}>
+                <Button disabled={review.isPending || !notes.trim()} onClick={async () => {
+                    if (
+                      await confirm({
+                        title: `Approve ${c.fullName}?`,
+                        message: 'They will be marked verified and can buy on credit. Your note is saved with the decision.',
+                        confirmLabel: 'Approve',
+                      })
+                    )
+                      review.mutate('VERIFIED');
+                  }}>
                   Approve
                 </Button>
-                <Button variant="secondary" disabled={review.isPending || !notes.trim()} onClick={() => review.mutate('FAILED')}>
+                <Button variant="secondary" disabled={review.isPending || !notes.trim()} onClick={async () => {
+                    if (
+                      await confirm({
+                        title: `Reject ${c.fullName}?`,
+                        message: 'They will be marked as failed and cannot buy on credit until they are verified again.',
+                        confirmLabel: 'Reject',
+                        danger: true,
+                      })
+                    )
+                      review.mutate('FAILED');
+                  }}>
                   Reject
                 </Button>
               </div>
@@ -559,6 +582,7 @@ function CustomerDetail({
         </div>
       )}
     </Modal>
+    </>
   );
 }
 

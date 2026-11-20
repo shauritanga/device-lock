@@ -15,6 +15,7 @@ import { FigureStrip } from '@/shared/components/FigureStrip';
 import { ListToolbar } from '@/shared/components/ListToolbar';
 import { PanelEmpty } from '@/shared/components/Panel';
 import { shortDate } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 type BulkResult = { created: number; skipped: string[] };
 
@@ -28,6 +29,7 @@ function parseImeis(text: string): string[] {
  * customer comes in, the sale wizard simply picks one of these by IMEI.
  */
 export function RegisteredTab() {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const [text, setText] = useState('');
   const [make, setMake] = useState('');
@@ -132,6 +134,7 @@ export function RegisteredTab() {
 
   return (
     <div className="space-y-5">
+      {dialog}
       <div className="flex justify-end">
         <Button
           onClick={() => {
@@ -204,12 +207,21 @@ export function RegisteredTab() {
             <Button
               type="button"
               disabled={!assignTo || assign.isPending}
-              onClick={() =>
-                assign.mutate({
-                  ids: [...picked],
-                  agentId: assignTo === '__shop' ? null : assignTo,
-                })
-              }
+              onClick={async () => {
+                const who = assignTo === '__shop' ? null : activeAgents.find((a) => a.id === assignTo);
+                const ok = await confirm({
+                  title: who ? `Give phones to ${who.fullName}?` : 'Return phones to the shop?',
+                  message: who
+                    ? `${picked.size} phone${picked.size === 1 ? '' : 's'} will be allocated to ${who.fullName}, who can then sell them on credit.`
+                    : `${picked.size} phone${picked.size === 1 ? '' : 's'} will go back to the shop's own stock.`,
+                  confirmLabel: 'Apply',
+                });
+                if (ok)
+                  assign.mutate({
+                    ids: [...picked],
+                    agentId: assignTo === '__shop' ? null : assignTo,
+                  });
+              }}
             >
               {assign.isPending ? 'Saving…' : 'Apply'}
             </Button>
@@ -262,7 +274,20 @@ export function RegisteredTab() {
                     title="Remove from stock"
                     aria-label={`Remove ${d.imei}`}
                     disabled={remove.isPending}
-                    onClick={() => remove.mutate(d.id)}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Remove this phone?',
+                        message: (
+                          <>
+                            Remove <span className="font-medium text-ink">{d.imei}</span> from your stock? It has not
+                            been sold, so it will simply disappear from the list. You can register it again later.
+                          </>
+                        ),
+                        confirmLabel: 'Remove phone',
+                        danger: true,
+                      });
+                      if (ok) remove.mutate(d.id);
+                    }}
                     className="rounded-lg p-1.5 text-muted hover:bg-rose-50 hover:text-rose-600"
                   >
                     <Trash2 className="h-4 w-4" />

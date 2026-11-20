@@ -15,8 +15,10 @@ import { Table, Row } from '@/shared/components/ui/Table';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { FigureStrip } from '@/shared/components/FigureStrip';
 import { money, shortDate, termLabel } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 export default function AgentDetail() {
+  const { confirm, dialog } = useConfirm();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -90,6 +92,7 @@ export default function AgentDetail() {
 
   return (
     <div className="space-y-5">
+      {dialog}
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div>
@@ -112,7 +115,17 @@ export default function AgentDetail() {
             <Button
               variant={agent.isActive ? 'danger' : 'secondary'}
               disabled={update.isPending}
-              onClick={() => update.mutate({ isActive: !agent.isActive })}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: agent.isActive ? `Disable ${agent.fullName}?` : `Re-enable ${agent.fullName}?`,
+                  message: agent.isActive
+                    ? 'They can no longer sign in, and phones allocated to them that are not sold yet go back to the shop. Sales they already made stay as they are.'
+                    : 'They can sign in again and sell phones you allocate to them.',
+                  confirmLabel: agent.isActive ? 'Disable agent' : 'Re-enable agent',
+                  danger: agent.isActive,
+                });
+                if (ok) update.mutate({ isActive: !agent.isActive });
+              }}
             >
               {agent.isActive ? 'Disable agent' : 'Re-enable agent'}
             </Button>
@@ -177,7 +190,19 @@ export default function AgentDetail() {
                     type="button"
                     className="text-xs font-medium text-brand-600 hover:underline disabled:opacity-50"
                     disabled={assign.isPending}
-                    onClick={() => assign.mutate({ ids: [d.id], agentId: null })}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Take this phone back?',
+                        message: (
+                          <>
+                            <span className="font-medium text-ink">{d.imei}</span> returns to the shop's stock and{' '}
+                            {agent.fullName} can no longer sell it.
+                          </>
+                        ),
+                        confirmLabel: 'Take back',
+                      });
+                      if (ok) assign.mutate({ ids: [d.id], agentId: null });
+                    }}
                   >
                     Take back
                   </button>

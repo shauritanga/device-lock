@@ -11,6 +11,7 @@ import { StatusPill } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Row, Table } from '@/shared/components/ui/Table';
 import { shortDate } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 type TenantRef = { id: string; name: string };
 
@@ -304,6 +305,7 @@ function PartnerDetailModal({
   onChanged: () => void;
   onReveal: (r: Reveal) => void;
 }) {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const tenants = useTenants();
   const [grantId, setGrantId] = useState('');
@@ -331,6 +333,7 @@ function PartnerDetailModal({
 
   return (
     <Modal open onClose={onClose} title={p?.name ?? 'Partner'} size="lg">
+      {dialog}
       {!p ? (
         <Center>
           <Spinner />
@@ -345,20 +348,36 @@ function PartnerDetailModal({
                 <>
                   <Button
                     variant="secondary"
-                    onClick={() =>
-                      act.mutate(() =>
-                        api.patch(`/partners/${id}`, {
-                          status: p.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE',
-                        }),
+                    onClick={async () => {
+                      const suspending = p.status === 'ACTIVE';
+                      if (
+                        await confirm({
+                          title: suspending ? 'Suspend this partner?' : 'Reactivate this partner?',
+                          message: suspending
+                            ? 'Their API calls are rejected until you reactivate them.'
+                            : 'Their API key works again.',
+                          confirmLabel: suspending ? 'Suspend' : 'Reactivate',
+                          danger: suspending,
+                        })
                       )
-                    }
+                        act.mutate(() =>
+                          api.patch(`/partners/${id}`, {
+                            status: suspending ? 'SUSPENDED' : 'ACTIVE',
+                          }),
+                        );
+                    }}
                   >
                     {p.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
                   </Button>
                   <Button
                     variant="secondary"
-                    onClick={() => {
-                      if (!window.confirm('Rotate the API key? The old key stops working immediately.')) return;
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Rotate the API key?',
+                        message: 'The old key stops working immediately. Give the partner the new key straight away.',
+                        confirmLabel: 'Rotate key',
+                      });
+                      if (!ok) return;
                       act.mutate(async () => {
                         const r = (await api.post<{ apiKey: string }>(`/partners/${id}/rotate-key`)).data;
                         onReveal({ title: 'New API key', items: [{ label: 'API key', value: r.apiKey }] });
@@ -369,10 +388,14 @@ function PartnerDetailModal({
                   </Button>
                   <Button
                     variant="danger"
-                    onClick={() => {
-                      if (window.confirm('Revoke this partner permanently? This cannot be undone.')) {
-                        act.mutate(() => api.post(`/partners/${id}/revoke`));
-                      }
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Revoke this partner?',
+                        message: 'Their access ends permanently and cannot be restored.',
+                        confirmLabel: 'Revoke partner',
+                        danger: true,
+                      });
+                      if (ok) act.mutate(() => api.post(`/partners/${id}/revoke`));
                     }}
                   >
                     Revoke
@@ -396,7 +419,15 @@ function PartnerDetailModal({
                     {!revoked ? (
                       <button
                         className="text-xs font-medium text-rose-600 hover:underline"
-                        onClick={() => act.mutate(() => api.delete(`/partners/${id}/grants/${g.tenant.id}`))}
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Remove access to ${g.tenant.name}?`,
+                            message: 'This partner can no longer see or command phones for that company.',
+                            confirmLabel: 'Remove access',
+                            danger: true,
+                          });
+                          if (ok) act.mutate(() => api.delete(`/partners/${id}/grants/${g.tenant.id}`));
+                        }}
                       >
                         Remove
                       </button>
@@ -459,8 +490,13 @@ function PartnerDetailModal({
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    if (!window.confirm('Rotate the webhook secret? Update the partner before the next delivery.')) return;
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: 'Rotate the webhook secret?',
+                      message: 'Update the partner before the next delivery, or their signature checks will fail.',
+                      confirmLabel: 'Rotate secret',
+                    });
+                    if (!ok) return;
                     act.mutate(async () => {
                       const r = (await api.post<{ webhookSecret: string }>(`/partners/${id}/rotate-webhook-secret`)).data;
                       onReveal({

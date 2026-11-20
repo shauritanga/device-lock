@@ -24,6 +24,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { ago, isStale, shortDate } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 type EnrollmentPayload = {
   enrollmentToken: string;
@@ -44,6 +45,7 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 export default function DeviceDetail() {
+  const { confirm, dialog } = useConfirm();
   const { id } = useParams<{ id: string }>();
   // Sales agents get the enrollment QR for phones they sold, never device controls.
   const isAgent = useAuth().user?.role === 'AGENT';
@@ -172,6 +174,7 @@ export default function DeviceDetail() {
 
   return (
     <div className="space-y-6">
+      {dialog}
       <div className="flex items-center justify-end gap-3">
         {!isAgent && device.status === 'PENDING_ENROLLMENT' ? (
           <Button
@@ -214,7 +217,16 @@ export default function DeviceDetail() {
                 </p>
               </div>
             </div>
-            <Button variant="secondary" onClick={() => approveSim.mutate()} disabled={approveSim.isPending}>
+            <Button variant="secondary" onClick={async () => {
+                if (
+                  await confirm({
+                    title: 'Approve the new SIM?',
+                    message: 'The phone will accept this SIM as the customer\'s own. Only approve it after checking with the customer.',
+                    confirmLabel: 'Approve SIM',
+                  })
+                )
+                  approveSim.mutate();
+              }} disabled={approveSim.isPending}>
               Approve SIM
             </Button>
           </div>
@@ -240,7 +252,17 @@ export default function DeviceDetail() {
           <div className={isAgent ? 'hidden' : 'flex gap-2'}>
             <Button
               variant="danger"
-              onClick={() => lock.mutate()}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: 'Lock this phone?',
+                    message: 'The customer will only see the payment screen, and only emergency calls will work, until the phone is unlocked.',
+                    confirmLabel: 'Lock phone',
+                    danger: true,
+                  })
+                )
+                  lock.mutate();
+              }}
               disabled={busy || !canLock}
               title={canLock ? 'Lock this phone now' : 'Only an active phone can be locked'}
             >
@@ -253,7 +275,16 @@ export default function DeviceDetail() {
             </Button>
             <Button
               variant="secondary"
-              onClick={() => unlock.mutate()}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: 'Unlock this phone?',
+                    message: 'The phone returns to normal use for the customer.',
+                    confirmLabel: 'Unlock phone',
+                  })
+                )
+                  unlock.mutate();
+              }}
               disabled={busy || !canUnlock}
               title={canUnlock ? 'Unlock this phone now' : 'Only a locked phone can be unlocked'}
             >
@@ -395,7 +426,16 @@ export default function DeviceDetail() {
           action={isAgent ? undefined : (
             <Button
               variant="ghost"
-              onClick={() => regenerate.mutate()}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: 'Issue a new enrollment token?',
+                    message: 'The current QR code stops working and a fresh one is shown. Use this only if the old one expired or was shared by mistake.',
+                    confirmLabel: 'Issue new token',
+                  })
+                )
+                  regenerate.mutate();
+              }}
               disabled={regenerate.isPending}
               title="Issue a fresh token"
             >

@@ -24,6 +24,7 @@ import type {
   TabId,
   Tenant,
 } from '../components/company/types';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 const TAB_IDS: TabId[] = ['overview', 'billing', 'payouts', 'agreement'];
 
@@ -32,6 +33,7 @@ const TAB_IDS: TabId[] = ['overview', 'billing', 'payouts', 'agreement'];
  * payouts and the service agreement each on their own.
  */
 export default function CompanyDetail() {
+  const { confirm, dialog } = useConfirm();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -168,6 +170,7 @@ export default function CompanyDetail() {
 
   return (
     <div className="space-y-8">
+      {dialog}
       <CompanyHeader
         tab={tab}
         onTab={goTab}
@@ -193,11 +196,41 @@ export default function CompanyDetail() {
           billing={billing.data}
           invoices={invs}
           onActivate={openActivate}
-          onGenerate={() => generateInvoice.mutate()}
+          onGenerate={async () => {
+            if (
+              await confirm({
+                title: 'Generate an invoice?',
+                message: 'A package invoice is created for this company for the current period.',
+                confirmLabel: 'Generate invoice',
+              })
+            )
+              generateInvoice.mutate();
+          }}
           generating={generateInvoice.isPending}
-          onMarkPaid={(invoiceId) => markInvoicePaid.mutate(invoiceId)}
+          onMarkPaid={async (invoiceId) => {
+            if (
+              await confirm({
+                title: 'Mark this invoice as paid?',
+                message: 'Use this only when the money has been received. The company becomes active and their read-only lock is lifted.',
+                confirmLabel: 'Mark as paid',
+              })
+            )
+              markInvoicePaid.mutate(invoiceId);
+          }}
           markingPaid={markInvoicePaid.isPending}
-          onSetRequired={(r) => setRequired.mutate(r)}
+          onSetRequired={async (r) => {
+            if (
+              await confirm({
+                title: r ? 'Require a paid package?' : 'Stop requiring a paid package?',
+                message: r
+                  ? 'This company becomes read-only whenever its package invoice is unpaid.'
+                  : 'This company keeps full access even when its package invoice is unpaid.',
+                confirmLabel: 'Confirm',
+                danger: r,
+              })
+            )
+              setRequired.mutate(r);
+          }}
           settingRequired={setRequired.isPending}
         />
       ) : null}

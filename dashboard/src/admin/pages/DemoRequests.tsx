@@ -21,6 +21,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { shortDate } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/cn';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 type DemoRequest = {
   id: string;
@@ -56,6 +57,7 @@ function isThisMonth(iso: string) {
  * and a detail modal to triage or convert into a seller Tenant.
  */
 export default function DemoRequests() {
+  const { confirm, dialog } = useConfirm();
   const { user } = useAuth();
   const qc = useQueryClient();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
@@ -209,6 +211,7 @@ export default function DemoRequests() {
 
   return (
     <div className="space-y-6">
+      {dialog}
       <div>
         <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Requests</h1>
         <p className="mt-0.5 text-sm text-muted">
@@ -503,20 +506,21 @@ export default function DemoRequests() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => {
+                  onClick={async () => {
                     if (!leadEmail.trim()) {
-                      alert(
-                        'Add a work email first — it becomes the client portal login.',
-                      );
+                      await confirm({
+                        title: 'Add a work email first',
+                        message: 'The email becomes the client portal login, so it is needed before converting.',
+                        confirmLabel: 'OK',
+                      });
                       return;
                     }
-                    if (
-                      confirm(
-                        `Create “${selected.companyName}”, OWNER login for ${leadEmail.trim()}, and email welcome credentials?`,
-                      )
-                    ) {
-                      convert.mutate();
-                    }
+                    const ok = await confirm({
+                      title: 'Convert to a company?',
+                      message: `Create “${selected.companyName}”, an OWNER login for ${leadEmail.trim()}, and email them welcome credentials.`,
+                      confirmLabel: 'Convert to company',
+                    });
+                    if (ok) convert.mutate();
                   }}
                   disabled={convert.isPending}
                 >

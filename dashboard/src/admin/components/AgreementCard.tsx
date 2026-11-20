@@ -13,6 +13,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { StatusPill } from '@/shared/components/ui/Pill';
 import { Table, Row } from '@/shared/components/ui/Table';
 import { money, shortDate } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 type FormState = {
   providerName: string;
@@ -44,6 +45,7 @@ function formFrom(a: Agreement | null, clientName: string): FormState {
 
 /** Service agreement lifecycle for one company: prepare → send → countersign. */
 export function AgreementCard({ tenantId, companyName }: { tenantId: string; companyName: string }) {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
@@ -128,6 +130,7 @@ export function AgreementCard({ tenantId, companyName }: { tenantId: string; com
 
   return (
     <Card>
+      {dialog}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-5">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
@@ -269,7 +272,19 @@ export function AgreementCard({ tenantId, companyName }: { tenantId: string; com
                     <Button variant="secondary" onClick={() => openEdit(a)}>
                       Edit details
                     </Button>
-                    <Button onClick={() => send.mutate(a.id)} disabled={send.isPending}>
+                    <Button
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: 'Send to the client?',
+                            message: 'The client receives an email asking them to review and sign. Check the details first.',
+                            confirmLabel: 'Send to client',
+                          })
+                        )
+                          send.mutate(a.id);
+                      }}
+                      disabled={send.isPending}
+                    >
                       {send.isPending ? 'Sending…' : 'Send to client'}
                     </Button>
                   </>
@@ -277,7 +292,16 @@ export function AgreementCard({ tenantId, companyName }: { tenantId: string; com
                 {a.status === 'SENT' ? (
                   <Button
                     variant="secondary"
-                    onClick={() => send.mutate(a.id)}
+                    onClick={async () => {
+                      if (
+                        await confirm({
+                          title: 'Resend the email?',
+                          message: 'The client receives the signing email again.',
+                          confirmLabel: 'Resend email',
+                        })
+                      )
+                        send.mutate(a.id);
+                    }}
                     disabled={send.isPending}
                   >
                     Resend email
@@ -289,10 +313,16 @@ export function AgreementCard({ tenantId, companyName }: { tenantId: string; com
                 {a.status !== 'VOID' ? (
                   <Button
                     variant="danger"
-                    onClick={() => {
-                      if (window.confirm('Void this agreement? This cannot be undone.')) {
+                    onClick={async () => {
+                      if (
+                        await confirm({
+                          title: 'Void this agreement?',
+                          message: 'It can no longer be signed and this cannot be undone.',
+                          confirmLabel: 'Void agreement',
+                          danger: true,
+                        })
+                      )
                         voidIt.mutate(a.id);
-                      }
                     }}
                     disabled={voidIt.isPending}
                   >

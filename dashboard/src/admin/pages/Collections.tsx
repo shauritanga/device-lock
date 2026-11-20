@@ -24,6 +24,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Field, Input, Select } from '@/shared/components/ui/Field';
 import { money, shortDate } from '@/shared/lib/format';
 import type { CollectionCase } from '@/shared/components/CaseList';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 type Collector = {
   id: string;
@@ -50,6 +51,7 @@ const CASE_STATUSES = [
  * New cases are auto-assigned to collectors (max 55 per collector per day).
  */
 export default function Collections() {
+  const { confirm, dialog } = useConfirm();
   const { user } = useAuth();
   const qc = useQueryClient();
   const isPlatformAdmin = roleAllowed(user?.role, PLATFORM_ADMIN_ROLES);
@@ -204,6 +206,7 @@ export default function Collections() {
 
   return (
     <div className="space-y-6">
+      {dialog}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="hidden text-xl font-bold tracking-tight text-ink md:block">Cases</h1>
@@ -217,7 +220,16 @@ export default function Collections() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => autoAssign.mutate()}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: 'Auto-assign cases?',
+                    message: 'Every unassigned case is shared out among the collectors now. You can reassign individual cases afterwards.',
+                    confirmLabel: 'Auto-assign',
+                  })
+                )
+                  autoAssign.mutate();
+              }}
               disabled={autoAssign.isPending}
             >
               <UserPlus className="h-4 w-4" />

@@ -13,6 +13,7 @@ import { Row, Table } from '@/shared/components/ui/Table';
 import { cn } from '@/shared/lib/cn';
 import { DeveloperDocs } from './DeveloperDocs';
 import { shortDate } from '@/shared/lib/format';
+import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
 type Key = {
   id: string;
@@ -152,6 +153,7 @@ function CopyBox({ label, value, multiline }: { label?: string; value: string; m
 }
 
 function KeysTab({ onReveal }: { onReveal: (r: Reveal) => void }) {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const keys = useKeys();
   const [createOpen, setCreateOpen] = useState(false);
@@ -191,6 +193,7 @@ function KeysTab({ onReveal }: { onReveal: (r: Reveal) => void }) {
 
   return (
     <div className="space-y-4">
+      {dialog}
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted">
           Send the key as <code className="rounded bg-canvas px-1 text-xs">Authorization: Bearer …</code> from your
@@ -225,8 +228,13 @@ function KeysTab({ onReveal }: { onReveal: (r: Reveal) => void }) {
                         variant="secondary"
                         className="!py-1.5 !text-xs"
                         disabled={roll.isPending}
-                        onClick={() => {
-                          if (window.confirm(`Roll "${k.name}"? The current key stops working immediately.`)) roll.mutate(k);
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Roll "${k.name}"?`,
+                            message: 'A new key is issued and the current one stops working immediately. Update your system with the new key straight away.',
+                            confirmLabel: 'Roll key',
+                          });
+                          if (ok) roll.mutate(k);
                         }}
                       >
                         Roll
@@ -235,8 +243,14 @@ function KeysTab({ onReveal }: { onReveal: (r: Reveal) => void }) {
                         variant="danger"
                         className="!py-1.5 !text-xs"
                         disabled={revoke.isPending}
-                        onClick={() => {
-                          if (window.confirm(`Revoke "${k.name}" permanently?`)) revoke.mutate(k);
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `Revoke "${k.name}"?`,
+                            message: 'This key stops working permanently and cannot be restored. Anything using it will be rejected.',
+                            confirmLabel: 'Revoke key',
+                            danger: true,
+                          });
+                          if (ok) revoke.mutate(k);
                         }}
                       >
                         Revoke
@@ -323,6 +337,7 @@ function WebhooksTab({ onReveal }: { onReveal: (r: Reveal) => void }) {
 }
 
 function WebhookPanel({ id, onReveal }: { id: string; onReveal: (r: Reveal) => void }) {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const detail = useQuery({
     queryKey: ['developers', 'keys', id],
@@ -358,6 +373,7 @@ function WebhookPanel({ id, onReveal }: { id: string; onReveal: (r: Reveal) => v
 
   return (
     <div className="space-y-4">
+      {dialog}
       <Card className="space-y-3 p-5">
         <Field label="Endpoint URL" hint="https only, publicly reachable. We POST signed JSON when a phone confirms a lock or unlock.">
           <Input
@@ -379,8 +395,13 @@ function WebhookPanel({ id, onReveal }: { id: string; onReveal: (r: Reveal) => v
           </Button>
           <Button
             variant="ghost"
-            onClick={() => {
-              if (window.confirm('Roll the signing secret? Update your system before the next delivery.')) rollSecret.mutate();
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Roll the signing secret?',
+                message: 'A new secret is issued. Update your system before the next webhook delivery, or signatures will fail to verify.',
+                confirmLabel: 'Roll secret',
+              });
+              if (ok) rollSecret.mutate();
             }}
           >
             Roll signing secret
