@@ -27,6 +27,7 @@ export function Combobox({
   invalid,
   disabled,
   loading,
+  footer,
 }: {
   options: ComboOption[];
   value: string;
@@ -37,6 +38,8 @@ export function Combobox({
   invalid?: boolean;
   disabled?: boolean;
   loading?: boolean;
+  /** Extra content under the list, e.g. a note about options that are not offered. */
+  footer?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -161,6 +164,7 @@ export function Combobox({
               ))
             )}
           </ul>
+          {footer}
         </div>
       ) : null}
     </div>

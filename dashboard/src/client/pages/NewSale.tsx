@@ -166,6 +166,10 @@ export default function Sales() {
   const customer = knownCustomers?.find((c) => c.id === customerId) ?? null;
   const canSellTo = (c: Customer) =>
     c.verificationStatus === 'VERIFIED' && (c._count?.guardians ?? 0) >= REQUIRED_GUARDIANS;
+  // Verified, but not yet allowed to buy: tell the seller why instead of hiding them silently.
+  const almostReady = (knownCustomers ?? []).filter(
+    (c) => c.verificationStatus === 'VERIFIED' && (c._count?.guardians ?? 0) < REQUIRED_GUARDIANS,
+  );
   const customerOptions: ComboOption[] = useMemo(
     () =>
       (knownCustomers ?? []).filter(canSellTo).map((c) => ({
@@ -532,10 +536,39 @@ export default function Sales() {
                   emptyText={
                     knownCustomers && knownCustomers.some(canSellTo)
                       ? 'No customer matches'
-                      : 'No verified customer yet. Verify one on the Customers page.'
+                      : almostReady.length > 0
+                        ? 'No customer is ready to buy yet'
+                        : 'No verified customer yet. Verify one on the Customers page.'
                   }
                   loading={!knownCustomers}
                   invalid={!!err('customer')}
+                  footer={
+                    almostReady.length > 0 ? (
+                      <div className="border-t border-line-soft bg-canvas/60 px-3.5 py-2.5 text-xs">
+                        <p className="font-medium text-amber-700">
+                          Not listed: verified, but guardians are missing
+                        </p>
+                        <ul className="mt-1 space-y-0.5 text-muted">
+                          {almostReady.map((c) => {
+                            const need = REQUIRED_GUARDIANS - (c._count?.guardians ?? 0);
+                            return (
+                              <li key={c.id}>
+                                <Link
+                                  to={`/customers/${c.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-brand-600 hover:underline"
+                                >
+                                  {c.fullName}
+                                </Link>{' '}
+                                needs {need} more guardian{need === 1 ? '' : 's'}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null
+                  }
                 />
               </Field>
               <Field as="div" label="Phone" required error={err('imei')}>
