@@ -192,12 +192,23 @@ class AgentManager(context: Context) {
             return "offline for more than ${store.maxOfflineDays} day(s)"
         }
 
-        val dueAt = store.nextDueAt
-        if (dueAt > 0L && store.nextAmountDue > 0f && now > dueAt + store.graceDays.toLong() * DAY_MS) {
-            controller.lock()
-            return "cached installment overdue past grace period"
+        if (cachedInstallmentPastGrace(now)) {
+            // The cache can be stale (e.g. the buyer paid since the last
+            // check-in). Confirm with the server when it is reachable; offline
+            // we trust the cache and lock.
+            store.agentToken?.let { token -> runCatching { refreshSummaryCache(token) } }
+            if (cachedInstallmentPastGrace(now)) {
+                controller.lock()
+                return "cached installment overdue past grace period"
+            }
         }
         return null
+    }
+
+    private fun cachedInstallmentPastGrace(now: Long): Boolean {
+        val dueAt = store.nextDueAt
+        return dueAt > 0L && store.nextAmountDue > 0f &&
+            now > dueAt + store.graceDays.toLong() * DAY_MS
     }
 
     /** The phone now belongs to the customer: drop credentials and stop the agent's jobs. */

@@ -8,6 +8,7 @@ import {
   CommandType,
   DeviceStatus,
   InstallmentStatus,
+  LoanStatus,
   PaymentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -115,12 +116,65 @@ export class AgentService {
 
     await this.auditManagementHealth(deviceId, dto);
     await this.handleSimChange(deviceId, sim, simFingerprint);
+    await this.syncReportedLockState(deviceId, dto.lockState);
 
     return {
       smsSecret,
       policy: await this.resolvePolicy(deviceId),
       commands: await this.commands.pullPending(deviceId),
     };
+  }
+
+  /**
+   * The phone can lock itself (offline policy, cached due date). Record what it
+   * reports so the server's view matches, and clear a self-lock when the buyer
+   * has no arrears, otherwise a paid-up phone would stay locked forever.
+   */
+  private async syncReportedLockState(deviceId: string, reported?: string) {
+    if (reported !== 'LOCKED' && reported !== 'UNLOCKED') return;
+    const device = await this.prisma.scoped.device.findFirst({
+      where: { id: deviceId },
+      select: { id: true, tenantId: true, status: true, loan: { select: { id: true, status: true } } },
+    });
+    if (!device) return;
+    const pending = await this.prisma.scoped.deviceCommand.findFirst({
+      where: {
+        deviceId,
+        type: { in: [CommandType.LOCK, CommandType.UNLOCK] },
+        status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+      },
+      select: { id: true },
+    });
+    if (pending) return; // a command in flight will settle the state itself
+
+    if (reported === 'LOCKED' && device.status === DeviceStatus.ACTIVE) {
+      await this.prisma.scoped.device.update({
+        where: { id: deviceId },
+        data: { status: DeviceStatus.LOCKED },
+      });
+      await this.prisma.scoped.deviceEvent.create({
+        data: { tenantId: device.tenantId, deviceId, type: 'LOCK_SELF_REPORTED', metadata: {} },
+      });
+      if (device.loan?.status === LoanStatus.ACTIVE) {
+        const arrears = await this.prisma.scoped.installment.count({
+          where: {
+            loanId: device.loan.id,
+            dueDate: { lte: new Date() },
+            status: { notIn: [InstallmentStatus.PAID, InstallmentStatus.WAIVED] },
+          },
+        });
+        if (arrears === 0) {
+          await this.commands.queue(deviceId, CommandType.UNLOCK, {
+            reason: 'phone locked itself but no installment is overdue',
+          });
+        }
+      }
+    } else if (reported === 'UNLOCKED' && device.status === DeviceStatus.LOCKED) {
+      await this.prisma.scoped.device.update({
+        where: { id: deviceId },
+        data: { status: DeviceStatus.ACTIVE },
+      });
+    }
   }
 
   private async ensureSmsSecret(deviceId: string) {
@@ -418,11 +472,17 @@ export class AgentService {
         graceDays: true,
         maxOfflineDays: true,
         tenant: { select: { graceDays: true, maxOfflineDays: true } },
+        loan: { select: { frequency: true } },
       },
     });
     if (!device) throw new NotFoundException('Device not found');
+    // Same rule as the server's nightly job: daily loans get at most 1 day.
+    const tenantGrace =
+      device.loan?.frequency === 'DAILY'
+        ? Math.min(device.tenant.graceDays, 1)
+        : device.tenant.graceDays;
     return {
-      graceDays: device.graceDays ?? device.tenant.graceDays,
+      graceDays: device.graceDays ?? tenantGrace,
       maxOfflineDays: device.maxOfflineDays ?? device.tenant.maxOfflineDays,
     };
   }

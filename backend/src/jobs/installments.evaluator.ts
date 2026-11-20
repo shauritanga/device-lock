@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
+  CommandStatus,
   CommandType,
   DeviceStatus,
   InstallmentStatus,
@@ -172,7 +173,15 @@ export class InstallmentsEvaluator {
       }
 
       if (daysOverdue > grace) {
-        if (loan.device.status === DeviceStatus.ACTIVE) {
+        const lockInFlight = await this.prisma.scoped.deviceCommand.findFirst({
+          where: {
+            deviceId: loan.device.id,
+            type: CommandType.LOCK,
+            status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+          },
+          select: { id: true },
+        });
+        if (loan.device.status === DeviceStatus.ACTIVE && !lockInFlight) {
           await this.commands.queue(loan.device.id, CommandType.LOCK, {
             reason: `installment overdue ${daysOverdue} day(s)`,
           });
@@ -280,10 +289,13 @@ function emptySummary() {
   return { beforeDue: 0, dueToday: 0, grace: 0, lockWarnings: 0 };
 }
 
+// Shops and buyers are in Tanzania (UTC+3, no DST). Count calendar days there,
+// not in whatever timezone the API server happens to run in.
+const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+
 function startOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const local = date.getTime() + EAT_OFFSET_MS;
+  return new Date(Math.floor(local / DAY_MS) * DAY_MS - EAT_OFFSET_MS);
 }
 
 function daysBetween(from: Date, to: Date) {

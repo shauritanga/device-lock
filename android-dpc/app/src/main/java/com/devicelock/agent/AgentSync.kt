@@ -23,6 +23,7 @@ object AgentSync {
 
     private const val PERIODIC_WORK = "device-lock-checkin-periodic"
     private const val IMMEDIATE_WORK = "device-lock-checkin-now"
+    private const val OFFLINE_POLICY_WORK = "device-lock-offline-policy"
     private const val ENROLL_WORK = "device-lock-enroll"
 
     /** Stop every background job: used when the phone is released to the customer. */
@@ -31,6 +32,7 @@ object AgentSync {
         work.cancelUniqueWork(PERIODIC_WORK)
         work.cancelUniqueWork(IMMEDIATE_WORK)
         work.cancelUniqueWork(ENROLL_WORK)
+        work.cancelUniqueWork(OFFLINE_POLICY_WORK)
     }
 
     fun schedulePeriodic(context: Context) {
@@ -49,6 +51,12 @@ object AgentSync {
             PERIODIC_WORK,
             ExistingPeriodicWorkPolicy.UPDATE,
             request,
+        )
+        // No network constraint: lock an overdue phone even when it is offline.
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            OFFLINE_POLICY_WORK,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            PeriodicWorkRequestBuilder<OfflinePolicyWorker>(15, TimeUnit.MINUTES).build(),
         )
         requestImmediateSync(context)
     }
