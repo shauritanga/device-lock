@@ -210,6 +210,19 @@ export default function Sales() {
   }, [customer, sale]);
 
   const err = (k: string) => (showErrors ? errors[k] : undefined);
+
+  // The sale can only be created when every required field is valid and the
+  // customer has accepted the terms. Ticking the box alone is never enough.
+  const FIELD_LABELS: Record<string, string> = {
+    customer: 'Customer',
+    imei: 'Phone',
+    principal: 'Phone price',
+    downPayment: 'Deposit',
+    termPeriods: 'Number of periods',
+    startDate: 'Start date',
+  };
+  const missing = Object.keys(errors).map((k) => FIELD_LABELS[k] ?? k);
+  const canCreate = missing.length === 0 && sale.consentAccepted;
   function resetAll() {
     setCustomerId('');
     setSale({ ...initialSale, startDate: new Date().toISOString().slice(0, 10) });
@@ -305,7 +318,7 @@ export default function Sales() {
       <Button
         type="submit"
         form="credit-sale-form"
-        disabled={createSale.isPending || !sale.consentAccepted}
+        disabled={createSale.isPending || !canCreate}
       >
         {createSale.isPending ? (
           <>
@@ -502,6 +515,7 @@ export default function Sales() {
               setShowErrors(true);
               return;
             }
+            if (!sale.consentAccepted) return;
             createSale.mutate();
           }}
           className="flex flex-col gap-6"
@@ -665,6 +679,9 @@ export default function Sales() {
                   />
                   <span>I confirm the customer accepted these SimuLinda credit-sale terms.</span>
                 </label>
+                {missing.length > 0 ? (
+                  <p className="mt-2 text-xs text-amber-700">Still needed: {missing.join(', ')}.</p>
+                ) : null}
               </FormSection>
 
             {createSale.isError ? (
