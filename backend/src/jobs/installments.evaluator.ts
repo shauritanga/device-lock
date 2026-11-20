@@ -181,7 +181,12 @@ export class InstallmentsEvaluator {
           },
           select: { id: true },
         });
-        if (loan.device.status === DeviceStatus.ACTIVE && !lockInFlight) {
+        // A phone that was never enrolled has no agent to lock yet, but the
+        // lock is queued anyway so it applies the moment the phone enrolls.
+        const lockable =
+          loan.device.status === DeviceStatus.ACTIVE ||
+          loan.device.status === DeviceStatus.PENDING_ENROLLMENT;
+        if (lockable && !lockInFlight) {
           await this.commands.queue(loan.device.id, CommandType.LOCK, {
             reason: `installment overdue ${daysOverdue} day(s)`,
           });
