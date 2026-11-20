@@ -215,7 +215,7 @@ export default function AgentDetail() {
         )}
       </Card>
       <p className="text-xs text-muted">
-        <Link to="/register-devices" className="text-brand-600 hover:underline">
+        <Link to="/devices" className="text-brand-600 hover:underline">
           Register more phones
         </Link>{' '}
         to add to stock.

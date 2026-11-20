@@ -116,7 +116,7 @@ export default function Agents() {
           <div className="p-5">
             <EmptyState
               title="No agents yet"
-              hint="Add an agent, then give them phones from Register phones so they can sell on credit for you."
+              hint="Add an agent, then give them phones from Devices so they can sell on credit for you."
             />
           </div>
         ) : rows.length === 0 ? (

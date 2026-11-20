@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Trash2 } from '@/shared/icons';
 import { useAuth } from '@/shared/auth/AuthContext';
@@ -13,9 +13,11 @@ import { Table, Row } from '@/shared/components/ui/Table';
 import { StatusDot } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { FigureStrip } from '@/shared/components/FigureStrip';
+import { Tabs } from '@/shared/components/Tabs';
 import { ListToolbar } from '@/shared/components/ListToolbar';
 import { PanelEmpty } from '@/shared/components/Panel';
 import { shortDate } from '@/shared/lib/format';
+import { RegisteredTab } from './RegisterDevices';
 
 const STATUS_FILTERS = [
   { value: 'ALL', label: 'All statuses' },
@@ -26,8 +28,33 @@ const STATUS_FILTERS = [
   { value: 'DEFAULTED', label: 'Defaulted' },
 ];
 
-/** Fleet operations — lock status, enrollment QR, SIM alerts. */
+type Tab = 'registered' | 'sold';
+
+/**
+ * One page for every phone: Registered (in stock, not sold yet) and Sold (given
+ * to a customer: lock status, enrollment QR, SIM alerts).
+ */
 export default function Devices() {
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = params.get('tab') === 'sold' ? 'sold' : 'registered';
+  return (
+    <div className="space-y-5">
+      <Tabs<Tab>
+        label="Devices"
+        value={tab}
+        onChange={(t) => setParams(t === 'registered' ? {} : { tab: t }, { replace: true })}
+        tabs={[
+          { id: 'registered', label: 'Registered' },
+          { id: 'sold', label: 'Sold' },
+        ]}
+      />
+      {tab === 'registered' ? <RegisteredTab /> : <SoldTab />}
+    </div>
+  );
+}
+
+/** Phones given to customers on credit: lock status, enrollment QR, SIM alerts. */
+function SoldTab() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const isOwner = useAuth().user?.role === 'OWNER';
@@ -38,6 +65,7 @@ export default function Devices() {
   const { data, isLoading } = useQuery({
     queryKey: ['devices'],
     queryFn: async () => (await api.get<Device[]>('/devices')).data,
+    select: (all) => all.filter((d) => !!d.customerId || !!d.loan),
   });
 
   const remove = useMutation({
@@ -77,7 +105,7 @@ export default function Devices() {
     <div className="space-y-5">
       <FigureStrip
         items={[
-          { label: 'Total devices', value: counts.total },
+          { label: 'Sold phones', value: counts.total },
           { label: 'Active', value: counts.active },
           { label: 'Locked', value: counts.locked },
           { label: 'Pending enrollment', value: counts.pending },
@@ -86,7 +114,7 @@ export default function Devices() {
 
       <Card>
         <ListToolbar
-          title="All devices"
+          title="Sold phones"
           noun="device"
           count={rows.length}
           query={query}
@@ -96,7 +124,7 @@ export default function Devices() {
         />
         {!data || data.length === 0 ? (
           <div className="p-5">
-            <EmptyState title="No devices yet" hint="Devices appear here once they are registered." />
+            <EmptyState title="No phones sold yet" hint="Phones appear here once they are sold to a customer on credit." />
           </div>
         ) : rows.length === 0 ? (
           <PanelEmpty>No devices match your search.</PanelEmpty>

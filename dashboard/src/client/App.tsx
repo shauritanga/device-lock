@@ -7,7 +7,6 @@ import { CLIENT_BRAND, CLIENT_NAV } from './nav';
 import Dashboard from './pages/Dashboard';
 import Sales from './pages/NewSale';
 import Devices from './pages/Devices';
-import RegisterDevices from './pages/RegisterDevices';
 import Agents from './pages/Agents';
 import AgentDetail from './pages/AgentDetail';
 import DeviceDetail from './pages/DeviceDetail';
@@ -60,16 +59,7 @@ export default function ClientApp() {
           </Shell>
         }
       />
-      <Route
-        path="/register-devices"
-        element={
-          <Shell>
-            <RequireRole allow={['OWNER', 'MANAGER']}>
-              <RegisterDevices />
-            </RequireRole>
-          </Shell>
-        }
-      />
+      <Route path="/register-devices" element={<Navigate to="/devices" replace />} />
       <Route
         path="/agents"
         element={

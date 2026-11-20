@@ -10,7 +10,6 @@ import {
   Smartphone,
   UserCog,
   UserPlus,
-  Package,
   Users,
   WalletCards,
 } from '@/shared/icons';
@@ -42,17 +41,10 @@ export const CLIENT_NAV: NavGroup[] = [
         subtitle: 'Credit sales — customer, phone, loan, contract and repayment status',
       },
       {
-        to: '/register-devices',
-        label: 'Register phones',
-        icon: Package,
-        subtitle: 'Add phones to stock by IMEI — pick them at the counter when a customer buys',
-        roles: ['OWNER', 'MANAGER'],
-      },
-      {
         to: '/devices',
         label: 'Devices',
         icon: Smartphone,
-        subtitle: 'Enrolled phones — status, lock/unlock, and enrollment QR',
+        subtitle: 'Registered stock and sold phones: add phones by IMEI, lock status and enrollment QR',
         roles: ['OWNER', 'MANAGER'],
       },
       {

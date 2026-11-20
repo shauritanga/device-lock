@@ -27,7 +27,7 @@ function parseImeis(text: string): string[] {
  * Phones are registered here ahead of time, with no customer attached. When a
  * customer comes in, the sale wizard simply picks one of these by IMEI.
  */
-export default function RegisterDevices() {
+export function RegisteredTab() {
   const qc = useQueryClient();
   const [text, setText] = useState('');
   const [make, setMake] = useState('');
