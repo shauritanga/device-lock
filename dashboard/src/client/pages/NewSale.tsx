@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
-  ArrowLeft,
   ArrowRight,
   Check,
   CheckCircle2,
@@ -32,7 +31,7 @@ import { Row, Table } from '@/shared/components/ui/Table';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { cn } from '@/shared/lib/cn';
 import { money, shortDate, termLabel } from '@/shared/lib/format';
-import { ID_TYPES, useObjectUrl } from '../components/PersonFields';
+import { ID_TYPES } from '../components/PersonFields';
 
 type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
@@ -51,13 +50,7 @@ const FREQUENCIES: Array<{
   { value: 'MONTHLY', label: 'Monthly', unit: 'months', per: 'monthly', defaultTerm: '6', presets: [3, 4, 6, 9, 12] },
 ];
 
-const STEPS = [
-  { label: 'Customer', hint: 'Pick a verified customer' },
-  { label: 'Phone', hint: 'Pick the phone from stock' },
-  { label: 'Plan', hint: 'Price, deposit and repayment schedule' },
-  { label: 'Review', hint: 'Confirm with the customer' },
-] as const;
-const LAST_STEP = STEPS.length - 1;
+
 
 /** Mirrors backend addPeriods so the preview matches the generated schedule. */
 function dueDateFor(start: string, n: number, f: Frequency): Date {
@@ -130,7 +123,6 @@ export default function Sales() {
   const [sale, setSale] = useState<SaleForm>(initialSale);
   const [result, setResult] = useState<SaleResult | null>(null);
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState(0);
   const [showErrors, setShowErrors] = useState(false);
   const [saleQuery, setSaleQuery] = useState('');
   const [saleStatus, setSaleStatus] = useState('ALL');
@@ -221,32 +213,12 @@ export default function Sales() {
     return e;
   }, [customer, sale]);
 
-  const stepOwns = (i: number, key: string) =>
-    i === 0
-      ? key === 'customer'
-      : i === 1
-        ? key === 'imei'
-        : i === 2
-          ? ['principal', 'downPayment', 'termPeriods', 'startDate'].includes(key)
-          : false;
-  const stepErrorKeys = (i: number) => Object.keys(errors).filter((k) => stepOwns(i, k));
   const err = (k: string) => (showErrors ? errors[k] : undefined);
-  function next() {
-    const bad = stepErrorKeys(step);
-    if (bad.length) {
-      setShowErrors(true);
-      return;
-    }
-    setShowErrors(false);
-    setStep((s) => Math.min(s + 1, LAST_STEP));
-  }
-
   function resetAll() {
     setCustomerId('');
     setCustomerQuery('');
     setCustomerOpen(false);
     setSale({ ...initialSale, startDate: new Date().toISOString().slice(0, 10) });
-    setStep(0);
     setShowErrors(false);
     setStockQuery('');
   }
@@ -326,53 +298,30 @@ export default function Sales() {
     );
   }
 
-  // Anything typed (or any step past the first) counts as work worth protecting.
+  // Anything chosen or typed counts as work worth protecting.
   const hasUnsavedInput =
     open &&
     !createSale.isSuccess &&
-    (step > 0 || !!customerId || !!sale.deviceId);
+    (!!customerId || !!sale.deviceId || !!sale.principal);
 
   const modalFooter = (
     <>
+      <Button type="button" variant="secondary" onClick={closeModal} disabled={createSale.isPending}>
+        Cancel
+      </Button>
       <Button
-        type="button"
-        variant="secondary"
-        onClick={() => {
-          if (step === 0) closeModal();
-          else {
-            setShowErrors(false);
-            setStep(step - 1);
-          }
-        }}
-        disabled={createSale.isPending}
+        type="submit"
+        form="credit-sale-form"
+        disabled={createSale.isPending || !sale.consentAccepted}
       >
-        {step === 0 ? (
-          'Cancel'
-        ) : (
+        {createSale.isPending ? (
           <>
-            <ArrowLeft className="h-4 w-4" /> Back
+            <Loader2 className="h-4 w-4 animate-spin" /> Creating sale…
           </>
+        ) : (
+          'Create sale'
         )}
       </Button>
-      {step < LAST_STEP ? (
-        <Button type="submit" form="credit-sale-form">
-          Next <ArrowRight className="h-4 w-4" />
-        </Button>
-      ) : (
-        <Button
-          type="submit"
-          form="credit-sale-form"
-          disabled={createSale.isPending || !sale.consentAccepted}
-        >
-          {createSale.isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Creating sale…
-            </>
-          ) : (
-            'Create sale'
-          )}
-        </Button>
-      )}
     </>
   );
 
@@ -386,7 +335,7 @@ export default function Sales() {
             setOpen(true);
           }}
         >
-          <Plus className="h-4 w-4" /> New credit sale
+          <Plus className="h-4 w-4" /> New sale
         </Button>
       </div>
 
@@ -547,8 +496,7 @@ export default function Sales() {
       <Modal
         open={open}
         onClose={closeModal}
-        title="New credit sale"
-        subtitle={`Step ${step + 1} of ${STEPS.length} · ${STEPS[step].label}`}
+        title="New sale"
         size="lg"
         dirty={hasUnsavedInput}
         footer={modalFooter}
@@ -557,15 +505,16 @@ export default function Sales() {
           id="credit-sale-form"
           onSubmit={(e) => {
             e.preventDefault();
-            if (step < LAST_STEP) next();
-            else createSale.mutate();
+            if (Object.keys(errors).length) {
+              setShowErrors(true);
+              return;
+            }
+            createSale.mutate();
           }}
           className="flex flex-col gap-6"
         >
-          <StepBar step={step} />
-
           <div className="space-y-6">
-            {step === 0 ? (
+            {(
               <FormSection icon={UserRound} title="Customer" description="Search and pick the customer buying on credit.">
                 <div className="relative">
                   <Input
@@ -615,9 +564,9 @@ export default function Sales() {
                 </div>
                 {err('customer') ? <p className="text-xs text-rose-600">{err('customer')}</p> : null}
               </FormSection>
-            ) : null}
+            )}
 
-            {step === 1 ? (
+            {(
               <FormSection
                 icon={Smartphone}
                 title="Phone being financed"
@@ -686,9 +635,9 @@ export default function Sales() {
                   <span className="block text-xs text-rose-600">{err('imei')}</span>
                 ) : null}
               </FormSection>
-            ) : null}
+            )}
 
-            {step === 2 ? (
+            {(
               <>
                 <FormSection icon={CreditCard} title="Price & deposit">
                   <FieldGrid className="sm:grid-cols-3">
@@ -805,33 +754,10 @@ export default function Sales() {
                   />
                 </div>
               </>
-            ) : null}
+            )}
 
-            {step === 3 ? (
+            {(
               <>
-                <FormSection icon={CheckCircle2} title="Review" description="Check everything with the customer before creating the sale.">
-                  <dl className="space-y-3 text-sm">
-                    {customer ? (
-                      <ReviewRow
-                        title="Customer"
-                        lines={[
-                          customer.fullName,
-                          customer.phone,
-                          `${ID_TYPES.find((t) => t.value === customer.idDocumentType)?.label} · ${customer.nationalId}`,
-                          customer.address ?? '',
-                        ]}
-                      />
-                    ) : null}
-                    <ReviewRow
-                      title="Phone"
-                      lines={[
-                        [sale.make, sale.model].filter(Boolean).join(' ') || 'Phone',
-                        `IMEI ${sale.imei}`,
-                      ]}
-                    />
-                  </dl>
-                </FormSection>
-
                 <FormSection title="Payments">
                   <p className="text-sm font-semibold">
                     {money(perInstallment)} {freq.per}, {sale.termPeriods} {freq.unit}
@@ -872,7 +798,7 @@ export default function Sales() {
                   </label>
                 </FormSection>
               </>
-            ) : null}
+            )}
 
             {createSale.isError ? (
               <p className="flex items-start gap-2 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
@@ -884,59 +810,6 @@ export default function Sales() {
 
         </form>
       </Modal>
-    </div>
-  );
-}
-
-/** Slim 5-segment progress with labels — replaces the numbered-circle stepper. */
-function StepBar({ step }: { step: number }) {
-  return (
-    <ol className="grid grid-cols-5 gap-1.5" aria-label="Progress">
-      {STEPS.map((s, i) => (
-        <li key={s.label} aria-current={i === step ? 'step' : undefined}>
-          <span
-            className={cn(
-              'block h-1 rounded-full transition-colors',
-              i <= step ? 'bg-brand-600' : 'bg-line',
-            )}
-          />
-          <span
-            className={cn(
-              'mt-1.5 hidden text-[11px] sm:block',
-              i === step ? 'font-medium text-ink' : i < step ? 'text-muted' : 'text-faint',
-            )}
-          >
-            {s.label}
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function ReviewRow({
-  title,
-  lines,
-  photo,
-}: {
-  title: string;
-  lines: string[];
-  photo?: File | null;
-}) {
-  const url = useObjectUrl(photo);
-  return (
-    <div className="flex items-center gap-3 rounded-xl bg-canvas p-3">
-      {url ? <img src={url} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" /> : null}
-      <div className="min-w-0">
-        <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</dt>
-        <dd className="mt-0.5 space-y-0.5">
-          {lines.map((l, i) => (
-            <p key={i} className={cn('truncate', i === 0 ? 'font-semibold text-ink' : 'text-muted')}>
-              {l}
-            </p>
-          ))}
-        </dd>
-      </div>
     </div>
   );
 }
