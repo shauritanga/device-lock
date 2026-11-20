@@ -11,6 +11,7 @@ import {
   Add01Icon,
   Alert02Icon,
   AlertCircleIcon,
+  ArrowDown01Icon,
   ArrowLeft02Icon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
@@ -113,6 +114,7 @@ export const CalendarClock = make(Calendar03Icon);
 export const Camera = make(Camera01Icon);
 export const Check = make(Tick02Icon);
 export const CheckCircle2 = make(CheckmarkCircle02Icon);
+export const ChevronDown = make(ArrowDown01Icon);
 export const ChevronRight = make(ArrowRight01Icon);
 export const ChevronLeft = make(ArrowLeft01Icon);
 export const Clock = make(Clock01Icon);
