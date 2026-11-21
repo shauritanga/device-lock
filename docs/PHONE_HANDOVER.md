@@ -1,23 +1,29 @@
-# Shop guide: from login to handing the phone to the customer
+# Shop guide: from a new customer to handing over the phone
 
-This is the **seller** workflow on the live system. Follow it in order. Do **not** give the customer the phone until the handover checklist at the end is complete.
+This is the **seller** workflow on the live system. Follow it in order. Do **not** give the customer
+the phone until the handover checklist at the end is complete.
 
-**Console:** [https://client.linda.co.tz](https://client.linda.co.tz)  
-**Who can do this:** `OWNER`, `MANAGER`, or `AGENT`
+**Console:** [https://client.linda.co.tz](https://client.linda.co.tz)
+**Who can do what:** `OWNER`, `MANAGER` and `AGENT` all work here. Agents sell and register
+customers, but only owners and managers can record money as received.
 
-The customer is taking a **financed / credit-sale** phone (rent-to-own). The Linda agent stays on the phone as Device Owner until the loan is fully paid.
+The customer takes a phone on credit (or, for a microfinance lender, gives their own phone as
+collateral). The Linda agent stays on the phone as Device Owner until the loan is repaid.
+
+New company? Start with [CLIENT_ONBOARDING.md](CLIENT_ONBOARDING.md).
 
 ---
 
 ## What you will do
 
 1. Sign in.
-2. (Optional) Add shop staff.
-3. Create the credit sale (customer + phone + loan + contract).
-4. Factory-reset the phone and enroll it with the QR code.
-5. Confirm the buyer app and lock control work.
-6. Record the deposit if it was paid in cash.
-7. Hand the phone to the customer.
+2. Register the phones in stock (once, ahead of time).
+3. Register the customer and **verify their identity** on your phone.
+4. Create the sale.
+5. Factory-reset the phone and enrol it with the QR code.
+6. Check the buyer app and the lock.
+7. Deposit.
+8. Hand over the phone.
 
 ---
 
@@ -25,171 +31,158 @@ The customer is taking a **financed / credit-sale** phone (rent-to-own). The Lin
 
 1. Open [https://client.linda.co.tz](https://client.linda.co.tz) on the shop computer.
 2. Sign in with the email and password issued to your shop.
-3. If you land on the **admin** site (`admin.linda.co.tz`), use the link to open the **seller** console instead. Collectors and platform admins use admin; shops use **client**.
+3. If you land on the **admin** site, use the link to open the **seller** console instead.
 
-Keep the browser on this shop account. Do not share Owner passwords with counter staff; create Agent accounts instead (step 2).
-
----
-
-## 2. Add staff (owners / managers)
-
-Skip this if you already have counter logins.
-
-1. Open **Staff**.
-2. Click **Add staff**.
-3. Enter full name, email, password, and role:
-   - **AGENT** — sales, customers, devices, payments (typical counter).
-   - **MANAGER** — same plus billing and collections subscription view.
-   - **OWNER** — full shop control.
-4. Save. The staff member signs in at the same seller URL.
+Do not share the Owner password. Create staff and agent logins instead (**Staff**, **Agents**).
 
 ---
 
-## 3. Prepare the physical phone
+## 2. Register the phones in stock (ahead of time)
 
-Do this **before** or **during** the sale — the phone must be empty and ready for Android setup.
+You register phones **before** a customer arrives, so the counter only has to pick one.
 
-1. Note the **IMEI** (dial `*#06#` or read the box). You will type it into the sale.
-2. Insert the **customer’s SIM** if that is shop policy (recommended so SIM protection has a baseline).
-3. Charge the phone.
-4. **Factory reset** the phone (Settings → System → Reset, or recovery wipe).  
-   Enrollment only works on a phone that is still on the **first Android setup screen**. Installing the Linda app from a file or Play Store is **not** enough. The customer could uninstall it.
+1. Open **Devices**, then the **Registered** tab.
+2. Click **Register phones**.
+3. Paste the **IMEIs**, one per line (dial `*#06#` or read the box). Add make and model.
+4. Optionally choose a **sales agent** to hold them. Agents can only sell phones allocated to them.
+5. Save.
 
-Leave the phone on the setup wizard. Do not finish setup as a normal user.
-
----
-
-## 4. Create the credit sale
-
-1. Open **Sales**.
-2. Click **New credit sale**.
-3. Fill **Customer**:
-   - Full name
-   - Phone / mobile money number (this is used for Pay Now and reminders)
-   - Person ID type: National ID, Voter ID, or Driving licence
-   - ID number
-   - Address (optional)
-4. Fill **Device**:
-   - IMEI / device ID
-   - Make and model (for example Tecno Spark 20)
-5. Fill **Repayment plan**:
-   - Phone price (TZS)
-   - Deposit (TZS)
-   - Flat interest (%)
-   - Term (months)
-   - Start date
-6. Check the preview: **Financed**, **Total repayable**, **Est. monthly**.
-7. Read the consent / fair-use points with the customer (reminders before lock, restriction after grace, emergency access, no deletion of personal data, permanent release when fully paid).
-8. Tick **I confirm the customer accepted these SimuLinda credit-sale terms.**
-9. Click **Create sale & enrollment token**.
-
-The system creates the customer, device, loan, installments, contract, and enrollment token. A success card appears. Next step is always **enroll the phone**.
-
-If the same mobile number already exists, the sale **updates that customer** instead of creating a duplicate.
+Your package limits how many phones you can register. A mistaken entry can be removed with the
+trash icon while it is unsold.
 
 ---
 
-## 5. Enroll the phone (Device Owner)
+## 3. Register the customer and verify their identity
 
-The phone must still be on **factory-reset first setup**.
+Customers are registered on the **Customers** page, not in the sale.
 
-1. From the sale success card click **Open device QR**, or go to **Devices**, open this phone, and use the **Enrollment** card.
-2. On the phone: turn on, connect **Wi-Fi**.
-3. On the **first** setup screen, tap the screen **6 times** until the QR scanner opens.
-4. Scan the QR on the device page.
+1. Open **Customers**, click **Register customer**.
+2. Enter the phone / mobile-money number, full name **as on the ID**, ID type and number, and address.
+   A National ID (NIDA) number is 20 digits and is formatted as you type.
+   *Microfinance lenders:* also tick that the customer agreed to a factory reset of their own phone
+   and has backed up their data.
+3. Click **Save and verify**. The screen shows a **QR code**.
+4. On **your phone**, scan the QR code with the camera and follow the steps. No login is needed.
+   - **Front of the ID.** Photograph it with the camera (no uploads).
+   - **Back of the ID.**
+   - **Live check.** The customer looks at the camera and blinks once. The face is matched to the ID.
+5. The computer shows the result when your phone finishes: **Verified**, **Needs review**, or **Failed**.
+   - **Needs review:** a manager looks at the photos on the customer's page and approves or rejects it.
+   - **Failed:** read the failed check on the customer's page (for example, the ID number is already
+     used by another customer) and fix the cause.
+6. Add **one guardian** (a person who vouches for the customer). You can add up to three.
+
+The verification link works once and expires after 15 minutes. If it expires, start verification
+again.
+
+A customer can buy on credit only when they are **verified** and have **at least one guardian**.
+
+---
+
+## 4. Create the sale
+
+1. Open **Sales**, click **New sale**.
+2. Choose the **Customer** (the list shows only customers who are ready) and the **Phone** from stock.
+3. Enter the **phone price**, **deposit**, **flat interest** and the **repayment plan**: daily, weekly
+   or monthly, the number of periods, and the start date.
+4. Check the figures: **Financed**, **Total repayable**, **Each month**, and the payment list.
+5. Read the terms with the customer and tick the confirmation.
+6. Click **Create sale**.
+
+**The deposit.** A phone sold with a deposit **stays locked until the deposit is paid**. After that it
+follows the instalment schedule. If the customer paid the deposit in **cash just now**, tick "The
+customer paid the deposit in cash just now" (owners and managers only). Otherwise the customer pays
+the deposit by mobile money, or an owner or manager records the cash under **Payments**.
+
+---
+
+## 5. Enrol the phone (Device Owner)
+
+The phone must be on the **first Android setup screen** after a factory reset. Installing the app from
+a file or the Play Store is **not** enough, because the customer could remove it.
+
+1. Note the IMEI, insert the customer's SIM if that is shop policy, charge the phone.
+2. **Factory-reset** the phone (Settings, System, Reset). Leave it on the setup wizard.
+3. In the console open **Devices**, **Sold**, then this phone. The **Enrollment** card shows the QR.
+4. On the phone: connect to **Wi-Fi**, then tap the first setup screen **6 times** until the QR scanner
+   opens, and scan the QR.
 5. Wait until Android installs the Linda agent and setup finishes. Do not skip or cancel.
 
-**What you must see in the seller console after a few minutes:**
+**What you must see in the console after a few minutes:**
+- Device status **Active** (or **Locked** if the deposit is unpaid, which is correct),
+- Enrollment shows **Device enrolled**,
+- A recent last contact time, and **no** amber warning "Device is enrolled but not fully controlled".
 
-- Device status **ACTIVE**
-- Enrollment card: **Device enrolled** (token used)
-- A recent **Last check-in** time
-- **No** amber warning: “Device is enrolled but not fully controlled”
-
-If that warning appears, the app is **not** Device Owner. **Do not hand over.** Factory-reset again and scan a fresh QR (use the refresh icon on the Enrollment card if the old token was consumed or expired).
+If that warning appears, the app is **not** Device Owner. **Do not hand over.** Factory-reset and scan
+a fresh QR (use the refresh icon on the Enrollment card).
 
 ---
 
-## 6. Check the buyer app on the phone
+## 6. Check the buyer app and the lock
 
-Open the Linda / buyer app on the enrolled phone and confirm with the customer:
-
-- Their name
-- Amount paid (deposit if already recorded)
-- Amount remaining
-- Next due date
-- Payment history
-- **Pay Now**
-- Support
+Open the buyer app on the phone and confirm with the customer: their name, the amount paid and
+remaining, the next due date (the deposit shows as **Deposit**), **Pay Now**, and support. On the
+payment screen the customer can choose **Pay with a different number** if another mobile-money
+wallet will pay.
 
 Explain in plain language:
-
-- They must pay by the due date.
-- Reminders may come by SMS or call.
+- They must pay by the due date. Reminders may come by SMS or call.
 - After the grace period the phone can be **restricted** until payment is confirmed.
-- **Pay Now** uses their mobile-money number.
-- After the last installment the shop **releases** the phone permanently.
+- After the last instalment the phone is released to them (or stays enrolled for their next loan, if
+  that is your lender's policy).
+
+**Test it before handover.** If there is a deposit, the phone should already be locked. Pay the
+deposit and confirm it unlocks. You cannot unlock a phone by hand while a payment is overdue: pay it
+or record the payment, and it unlocks by itself.
 
 ---
 
-## 7. Prove lock and unlock (shop test, before handover)
+## 7. Record the deposit if it was paid in the shop
 
-On the **device** page in the console:
-
-1. Click **Lock**. The phone should show the lock screen (amount due and Pay Now).
-2. Click **Unlock**. The phone should return to normal use.
-
-If lock does nothing, enrollment failed. Reset and enroll again. **Do not hand over.**
-
-Leave the phone **unlocked** for the customer unless shop policy says otherwise.
+If the customer paid cash and you did not tick the box in the sale, an **owner or manager** records it
+under **Payments**, **Record cash**. Agents cannot record money as received. The phone then unlocks
+automatically.
 
 ---
 
-## 8. Record the deposit if they paid cash at the counter
-
-The sale records the **agreed** deposit on the loan. If they paid cash/mobile money in the shop, also record it under **Payments** so paid/remaining and the buyer app stay correct.
-
-If they will pay only through **Pay Now** on the phone, you can skip a manual payment.
-
----
-
-## 9. Handover checklist — only then give the phone
+## 8. Handover checklist: only then give the phone
 
 Give the customer the phone **only if every box is true**:
 
-- [ ] Sale created with correct name, ID, IMEI, price, deposit, term, and start date
-- [ ] Contract / consent ticked in the sale wizard
-- [ ] Phone enrolled via **QR on factory-reset setup** (not a sideloaded APK)
-- [ ] Device **ACTIVE**, check-in recent, **no** management-health warning
-- [ ] Buyer app shows the right customer and loan figures
-- [ ] Shop lock test worked, then phone left unlocked
-- [ ] Deposit recorded if it was collected in the shop
-- [ ] Customer knows due dates, Pay Now, and that missed payment can restrict the phone
+- [ ] Customer verified, guardian added
+- [ ] Sale created with the right customer, IMEI, price, deposit, plan and start date
+- [ ] Terms ticked in the sale
+- [ ] Phone enrolled by **QR on factory-reset setup** (not a sideloaded app)
+- [ ] Device enrolled, recent contact, **no** "not fully controlled" warning
+- [ ] Buyer app shows the right customer and figures
+- [ ] Deposit paid or recorded, phone unlocked
+- [ ] Customer knows the due dates, Pay Now, and that a missed payment can restrict the phone
 
-Then hand over the device, charger, and box. The customer must **not** factory-reset the phone or they will break enrollment; if they do, they must return to the shop for re-enrollment.
+Then hand over the phone, charger and box. The customer must **not** factory-reset the phone: they
+would have to return to the shop for re-enrolment.
 
 ---
 
-## After handover (not required before giving the phone)
+## After handover
 
-These run in the background. You do not need them to complete handover:
-
-- Dashboard: due today, overdue, locked devices
-- **Payments**: later collections and manual receipts
-- **Loans**: installment schedule
-- **Collections** (owner/manager): managed follow-up subscription (calling is done by platform collectors on the admin console, not by the shop queue)
-- Missed payments: reminders, then lock after grace
-- Confirmed payment: unlock
-- Final payment: use **release** from operations so the agent no longer restricts the phone
+These run on their own:
+- **Dashboard:** due today, overdue, locked phones.
+- **Reminders and locks:** reminders before the due date, a lock after the grace period, an unlock as
+  soon as payment is confirmed.
+- **Collections:** enrolled phones go to the call centre automatically (if your package includes it).
+  Collectors work cases once a payment is overdue.
+- **Final payment:** the phone is released to the customer automatically. For lenders that keep
+  phones enrolled, it stays enrolled and unrestricted, ready for the next loan, and is released
+  after the retention period if there is none.
 
 ---
 
 ## Do not
 
-- Do not give out a phone that only has the APK installed as a normal app.
-- Do not finish Android setup as a personal Google account **before** scanning the QR.
-- Do not ignore the yellow “not fully controlled” banner.
-- Do not use a customer’s production phone to “try” enrollment. Use a shop test unit first, then this same process for the real sale.
+- Do not give out a phone that only has the app installed as a normal app.
+- Do not finish Android setup with a personal Google account **before** scanning the QR.
+- Do not ignore the amber "not fully controlled" banner.
+- Do not use a customer's real phone to try enrolment. Use a shop test phone first.
 
 ---
 
@@ -197,11 +190,15 @@ These run in the background. You do not need them to complete handover:
 
 | Problem | What to do |
 | --- | --- |
-| Cannot sign in | Confirm you are on **client.linda.co.tz**, not admin. Ask the owner to reset staff password. |
-| Sale will not create | Check IMEI uniqueness, required fields, and consent tick. |
-| QR expired or already used | On the device page, regenerate the enrollment token, factory-reset again, scan the new QR. |
-| Phone says **Something went wrong** after scanning / while installing | If the phone is a **Pixel** (or any model with Google Play Protect), this QR cannot make Linda Device Owner — Google blocks it. Enroll that model only after Android Device Policy (AMAPI) is connected. On Tecno/Infinix/Itel, factory-reset, Wi-Fi, 6 taps, scan a fresh QR. |
-| Pixel / Play Protect phone on credit | Same shop steps, but the QR must install Google’s Device Policy app, not Linda as owner. Linda still locks the buyer app under that. Ask the operator to enable Android Management API. |
-| Phone never shows ACTIVE | Wi-Fi, wait for check-in, confirm you scanned this device’s QR not another sale’s. |
-| Lock does nothing | Not Device Owner. Factory-reset and QR enroll again. |
-| Buyer app empty | Wait for check-in; confirm the sale linked this IMEI to the customer. |
+| Cannot sign in | Confirm you are on **client.linda.co.tz**, not admin. Ask the owner to reset the staff password. |
+| Customer missing from the sale list | They are not verified, have no guardian yet, or (microfinance) have no recorded factory-reset agreement. The list says what is missing. |
+| Verification link expired | It works once for 15 minutes. Start verification again. |
+| Live check keeps failing | Face the camera in good light, hold the phone at eye level and blink slowly. The customer's page shows what the camera saw. A manager can approve after reviewing the photos. |
+| Cannot register more phones | The package phone allowance is full. Contact Linda. |
+| QR expired or already used | On the device page, regenerate the enrolment token, factory-reset again, scan the new QR. |
+| Phone says **Something went wrong** after scanning | On a **Pixel** or any phone with Google Play Protect, this QR cannot make Linda Device Owner. Use a Tecno, Infinix, Itel or similar. On those: factory-reset, Wi-Fi, 6 taps, scan a fresh QR. |
+| Phone never shows active | Check Wi-Fi, wait for the first contact, and confirm you scanned this phone's QR, not another sale's. |
+| Phone locked and the customer already paid | The phone needs internet to hear about it. Ask them to switch on data or Wi-Fi. If the payment is not recorded yet, an owner or manager records it. |
+| Lock does nothing | Not Device Owner. Factory-reset and enrol again. |
+| Buyer app empty | Wait for the first contact and confirm the sale linked this IMEI to the customer. |
+| An agent cannot mark a payment paid | By design. An owner or manager records it. |
