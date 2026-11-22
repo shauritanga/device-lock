@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Check,
   CheckCircle2,
+  Pencil,
   Phone,
   Plus,
   ShieldCheck,
@@ -25,6 +26,13 @@ import { Pill, StatusDot } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { money, shortDate } from '@/shared/lib/format';
 import { PhoneVerification } from '../components/PhoneVerification';
+import {
+  PersonFields,
+  emptyPerson,
+  validatePerson,
+  type PersonErrors,
+  type PersonForm,
+} from '../components/PersonFields';
 import {
   GuardiansFooter,
   GuardiansStep,
@@ -90,6 +98,10 @@ export default function CustomerDetail() {
   const [photo, setPhoto] = useState<{ src: string; label: string } | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [form, setForm] = useState<PersonForm>(emptyPerson());
+  const [formErrors, setFormErrors] = useState<PersonErrors>({});
+  const [editError, setEditError] = useState('');
 
   const { data: c, isLoading } = useQuery({
     queryKey: ['customer', id],
@@ -110,6 +122,24 @@ export default function CustomerDetail() {
   const recordConsent = useMutation({
     mutationFn: async () => (await api.patch(`/customers/${id}`, { resetConsent: true })).data,
     onSuccess: refresh,
+  });
+
+  const saveDetails = useMutation({
+    mutationFn: async (f: PersonForm) =>
+      (
+        await api.patch(`/customers/${id}`, {
+          fullName: f.fullName.trim(),
+          phone: f.phone.trim(),
+          idDocumentType: f.idDocumentType,
+          nationalId: f.nationalId.trim(),
+          address: f.address.trim(),
+        })
+      ).data,
+    onSuccess: () => {
+      setEditOpen(false);
+      refresh();
+    },
+    onError: (e) => setEditError(apiErrorMessage(e)),
   });
 
   const review = useMutation({
@@ -171,6 +201,24 @@ export default function CustomerDetail() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setForm({
+                  ...emptyPerson(),
+                  fullName: c.fullName,
+                  phone: c.phone,
+                  idDocumentType: c.idDocumentType ?? 'NATIONAL_ID',
+                  nationalId: c.nationalId ?? '',
+                  address: c.address ?? '',
+                });
+                setFormErrors({});
+                setEditError('');
+                setEditOpen(true);
+              }}
+            >
+              <Pencil className="h-4 w-4" /> Edit details
+            </Button>
             {status !== 'VERIFIED' ? (
               <Button onClick={() => setVerifyOpen(true)}>
                 <ShieldCheck className="h-4 w-4" /> Verify identity
@@ -469,6 +517,47 @@ export default function CustomerDetail() {
           </Card>
         </div>
       </div>
+
+      <Modal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit customer details"
+        subtitle={c.fullName}
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={saveDetails.isPending}
+              onClick={() => {
+                const errs = validatePerson(form, 'customer', { photoOptional: true });
+                setFormErrors(errs);
+                setEditError('');
+                if (Object.keys(errs).length === 0) saveDetails.mutate(form);
+              }}
+            >
+              {saveDetails.isPending ? 'Saving…' : 'Save changes'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {editError ? <p className="text-sm text-rose-600">{editError}</p> : null}
+          <PersonFields kind="customer" value={form} onChange={setForm} errors={formErrors} hidePhoto />
+          {status === 'VERIFIED' &&
+          (form.fullName.trim() !== c.fullName ||
+            form.nationalId.trim() !== (c.nationalId ?? '') ||
+            form.idDocumentType !== (c.idDocumentType ?? 'NATIONAL_ID')) ? (
+            <p className="flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2.5 text-xs text-amber-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              Changing the name or ID resets this customer to “Not verified”. Their identity will have to be verified
+              again before the next sale.
+            </p>
+          ) : null}
+        </div>
+      </Modal>
 
       <Modal
         open={verifyOpen}
