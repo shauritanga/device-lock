@@ -20,6 +20,8 @@ import {
 import { checkIdNumber, FACE_MATCH_MAX, FACE_REVIEW_MAX } from './id-rules';
 import { randomToken, sha256 } from '../common/crypto.util';
 import { VerificationIdentity } from '../common/guards/verification-session.guard';
+import { AuthUser } from '../auth/auth.types';
+import { UserRole } from '@prisma/client';
 
 export const MAX_GUARDIANS = 3;
 
@@ -56,13 +58,40 @@ export class CustomersService {
       data: {
         ...rest,
         tenantId: this.prisma.currentTenantId,
+        createdById: actorId ?? null,
         ...(resetConsent ? { resetConsentAt: new Date(), resetConsentById: actorId ?? null } : {}),
       },
     });
   }
 
-  findAll() {
+  /**
+   * A sales agent only sees customers they registered, sold to, or hold a phone for.
+   * Owners and managers see every customer, including those registered by agents.
+   */
+  private agentScope(actor?: AuthUser) {
+    if (!actor || actor.role !== UserRole.AGENT) return {};
+    return {
+      OR: [
+        { createdById: actor.userId },
+        { loans: { some: { soldById: actor.userId } } },
+        { devices: { some: { assignedAgentId: actor.userId } } },
+      ],
+    };
+  }
+
+  /** Throws unless the caller may see this customer (agents: only their own). */
+  async assertVisible(id: string, actor: AuthUser) {
+    if (actor.role !== UserRole.AGENT) return;
+    const hit = await this.prisma.scoped.customer.findFirst({
+      where: { id, ...this.agentScope(actor) },
+      select: { id: true },
+    });
+    if (!hit) throw new NotFoundException('Customer not found');
+  }
+
+  findAll(actor?: AuthUser) {
     return this.prisma.scoped.customer.findMany({
+      where: this.agentScope(actor),
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { guardians: true } } },
     });

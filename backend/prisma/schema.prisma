@@ -723,6 +723,9 @@ model Customer {
   resetConsentAt     DateTime?
   resetConsentById   String?
 
+  /// Staff member who registered this customer. Sales agents only see customers they registered or sold to.
+  createdById        String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

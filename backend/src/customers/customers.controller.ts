@@ -35,33 +35,46 @@ export class CustomersController {
   }
 
   @Get()
-  findAll() {
-    return this.customers.findAll();
+  findAll(@CurrentUser() actor: AuthUser) {
+    return this.customers.findAll(actor);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    await this.customers.assertVisible(id, actor);
     return this.customers.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateCustomerDto, @CurrentUser() actor: AuthUser) {
+  async update(@Param('id') id: string, @Body() dto: UpdateCustomerDto, @CurrentUser() actor: AuthUser) {
+    await this.customers.assertVisible(id, actor);
     return this.customers.update(id, dto, actor.userId);
   }
 
   /** Starts a phone verification: the dashboard turns the token into a QR code. */
   @Post(':id/verification-sessions')
-  startVerification(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+  async startVerification(@Param('id') id: string, @CurrentUser() actor: AuthUser) {
+    await this.customers.assertVisible(id, actor);
     return this.customers.createVerificationSession(id, actor.userId);
   }
 
   @Get(':id/verification-sessions/:sid')
-  verificationStatus(@Param('id') id: string, @Param('sid') sid: string) {
+  async verificationStatus(
+    @Param('id') id: string,
+    @Param('sid') sid: string,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.customers.assertVisible(id, actor);
     return this.customers.verificationSessionStatus(id, sid);
   }
 
   @Delete(':id/verification-sessions/:sid')
-  cancelVerification(@Param('id') id: string, @Param('sid') sid: string) {
+  async cancelVerification(
+    @Param('id') id: string,
+    @Param('sid') sid: string,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    await this.customers.assertVisible(id, actor);
     return this.customers.cancelVerificationSession(id, sid);
   }
 
@@ -82,11 +95,13 @@ export class CustomersController {
       fileFilter: (_req, file, cb) => cb(null, PHOTO_TYPES.has(file.mimetype)),
     }),
   )
-  addGuardian(
+  async addGuardian(
     @Param('id') id: string,
     @Body() dto: CreateGuardianDto,
+    @CurrentUser() actor: AuthUser,
     @UploadedFile() photo?: Express.Multer.File,
   ) {
+    await this.customers.assertVisible(id, actor);
     return this.customers.addGuardian(id, dto, photo);
   }
 }
