@@ -93,11 +93,29 @@ export class DevicesService {
     await this.agreements.assertCanEnroll(tenantId);
     if (dto.assignedAgentId) await this.assertAgent(dto.assignedAgentId);
 
+    // Removed (archived) phones keep their IMEI, so they count as taken too.
     const existing = await this.prisma.scoped.device.findMany({
       where: { imei: { in: imeis } },
-      select: { imei: true },
+      select: {
+        imei: true,
+        status: true,
+        archivedAt: true,
+        customer: { select: { fullName: true } },
+        assignedAgent: { select: { fullName: true } },
+        loan: { select: { id: true } },
+      },
     });
     const taken = new Set(existing.map((d) => d.imei));
+    const skippedDetails = existing.map((d) => ({
+      imei: d.imei,
+      reason: d.archivedAt
+        ? `status ${d.status.toLowerCase().replace(/_/g, ' ')}, removed from your device list`
+        : d.customer || d.loan
+          ? `sold${d.customer ? ` to ${d.customer.fullName}` : ''}`
+          : d.assignedAgent
+            ? `in stock with agent ${d.assignedAgent.fullName}`
+            : `in stock, status ${d.status.toLowerCase().replace(/_/g, ' ')}`,
+    }));
     const fresh = imeis.filter((i) => !taken.has(i));
     if (fresh.length > 0) {
       await this.subscription.assertCanRegisterPhone(tenantId, fresh.length);
@@ -131,6 +149,7 @@ export class DevicesService {
     return {
       created: created.length,
       skipped: imeis.filter((i) => taken.has(i)),
+      skippedDetails,
       devices: created,
     };
   }

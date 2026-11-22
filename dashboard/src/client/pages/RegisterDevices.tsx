@@ -18,7 +18,11 @@ import { PanelEmpty } from '@/shared/components/Panel';
 import { shortDate } from '@/shared/lib/format';
 import { useConfirm } from '@/shared/components/ui/ConfirmDialog';
 
-type BulkResult = { created: number; skipped: string[] };
+type BulkResult = {
+  created: number;
+  skipped: string[];
+  skippedDetails?: Array<{ imei: string; reason: string }>;
+};
 
 /** One IMEI per line (commas, spaces and semicolons also split). */
 function parseImeis(text: string): string[] {
@@ -153,7 +157,13 @@ export function RegisteredTab() {
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             {done.created} {done.created === 1 ? 'phone' : 'phones'} added to stock.
-            {done.skipped.length ? ` Already registered, skipped: ${done.skipped.join(', ')}.` : ''}
+            {done.skipped.length
+              ? ` Already registered, skipped: ${
+                  done.skippedDetails?.length
+                    ? done.skippedDetails.map((s) => `${s.imei} (${s.reason})`).join('; ')
+                    : done.skipped.join(', ')
+                }.`
+              : ''}
           </span>
         </p>
       ) : null}
