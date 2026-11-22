@@ -616,7 +616,12 @@ export class PaymentsService {
     }
   }
 
-  /** If the device is LOCKED and arrears are now cleared, queue an UNLOCK. */
+  /**
+   * Arrears are cleared: make sure the phone ends up unlocked. A LOCK still
+   * waiting for the phone is withdrawn (a LOCK queued overnight must not fire
+   * after the customer has paid), and an UNLOCK is queued when the phone is
+   * locked or might already have received that LOCK.
+   */
   private async maybeAutoUnlock(loanId: string) {
     const loan = await this.prisma.scoped.loan.findFirst({
       where: { id: loanId },
@@ -628,7 +633,13 @@ export class PaymentsService {
       where: { id: loan.deviceId },
       select: { id: true, status: true },
     });
-    if (!device || device.status !== DeviceStatus.LOCKED) return;
+    if (
+      !device ||
+      (device.status !== DeviceStatus.LOCKED &&
+        device.status !== DeviceStatus.ACTIVE)
+    ) {
+      return;
+    }
 
     const arrears = await this.prisma.scoped.installment.count({
       where: {
@@ -637,12 +648,23 @@ export class PaymentsService {
         status: { notIn: [InstallmentStatus.PAID, InstallmentStatus.WAIVED] },
       },
     });
-    if (arrears === 0) {
-      this.logger.log(`Auto-unlocking device ${device.id} after payment`);
-      await this.commands.queue(device.id, CommandType.UNLOCK, {
-        reason: 'payment received — arrears cleared',
-      });
-    }
+    if (arrears > 0) return;
+
+    // A LOCK still waiting for the phone (queued overnight, phone offline) would
+    // fire after the customer has paid. Queuing the UNLOCK replaces it.
+    const lockWaiting = await this.prisma.scoped.deviceCommand.count({
+      where: {
+        deviceId: device.id,
+        type: CommandType.LOCK,
+        status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+      },
+    });
+    if (device.status !== DeviceStatus.LOCKED && lockWaiting === 0) return;
+
+    this.logger.log(`Auto-unlocking device ${device.id} after payment`);
+    await this.commands.queue(device.id, CommandType.UNLOCK, {
+      reason: 'payment received — arrears cleared',
+    });
   }
 
   private async requireLoan(loanId: string) {

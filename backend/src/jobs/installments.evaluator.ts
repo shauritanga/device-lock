@@ -20,10 +20,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const BEFORE_DUE_DAYS = 1;
 
 type ReminderType =
-  | 'REMINDER_BEFORE_DUE'
-  | 'REMINDER_DUE_TODAY'
-  | 'REMINDER_GRACE'
-  | 'REMINDER_LOCK_WARNING';
+  'REMINDER_BEFORE_DUE' | 'REMINDER_DUE_TODAY' | 'REMINDER_GRACE' | 'REMINDER_LOCK_WARNING';
 
 /**
  * Daily repayment evaluation. It sends staged reminders before locking:
@@ -68,18 +65,28 @@ export class InstallmentsEvaluator {
     const totals = emptySummary();
     let locked = 0;
     for (const t of tenants) {
-      await this.cls.run(async () => {
-        this.cls.set(TENANT_ID_KEY, t.id);
-        const r = await this.evaluateTenant(t.graceDays);
-        totals.beforeDue += r.beforeDue;
-        totals.dueToday += r.dueToday;
-        totals.grace += r.grace;
-        totals.lockWarnings += r.lockWarnings;
-        locked += r.locked;
-      });
+      try {
+        await this.cls.run(async () => {
+          this.cls.set(TENANT_ID_KEY, t.id);
+          const r = await this.evaluateTenant(t.graceDays);
+          totals.beforeDue += r.beforeDue;
+          totals.dueToday += r.dueToday;
+          totals.grace += r.grace;
+          totals.lockWarnings += r.lockWarnings;
+          locked += r.locked;
+        });
+      } catch (e) {
+        // One tenant's failure must not stop everyone else's locks.
+        this.logger.error(`Repayment sweep failed for tenant ${t.id}: ${(e as Error).message}`);
+      }
     }
     // After overdue statuses are updated, refresh managed collection cases.
-    const coll = await this.collections.syncAllActiveSubscriptions();
+    let coll = { cases: 0 };
+    try {
+      coll = await this.collections.syncAllActiveSubscriptions();
+    } catch (e) {
+      this.logger.error(`Collections sync failed: ${(e as Error).message}`);
+    }
     return {
       tenants: tenants.length,
       ...totals,
@@ -101,7 +108,11 @@ export class InstallmentsEvaluator {
       where: {
         status: LoanStatus.ACTIVE,
         installments: {
-          some: { status: { in: [InstallmentStatus.PENDING, InstallmentStatus.OVERDUE] } },
+          some: {
+            status: {
+              in: [InstallmentStatus.PENDING, InstallmentStatus.OVERDUE],
+            },
+          },
         },
       },
       select: {
@@ -111,7 +122,11 @@ export class InstallmentsEvaluator {
         customer: { select: { phone: true, fullName: true } },
         device: { select: { id: true, status: true, graceDays: true } },
         installments: {
-          where: { status: { in: [InstallmentStatus.PENDING, InstallmentStatus.OVERDUE] } },
+          where: {
+            status: {
+              in: [InstallmentStatus.PENDING, InstallmentStatus.OVERDUE],
+            },
+          },
           orderBy: { dueDate: 'asc' },
           take: 1,
           select: {
@@ -129,8 +144,30 @@ export class InstallmentsEvaluator {
     const summary = emptySummary();
     let locked = 0;
     for (const loan of loans) {
+      try {
+        const r = await this.evaluateLoan(loan, tenantGraceDays, today);
+        summary.beforeDue += r.beforeDue;
+        summary.dueToday += r.dueToday;
+        summary.grace += r.grace;
+        summary.lockWarnings += r.lockWarnings;
+        locked += r.locked;
+      } catch (e) {
+        // A bad loan (e.g. an SMS provider error) must not skip the rest.
+        this.logger.error(`Sweep failed for loan ${loan.id}: ${(e as Error).message}`);
+      }
+    }
+    return { ...summary, locked };
+  }
+
+  private async evaluateLoan(loan: any, tenantGraceDays: number, today: Date) {
+    const summary = emptySummary();
+    let locked = 0;
+    {
       const installment = loan.installments[0];
-      if (!installment || !loan.device || !loan.customer?.phone) continue;
+      if (!installment || !loan.device) return { ...summary, locked };
+      // Locking must not depend on being able to message the customer.
+      const phone: string | null = loan.customer?.phone ?? null;
+      const customerName: string = loan.customer?.fullName ?? 'Customer';
 
       // The deposit (installment 0) has no grace period and no reminders: the phone
       // stays locked until it is paid. A phone not enrolled yet gets the lock queued
@@ -157,7 +194,7 @@ export class InstallmentsEvaluator {
           });
           locked++;
         }
-        continue;
+        return { ...summary, locked };
       }
 
       // A tenant-wide grace of several days would span multiple daily
@@ -168,19 +205,17 @@ export class InstallmentsEvaluator {
       const dueDay = startOfDay(installment.dueDate);
       const daysUntilDue = daysBetween(today, dueDay);
       const daysOverdue = daysBetween(dueDay, today);
-      const amountDue = Math.max(
-        Number(installment.amount) - Number(installment.amountPaid),
-        0,
-      );
+      const amountDue = Math.max(Number(installment.amount) - Number(installment.amountPaid), 0);
 
       if (installment.status === InstallmentStatus.PENDING) {
+        if (!phone) return { ...summary, locked };
         if (daysUntilDue === BEFORE_DUE_DAYS) {
           const sent = await this.sendReminderOnce({
             type: 'REMINDER_BEFORE_DUE',
             deviceId: loan.device.id,
-            phone: loan.customer.phone,
+            phone: phone,
             message:
-              `Dear ${loan.customer.fullName}, your phone installment #${installment.sequence} ` +
+              `Dear ${customerName}, your phone installment #${installment.sequence} ` +
               `of ${formatMoney(amountDue, loan.currency)} is due tomorrow.`,
             metadata: reminderMetadata(installment.id, amountDue, daysUntilDue),
           });
@@ -189,15 +224,15 @@ export class InstallmentsEvaluator {
           const sent = await this.sendReminderOnce({
             type: 'REMINDER_DUE_TODAY',
             deviceId: loan.device.id,
-            phone: loan.customer.phone,
+            phone: phone,
             message:
-              `Dear ${loan.customer.fullName}, your phone installment #${installment.sequence} ` +
+              `Dear ${customerName}, your phone installment #${installment.sequence} ` +
               `of ${formatMoney(amountDue, loan.currency)} is due today. Please pay on time to keep your phone active.`,
             metadata: reminderMetadata(installment.id, amountDue, daysUntilDue),
           });
           if (sent) summary.dueToday++;
         }
-        continue;
+        return { ...summary, locked };
       }
 
       if (daysOverdue > grace) {
@@ -226,11 +261,13 @@ export class InstallmentsEvaluator {
           });
           locked++;
         }
+      } else if (!phone) {
+        // no number to message; nothing more to do
       } else if (daysOverdue === grace) {
         const sent = await this.sendReminderOnce({
           type: 'REMINDER_LOCK_WARNING',
           deviceId: loan.device.id,
-          phone: loan.customer.phone,
+          phone: phone,
           message:
             `Final reminder: your phone installment #${installment.sequence} is overdue. ` +
             `Pay ${formatMoney(amountDue, loan.currency)} today to avoid your phone being locked.`,
@@ -242,9 +279,9 @@ export class InstallmentsEvaluator {
         const sent = await this.sendReminderOnce({
           type: 'REMINDER_GRACE',
           deviceId: loan.device.id,
-          phone: loan.customer.phone,
+          phone: phone,
           message:
-            `Dear ${loan.customer.fullName}, your phone installment #${installment.sequence} is overdue. ` +
+            `Dear ${customerName}, your phone installment #${installment.sequence} is overdue. ` +
             `Please pay ${formatMoney(amountDue, loan.currency)} within ${daysLeft} day(s) to avoid your phone being locked.`,
           metadata: reminderMetadata(installment.id, amountDue, daysOverdue),
         });
@@ -279,11 +316,7 @@ export class InstallmentsEvaluator {
     return true;
   }
 
-  private async auditEvent(
-    deviceId: string,
-    type: string,
-    metadata: Prisma.InputJsonObject,
-  ) {
+  private async auditEvent(deviceId: string, type: string, metadata: Prisma.InputJsonObject) {
     const device = await this.prisma.scoped.device.findFirst({
       where: { id: deviceId },
       select: { tenantId: true },

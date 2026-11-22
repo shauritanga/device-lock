@@ -296,6 +296,45 @@ export class CommandsService {
     return { stuck: waiting.length, resent: sent };
   }
 
+  /**
+   * A LOCK or UNLOCK the phone could not apply is retried a few times, so a
+   * transient failure does not leave a paid customer locked until someone
+   * notices. Bounded so a phone that is not device owner cannot loop forever.
+   */
+  private async retryFailed(
+    command: { type: CommandType },
+    deviceId: string,
+  ) {
+    if (command.type !== CommandType.LOCK && command.type !== CommandType.UNLOCK) {
+      return;
+    }
+    const waiting = await this.prisma.scoped.deviceCommand.count({
+      where: {
+        deviceId,
+        type: { in: [CommandType.LOCK, CommandType.UNLOCK] },
+        status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+      },
+    });
+    if (waiting > 0) return;
+    const recentFailures = await this.prisma.scoped.deviceCommand.count({
+      where: {
+        deviceId,
+        type: command.type,
+        status: CommandStatus.FAILED,
+        ackedAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+      },
+    });
+    if (recentFailures >= 3) {
+      this.logger.warn(
+        `Giving up retrying ${command.type} for device ${deviceId} after ${recentFailures} failures`,
+      );
+      return;
+    }
+    await this.queue(deviceId, command.type, {
+      reason: `retry after failed attempt (${recentFailures}/3)`,
+    });
+  }
+
   listForDevice(deviceId: string) {
     return this.prisma.scoped.deviceCommand.findMany({
       where: { deviceId },
@@ -398,6 +437,16 @@ export class CommandsService {
         );
       }
     });
+
+    if (!ok) {
+      try {
+        await this.retryFailed(command, deviceId);
+      } catch (e) {
+        this.logger.warn(
+          `Retry after failed ${command.type} for device ${deviceId} failed: ${(e as Error).message}`,
+        );
+      }
+    }
 
     // A confirmed release may close the collection case (fully-paid loan +
     // released phone). Best-effort: never fail the ack over it.
