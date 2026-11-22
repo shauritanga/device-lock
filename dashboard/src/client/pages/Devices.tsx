@@ -28,27 +28,135 @@ const STATUS_FILTERS = [
   { value: 'DEFAULTED', label: 'Defaulted' },
 ];
 
-type Tab = 'registered' | 'sold';
+type Tab = 'all' | 'registered' | 'sold';
 
 /**
- * One page for every phone: Registered (in stock, not sold yet) and Sold (given
- * to a customer: lock status, enrollment QR, SIM alerts).
+ * One page for every phone: All (every registered phone, sold or not), Registered
+ * (in stock, not sold yet) and Sold (given to a customer: lock status, enrollment
+ * QR, SIM alerts).
  */
 export default function Devices() {
   const [params, setParams] = useSearchParams();
-  const tab: Tab = params.get('tab') === 'sold' ? 'sold' : 'registered';
+  const t = params.get('tab');
+  const tab: Tab = t === 'sold' ? 'sold' : t === 'registered' ? 'registered' : 'all';
   return (
     <div className="space-y-5">
       <Tabs<Tab>
         label="Devices"
         value={tab}
-        onChange={(t) => setParams(t === 'registered' ? {} : { tab: t }, { replace: true })}
+        onChange={(next) => setParams(next === 'all' ? {} : { tab: next }, { replace: true })}
         tabs={[
+          { id: 'all', label: 'All phones' },
           { id: 'registered', label: 'Registered' },
           { id: 'sold', label: 'Sold' },
         ]}
       />
-      {tab === 'registered' ? <RegisteredTab /> : <SoldTab />}
+      {tab === 'all' ? <AllTab /> : tab === 'registered' ? <RegisteredTab /> : <SoldTab />}
+    </div>
+  );
+}
+
+/** Every phone the shop has registered, whether it is still in stock, with an agent, or sold. */
+function AllTab() {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState('');
+  const [where, setWhere] = useState('ALL');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['devices'],
+    queryFn: async () => (await api.get<Device[]>('/devices')).data,
+  });
+
+  const placeOf = (d: Device) =>
+    d.customerId || d.loan ? 'SOLD' : d.assignedAgent ? 'AGENT' : 'SHOP';
+
+  const counts = useMemo(() => {
+    const all = data ?? [];
+    const n = (p: string) => all.filter((d) => placeOf(d) === p).length;
+    return { total: all.length, shop: n('SHOP'), agent: n('AGENT'), sold: n('SOLD') };
+  }, [data]);
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (data ?? []).filter((d) => {
+      if (where !== 'ALL' && placeOf(d) !== where) return false;
+      if (!q) return true;
+      return [d.imei, d.customer?.fullName, d.assignedAgent?.fullName, d.make, d.model]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [data, query, where]);
+
+  if (isLoading) {
+    return (
+      <Center>
+        <Spinner />
+      </Center>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <FigureStrip
+        items={[
+          { label: 'All phones', value: counts.total },
+          { label: 'Held by the shop', value: counts.shop },
+          { label: 'With agents', value: counts.agent },
+          { label: 'Sold', value: counts.sold },
+        ]}
+      />
+      <Card>
+        <ListToolbar
+          title="All phones"
+          noun="phone"
+          count={rows.length}
+          query={query}
+          onQuery={setQuery}
+          placeholder="Search IMEI, customer, agent, model"
+          filter={{
+            value: where,
+            onChange: setWhere,
+            options: [
+              { value: 'ALL', label: 'Everywhere' },
+              { value: 'SHOP', label: 'Held by the shop' },
+              { value: 'AGENT', label: 'With an agent' },
+              { value: 'SOLD', label: 'Sold' },
+            ],
+          }}
+        />
+        {!data || data.length === 0 ? (
+          <div className="p-5">
+            <EmptyState title="No phones yet" hint="Register phones from the Registered tab." />
+          </div>
+        ) : rows.length === 0 ? (
+          <PanelEmpty>No phones match your search.</PanelEmpty>
+        ) : (
+          <Table columns={['IMEI', 'Model', 'Held by', 'Status', 'Last check-in', '']}>
+            {rows.map((d) => (
+              <Row key={d.id} onClick={() => navigate(`/devices/${d.id}`)}>
+                <td className="px-4 py-3 font-medium tabular-nums text-ink">{d.imei}</td>
+                <td className="px-4 py-3 text-muted">
+                  {[d.make, d.model].filter(Boolean).join(' ') || '—'}
+                </td>
+                <td className="px-4 py-3 text-muted">
+                  {placeOf(d) === 'SOLD'
+                    ? `Sold to ${d.customer?.fullName ?? 'a customer'}`
+                    : placeOf(d) === 'AGENT'
+                      ? `Agent: ${d.assignedAgent?.fullName}`
+                      : 'Shop'}
+                </td>
+                <td className="px-4 py-3"><StatusDot status={d.status} /></td>
+                <td className="px-4 py-3 text-muted">{shortDate(d.lastCheckInAt)}</td>
+                <td className="px-4 py-3 text-right text-xs text-brand-600">
+                  <span className="inline-flex items-center gap-1">
+                    Manage <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </td>
+              </Row>
+            ))}
+          </Table>
+        )}
+      </Card>
     </div>
   );
 }
