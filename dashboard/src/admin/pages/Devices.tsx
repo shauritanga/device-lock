@@ -176,10 +176,7 @@ export default function Devices() {
               <Row key={d.id} onClick={() => setSelectedId(d.id)}>
                 <td className="px-4 py-3">
                   <div className="font-medium">{d.customer?.fullName ?? '—'}</div>
-                  <div className="text-xs text-muted">
-                    {d.customer?.phone}
-                    {d.customer?.address ? ` · ${d.customer.address}` : ''}
-                  </div>
+                  <div className="text-xs text-muted">{d.customer?.phone}</div>
                 </td>
                 <td className="px-4 py-3 text-muted">{d.tenant.name}</td>
                 <td className="px-4 py-3 tabular-nums text-muted">
