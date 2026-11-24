@@ -8,7 +8,7 @@ import { Table, Row } from '@/shared/components/ui/Table';
 import { StatusDot } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Modal } from '@/shared/components/ui/Modal';
-import { Input } from '@/shared/components/ui/Field';
+import { Input, Select } from '@/shared/components/ui/Field';
 import { Tabs } from '@/shared/components/Tabs';
 import { cn } from '@/shared/lib/cn';
 import { ago, isStale, money, shortDate } from '@/shared/lib/format';
@@ -37,9 +37,16 @@ type AdminDevice = {
 type Tab = 'all' | 'sold';
 type Filter = 'all' | 'overdue' | 'locked';
 const FILTERS: Array<{ id: Filter; label: string }> = [
-  { id: 'all', label: 'All' },
+  { id: 'all', label: 'All statuses' },
   { id: 'overdue', label: 'Overdue' },
   { id: 'locked', label: 'Locked' },
+];
+
+type EnrolledFilter = 'all' | 'yes' | 'no';
+const ENROLLED_FILTERS: Array<{ id: EnrolledFilter; label: string }> = [
+  { id: 'all', label: 'Enrolled: all' },
+  { id: 'yes', label: 'Enrolled: yes' },
+  { id: 'no', label: 'Enrolled: no' },
 ];
 
 function nextDueCell(d: AdminDevice) {
@@ -87,6 +94,7 @@ export default function Devices() {
   const [tab, setTab] = useState<Tab>('all');
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [enrolledFilter, setEnrolledFilter] = useState<EnrolledFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -103,9 +111,14 @@ export default function Devices() {
   });
 
   const rows = useMemo(() => {
-    const base = tab === 'sold' ? (data ?? []).filter((d) => d.loan) : data ?? [];
-    return filter === 'overdue' ? base.filter((d) => (d.loan?.overdueInstallments ?? 0) > 0) : base;
-  }, [data, tab, filter]);
+    let base = tab === 'sold' ? (data ?? []).filter((d) => d.loan) : data ?? [];
+    if (filter === 'overdue') base = base.filter((d) => (d.loan?.overdueInstallments ?? 0) > 0);
+    if (enrolledFilter !== 'all') {
+      const wantEnrolled = enrolledFilter === 'yes';
+      base = base.filter((d) => (d.status !== 'PENDING_ENROLLMENT') === wantEnrolled);
+    }
+    return base;
+  }, [data, tab, filter, enrolledFilter]);
 
   const selected = data?.find((d) => d.id === selectedId) ?? null;
 
@@ -131,24 +144,30 @@ export default function Devices() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setFilter(f.id)}
-            className={cn(
-              'rounded-full border px-3.5 py-1.5 text-sm transition',
-              filter === f.id
-                ? 'border-brand-500 bg-brand-50 font-medium text-brand-800'
-                : 'border-line bg-surface text-ink hover:bg-canvas',
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
+        <Select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as Filter)}
+          className="sm:!w-44"
+          aria-label="Filter by status"
+        >
+          {FILTERS.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={enrolledFilter}
+          onChange={(e) => setEnrolledFilter(e.target.value as EnrolledFilter)}
+          className="sm:!w-44"
+          aria-label="Filter by enrolled"
+        >
+          {ENROLLED_FILTERS.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </Select>
       </div>
 
       {isLoading ? (
