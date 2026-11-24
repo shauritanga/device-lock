@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import {
   CommandStatus,
   CommandType,
@@ -18,6 +18,9 @@ import { CollectionsService } from '../collections/collections.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BEFORE_DUE_DAYS = 1;
+const TZ = 'Africa/Dar_es_Salaam';
+/** Phones with an unpaid installment lock at this hour (Tanzania time) on the due date. */
+const LOCK_HOUR_EAT = 15;
 
 type ReminderType =
   'REMINDER_BEFORE_DUE' | 'REMINDER_DUE_TODAY' | 'REMINDER_GRACE' | 'REMINDER_LOCK_WARNING';
@@ -44,8 +47,19 @@ export class InstallmentsEvaluator {
     private readonly collections: CollectionsService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  /** 05:00 Tanzania time: mark overdue installments and send the daily reminders. */
+  @Cron('0 0 5 * * *', { timeZone: TZ })
   async runDaily() {
+    await this.sweep();
+  }
+
+  /** 15:00 Tanzania time: lock every phone whose installment is due today and still unpaid. */
+  @Cron(`0 0 ${LOCK_HOUR_EAT} * * *`, { timeZone: TZ })
+  async runLockTime() {
+    await this.sweep();
+  }
+
+  private async sweep() {
     const summary = await this.evaluateAllTenants();
     this.logger.log(
       `Repayment sweep: ${summary.beforeDue} before-due, ${summary.dueToday} due-today, ` +
@@ -197,14 +211,19 @@ export class InstallmentsEvaluator {
         return { ...summary, locked };
       }
 
-      // No grace period: an installment still unpaid the day after its due date locks the phone.
+      // No grace period: an installment still unpaid at 15:00 Tanzania time on its due
+      // date locks the phone (and any later sweep locks it if that moment was missed).
       const grace = 0;
       const dueDay = startOfDay(installment.dueDate);
       const daysUntilDue = daysBetween(today, dueDay);
       const daysOverdue = daysBetween(dueDay, today);
       const amountDue = Math.max(Number(installment.amount) - Number(installment.amountPaid), 0);
 
-      if (installment.status === InstallmentStatus.PENDING) {
+      const eatHour = new Date(Date.now() + EAT_OFFSET_MS).getUTCHours();
+      const lockTimeReached =
+        daysOverdue > grace || (daysOverdue === grace && eatHour >= LOCK_HOUR_EAT);
+
+      if (installment.status === InstallmentStatus.PENDING && !lockTimeReached) {
         if (!phone) return { ...summary, locked };
         if (daysUntilDue === BEFORE_DUE_DAYS) {
           const sent = await this.sendReminderOnce({
@@ -224,7 +243,7 @@ export class InstallmentsEvaluator {
             phone: phone,
             message:
               `Dear ${customerName}, your phone installment #${installment.sequence} ` +
-              `of ${formatMoney(amountDue, loan.currency)} is due today. Please pay on time to keep your phone active.`,
+              `of ${formatMoney(amountDue, loan.currency)} is due today. Please pay before 3:00 PM to keep your phone active.`,
             metadata: reminderMetadata(installment.id, amountDue, daysUntilDue),
           });
           if (sent) summary.dueToday++;
@@ -232,7 +251,7 @@ export class InstallmentsEvaluator {
         return { ...summary, locked };
       }
 
-      if (daysOverdue > grace) {
+      if (lockTimeReached) {
         const lockInFlight = await this.prisma.scoped.deviceCommand.findFirst({
           where: {
             deviceId: loan.device.id,
@@ -248,7 +267,7 @@ export class InstallmentsEvaluator {
           loan.device.status === DeviceStatus.PENDING_ENROLLMENT;
         if (lockable && !lockInFlight) {
           await this.commands.queue(loan.device.id, CommandType.LOCK, {
-            reason: `installment overdue ${daysOverdue} day(s)`,
+            reason: daysOverdue > 0 ? `installment overdue ${daysOverdue} day(s)` : 'installment unpaid at 3:00 PM on its due date',
           });
           await this.auditEvent(loan.device.id, 'LOCK_QUEUED_OVERDUE', {
             installmentId: installment.id,
@@ -267,7 +286,7 @@ export class InstallmentsEvaluator {
           phone: phone,
           message:
             `Final reminder: your phone installment #${installment.sequence} is overdue. ` +
-            `Pay ${formatMoney(amountDue, loan.currency)} today to avoid your phone being locked.`,
+            `Pay ${formatMoney(amountDue, loan.currency)} before 3:00 PM today to avoid your phone being locked.`,
           metadata: reminderMetadata(installment.id, amountDue, daysOverdue),
         });
         if (sent) summary.lockWarnings++;
