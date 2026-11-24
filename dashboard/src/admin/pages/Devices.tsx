@@ -10,6 +10,7 @@ import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Input, Select } from '@/shared/components/ui/Field';
 import { Tabs } from '@/shared/components/Tabs';
+import { FigureStrip } from '@/shared/components/FigureStrip';
 import { cn } from '@/shared/lib/cn';
 import { ago, isStale, money, shortDate } from '@/shared/lib/format';
 import { useAuth } from '@/shared/auth/AuthContext';
@@ -44,9 +45,9 @@ const FILTERS: Array<{ id: Filter; label: string }> = [
 
 type EnrolledFilter = 'all' | 'yes' | 'no';
 const ENROLLED_FILTERS: Array<{ id: EnrolledFilter; label: string }> = [
-  { id: 'all', label: 'Enrolled: all' },
-  { id: 'yes', label: 'Enrolled: yes' },
-  { id: 'no', label: 'Enrolled: no' },
+  { id: 'all', label: 'All' },
+  { id: 'yes', label: 'Enrolled' },
+  { id: 'no', label: 'Not enrolled' },
 ];
 
 function nextDueCell(d: AdminDevice) {
@@ -122,8 +123,27 @@ export default function Devices() {
 
   const selected = data?.find((d) => d.id === selectedId) ?? null;
 
+  const figures = useMemo(
+    () => ({
+      total: rows.length,
+      enrolled: rows.filter((d) => d.status !== 'PENDING_ENROLLMENT').length,
+      locked: rows.filter((d) => d.status === 'LOCKED').length,
+      overdue: rows.filter((d) => (d.loan?.overdueInstallments ?? 0) > 0).length,
+    }),
+    [rows],
+  );
+
   return (
     <div className="space-y-4">
+      <FigureStrip
+        items={[
+          { label: tab === 'sold' ? 'Phones sold' : 'Phones registered', value: figures.total },
+          { label: 'Enrolled', value: figures.enrolled },
+          { label: 'Locked', value: figures.locked },
+          { label: 'With overdue payments', value: figures.overdue },
+        ]}
+      />
+
       <Tabs
         label="Devices"
         value={tab}
