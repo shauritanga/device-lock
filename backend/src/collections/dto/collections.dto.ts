@@ -82,20 +82,10 @@ export class ListDevicesQuery {
   @IsUUID()
   tenantId?: string;
 
-  /** Matches customer name/phone, device IMEI. */
+  /** Matches customer name/phone, device IMEI, model, or company name. */
   @IsOptional()
   @IsString()
   q?: string;
-
-  /** 'true' => only devices with a reported location. */
-  @IsOptional()
-  @IsString()
-  located?: string;
-
-  /** 'true' => only devices whose loan has an overdue installment. */
-  @IsOptional()
-  @IsString()
-  overdue?: string;
 
   @IsOptional()
   @IsEnum(DeviceStatus)

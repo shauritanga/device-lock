@@ -176,27 +176,20 @@ export class CollectionsService {
     return this.getSubscriptionForTenant(actor.tenantId);
   }
 
-  /** Platform-admin view of every seller's customer devices, with last-known location. */
+  /** Platform-admin view of every device registered on the system, across all sellers. */
   async listDevices(query: ListDevicesQuery, actor: AuthUser) {
     this.assertPlatformAdmin(actor);
     const q = query.q?.trim();
-    return this.prisma.device.findMany({
+    const devices = await this.prisma.device.findMany({
       where: {
-        // Phones under the call centre's management: a case exists and is not closed.
-        // Enrolled phones get a case automatically, so shops do not hand them over.
-        loan: {
-          collectionCase: { is: { status: { not: CollectionCaseStatus.CLOSED } } },
-        },
         ...(query.tenantId ? { tenantId: query.tenantId } : {}),
-        ...(query.located === 'true' ? { lastLat: { not: null } } : {}),
         ...(query.status ? { status: query.status } : {}),
-        ...(query.overdue === 'true'
-          ? { AND: [{ loan: { installments: { some: { status: 'OVERDUE' as const } } } }] }
-          : {}),
         ...(q
           ? {
               OR: [
                 { imei: { contains: q, mode: 'insensitive' as const } },
+                { model: { contains: q, mode: 'insensitive' as const } },
+                { tenant: { name: { contains: q, mode: 'insensitive' as const } } },
                 {
                   customer: {
                     OR: [
@@ -210,7 +203,7 @@ export class CollectionsService {
           : {}),
       },
       orderBy: { createdAt: 'desc' },
-      take: 500,
+      take: 1000,
       select: {
         id: true,
         imei: true,
@@ -218,26 +211,12 @@ export class CollectionsService {
         model: true,
         status: true,
         lastCheckInAt: true,
-        lockedAt: true,
-        lastLat: true,
-        lastLng: true,
-        lastLocationAccuracy: true,
-        lastLocationAt: true,
         tenant: { select: { id: true, name: true } },
-        customer: {
-          select: {
-            id: true,
-            fullName: true,
-            phone: true,
-            address: true,
-            selfiePhotoUrl: true,
-          },
-        },
+        customer: { select: { id: true, fullName: true, phone: true, address: true } },
         loan: {
           select: {
             id: true,
             status: true,
-            frequency: true,
             collectionCase: { select: { id: true, status: true } },
             installments: {
               where: { status: 'OVERDUE' as const },
@@ -247,6 +226,7 @@ export class CollectionsService {
         },
       },
     });
+    return this.attachLoanDue(devices);
   }
 
   /**
@@ -313,15 +293,28 @@ export class CollectionsService {
       },
     });
 
-    const loanIds = devices.map((d) => d.loan!.id);
-    const paid = loanIds.length
-      ? await this.prisma.payment.groupBy({
-          by: ['loanId'],
-          where: { loanId: { in: loanIds }, status: PaymentStatus.CONFIRMED },
-          _sum: { amount: true },
-        })
-      : [];
-    const paidBy = new Map(paid.map((p) => [p.loanId, Number(p._sum.amount ?? 0)]));
+    return this.attachLoanDue(devices, { totalPaid: true });
+  }
+
+  /**
+   * Adds, to each device's loan (when it has one), the next unpaid
+   * installment and overdue count, and optionally the amount paid so far.
+   * Devices with no loan are passed through with `loan: null`.
+   */
+  private async attachLoanDue<
+    D extends { loan: ({ id: string; installments: { id: string }[] } & Record<string, unknown>) | null },
+  >(devices: D[], opts: { totalPaid?: boolean } = {}) {
+    const loanIds = devices.filter((d) => d.loan).map((d) => d.loan!.id);
+
+    const paidBy = new Map<string, number>();
+    if (opts.totalPaid && loanIds.length) {
+      const paid = await this.prisma.payment.groupBy({
+        by: ['loanId'],
+        where: { loanId: { in: loanIds }, status: PaymentStatus.CONFIRMED },
+        _sum: { amount: true },
+      });
+      for (const p of paid) paidBy.set(p.loanId, Number(p._sum.amount ?? 0));
+    }
 
     // The earliest unpaid installment per loan is the one the buyer owes next.
     const nextDue = loanIds.length
@@ -348,12 +341,14 @@ export class CollectionsService {
 
     return devices.map((d) => ({
       ...d,
-      loan: {
-        ...d.loan!,
-        nextDue: nextBy.get(d.loan!.id) ?? null,
-        overdueInstallments: d.loan!.installments.length,
-        totalPaid: paidBy.get(d.loan!.id) ?? 0,
-      },
+      loan: d.loan
+        ? {
+            ...d.loan,
+            nextDue: nextBy.get(d.loan.id) ?? null,
+            overdueInstallments: d.loan.installments.length,
+            ...(opts.totalPaid ? { totalPaid: paidBy.get(d.loan.id) ?? 0 } : {}),
+          }
+        : null,
     }));
   }
 
