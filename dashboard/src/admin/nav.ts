@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Smartphone,
   PhoneCall,
-  ReceiptText,
   ShieldCheck,
   UserCog,
 } from '@/shared/icons';
@@ -73,13 +72,7 @@ export const ADMIN_NAV: NavGroup[] = [
         to: '/devices',
         label: 'Devices',
         icon: Smartphone,
-        subtitle: 'Phones handed over for follow-up — status, location, lock and unlock',
-      },
-      {
-        to: '/sold-phones',
-        label: 'Sold phones',
-        icon: ReceiptText,
-        subtitle: 'Every phone given to a customer on credit, across all companies',
+        subtitle: 'Every registered phone, and every phone sold on credit — status, lock and unlock',
       },
       {
         to: '/partners',

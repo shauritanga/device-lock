@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/shared/api/client';
 import { Card } from '@/shared/components/ui/Card';
 import { Table, Row } from '@/shared/components/ui/Table';
-import { StatusPill } from '@/shared/components/ui/Pill';
+import { StatusDot } from '@/shared/components/ui/Pill';
 import { Center, EmptyState, Spinner } from '@/shared/components/ui/misc';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Input } from '@/shared/components/ui/Field';
@@ -171,7 +171,7 @@ export default function Devices() {
         </Card>
       ) : (
         <Card className="p-3">
-          <Table columns={['Customer', 'Company', 'IMEI', 'Device status', 'Next due', 'Last seen']}>
+          <Table columns={['Customer', 'Company', 'IMEI', 'Enrolled', 'Status', 'Next due', 'Last seen']}>
             {rows.map((d) => (
               <Row key={d.id} onClick={() => setSelectedId(d.id)}>
                 <td className="px-4 py-3">
@@ -183,11 +183,15 @@ export default function Devices() {
                   {d.imei}
                   {d.model ? ` · ${d.model}` : ''}
                 </td>
+                <td className="px-4 py-3 text-muted">
+                  {d.status === 'PENDING_ENROLLMENT' ? 'No' : 'Yes'}
+                </td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <StatusPill status={d.status} />
-                    {(d.loan?.overdueInstallments ?? 0) > 0 ? <StatusPill status="OVERDUE" /> : null}
-                  </div>
+                  {d.status === 'LOCKED' ? (
+                    <StatusDot status="LOCKED" label="Locked" />
+                  ) : (
+                    <StatusDot status="ACTIVE" label="Unlocked" />
+                  )}
                 </td>
                 <td className="px-4 py-3">{nextDueCell(d)}</td>
                 <td className="px-4 py-3">
