@@ -197,11 +197,8 @@ export class InstallmentsEvaluator {
         return { ...summary, locked };
       }
 
-      // A tenant-wide grace of several days would span multiple daily
-      // installments, so daily loans get at most 1 day unless overridden per device.
-      const tenantGrace =
-        loan.frequency === 'DAILY' ? Math.min(tenantGraceDays, 1) : tenantGraceDays;
-      const grace = loan.device.graceDays ?? tenantGrace;
+      // No grace period: an installment still unpaid the day after its due date locks the phone.
+      const grace = 0;
       const dueDay = startOfDay(installment.dueDate);
       const daysUntilDue = daysBetween(today, dueDay);
       const daysOverdue = daysBetween(dueDay, today);

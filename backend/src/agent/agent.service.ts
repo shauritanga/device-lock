@@ -501,13 +501,9 @@ export class AgentService {
       },
     });
     if (!device) throw new NotFoundException('Device not found');
-    // Same rule as the server's nightly job: daily loans get at most 1 day.
-    const tenantGrace =
-      device.loan?.frequency === 'DAILY'
-        ? Math.min(device.tenant.graceDays, 1)
-        : device.tenant.graceDays;
+    // No grace period: a phone is locked as soon as an installment is a day past due.
     return {
-      graceDays: device.graceDays ?? tenantGrace,
+      graceDays: 0,
       maxOfflineDays: device.maxOfflineDays ?? device.tenant.maxOfflineDays,
     };
   }
