@@ -40,12 +40,31 @@ export class DevicesService {
     private readonly subscription: SubscriptionAccessService,
   ) {}
 
+  /**
+   * A phone the owner removed from the list is only archived, and its row still
+   * holds the IMEI (unique per company). Free the IMEI so the same phone can be
+   * registered again; the archived row keeps its sale and payment history.
+   */
+  private async freeArchivedImeis(tenantId: string, imeis: string[]) {
+    const archived = await this.prisma.scoped.device.findMany({
+      where: { imei: { in: imeis }, archivedAt: { not: null } },
+      select: { id: true, imei: true },
+    });
+    for (const d of archived) {
+      await this.prisma.scoped.device.update({
+        where: { id: d.id },
+        data: { imei: `${d.imei}#archived-${d.id.slice(0, 8)}` },
+      });
+    }
+  }
+
   /** Register a device and issue a one-time enrollment token (for the QR). */
   async register(dto: CreateDeviceDto) {
     const tenantId = this.prisma.currentTenantId;
     await this.agreements.assertCanEnroll(tenantId);
     await this.subscription.assertCanRegisterPhone(tenantId);
     if (dto.assignedAgentId) await this.assertAgent(dto.assignedAgentId);
+    await this.freeArchivedImeis(tenantId, [dto.imei.trim()]);
     return this.prisma.scoped.$transaction(async (tx) => {
       const device = await tx.device.create({
         data: {
@@ -93,7 +112,7 @@ export class DevicesService {
     await this.agreements.assertCanEnroll(tenantId);
     if (dto.assignedAgentId) await this.assertAgent(dto.assignedAgentId);
 
-    // Removed (archived) phones keep their IMEI, so they count as taken too.
+    await this.freeArchivedImeis(tenantId, imeis);
     const existing = await this.prisma.scoped.device.findMany({
       where: { imei: { in: imeis } },
       select: {
