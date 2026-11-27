@@ -72,6 +72,22 @@ export class CommandsService {
     );
   }
 
+  /** Remember the SIM from the latest check-in as the one the shop has accepted. */
+  private async approveReportedSim(deviceId: string) {
+    const device = await this.prisma.scoped.device.findFirst({
+      where: { id: deviceId },
+      select: { simFingerprint: true },
+    });
+    if (!device?.simFingerprint) return;
+    await this.prisma.scoped.device.update({
+      where: { id: deviceId },
+      data: {
+        approvedSimFingerprint: device.simFingerprint,
+        simChangeApprovedAt: new Date(),
+      },
+    });
+  }
+
   /**
    * A phone sold with a deposit stays locked until the deposit is paid. The deposit
    * is installment 0, due immediately, so this is called when the sale is made (if
@@ -125,6 +141,9 @@ export class CommandsService {
     // unlock after a payment clears the arrears first, so it never trips this.
     if (type === CommandType.UNLOCK && (opts.issuedById || opts.apiClientId)) {
       await this.assertUnlockAllowed(deviceId);
+      // The person unlocking has accepted the SIM that is in the phone.
+      // Otherwise the next check-in locks it again for the same reading.
+      await this.approveReportedSim(deviceId);
     }
 
     // The last instruction wins. A command still waiting for the phone is

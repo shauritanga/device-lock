@@ -251,13 +251,20 @@ export class AgentService {
     sim: ReturnType<AgentService['simMetadata']>,
     simFingerprint: string | null,
   ) {
-    if (!simFingerprint) return;
+    // No ICCID means the card could not be read (typical on the enrollment
+    // request, before device-owner permission is granted). That is not a swap.
+    // A phone already stuck locking on every check-in is opened once, if nothing is owed.
+    if (!simFingerprint) {
+      await this.unlockLoopingSimLock(deviceId);
+      return;
+    }
 
     const device = await this.prisma.scoped.device.findFirst({
       where: { id: deviceId },
       select: {
         tenantId: true,
         approvedSimFingerprint: true,
+        simChangeApprovedAt: true,
         status: true,
         tenant: { select: { lockOnSimChange: true } },
       },
@@ -275,6 +282,22 @@ export class AgentService {
       return;
     }
     if (device.approvedSimFingerprint === simFingerprint) return;
+
+    // The approved value was stored by the old fingerprint, which mixed in the
+    // operator name and the line number, and often missed the ICCID at enroll.
+    // A matching legacy hash is the same card. So is a reading we have already
+    // locked for over and over: that loop is a false swap, not a new card.
+    const sameCard = legacySimFingerprints(sim).includes(device.approvedSimFingerprint);
+    const loops = await this.simLockCountSince(deviceId, device.simChangeApprovedAt);
+    if (sameCard || loops >= 2) {
+      await this.reconcileSim(
+        device,
+        deviceId,
+        simFingerprint,
+        sameCard ? 'same card, ICCID now readable' : 'repeated lock on one reading',
+      );
+      return;
+    }
 
     const now = new Date();
     await this.prisma.scoped.device.update({
@@ -317,9 +340,94 @@ export class AgentService {
     });
     if (!pendingLock) {
       await this.commands.queue(deviceId, CommandType.LOCK, {
-        reason: 'unauthorized SIM change detected',
+        reason: SIM_CHANGE_LOCK_REASON,
       });
     }
+  }
+
+  /** Accept this ICCID and drop a lock that was caused only by the old fingerprint. */
+  private async reconcileSim(
+    device: { tenantId: string },
+    deviceId: string,
+    simFingerprint: string,
+    reason: string,
+  ) {
+    const now = new Date();
+    await this.prisma.scoped.device.update({
+      where: { id: deviceId },
+      data: { approvedSimFingerprint: simFingerprint, simChangeApprovedAt: now },
+    });
+    await this.prisma.scoped.deviceCommand.updateMany({
+      where: {
+        deviceId,
+        type: CommandType.LOCK,
+        reason: SIM_CHANGE_LOCK_REASON,
+        status: { in: [CommandStatus.QUEUED, CommandStatus.SENT] },
+      },
+      data: { status: CommandStatus.EXPIRED },
+    });
+    await this.prisma.scoped.deviceEvent.create({
+      data: {
+        tenantId: device.tenantId,
+        deviceId,
+        type: 'SIM_REAPPROVED',
+        metadata: { reason },
+      },
+    });
+    await this.unlockIfOnlySimLocked(deviceId);
+  }
+
+  private simLockCountSince(deviceId: string, since: Date | null) {
+    return this.prisma.scoped.deviceCommand.count({
+      where: {
+        deviceId,
+        type: CommandType.LOCK,
+        reason: SIM_CHANGE_LOCK_REASON,
+        ...(since ? { createdAt: { gt: since } } : {}),
+      },
+    });
+  }
+
+  /** Paid-up phone locked only by the SIM loop: open it. A real arrears lock stays. */
+  private async unlockLoopingSimLock(deviceId: string) {
+    const device = await this.prisma.scoped.device.findFirst({
+      where: { id: deviceId },
+      select: { status: true, simChangeApprovedAt: true },
+    });
+    if (!device || device.status !== DeviceStatus.LOCKED) return;
+    const loops = await this.simLockCountSince(deviceId, device.simChangeApprovedAt);
+    if (loops < 2) return;
+    await this.unlockIfOnlySimLocked(deviceId);
+  }
+
+  private async unlockIfOnlySimLocked(deviceId: string) {
+    const device = await this.prisma.scoped.device.findFirst({
+      where: { id: deviceId },
+      select: { status: true, loan: { select: { id: true, status: true } } },
+    });
+    if (!device || device.status !== DeviceStatus.LOCKED) return;
+
+    if (device.loan?.status === LoanStatus.ACTIVE) {
+      const arrears = await this.prisma.scoped.installment.count({
+        where: {
+          loanId: device.loan.id,
+          dueDate: { lte: new Date() },
+          status: { notIn: [InstallmentStatus.PAID, InstallmentStatus.WAIVED] },
+        },
+      });
+      if (arrears > 0) return;
+    }
+
+    const lastLock = await this.prisma.scoped.deviceCommand.findFirst({
+      where: { deviceId, type: CommandType.LOCK },
+      orderBy: { createdAt: 'desc' },
+      select: { reason: true },
+    });
+    if (lastLock?.reason !== SIM_CHANGE_LOCK_REASON) return;
+
+    await this.commands.queue(deviceId, CommandType.UNLOCK, {
+      reason: 'same SIM as enrollment — reading no longer treated as a swap',
+    });
   }
 
   private simMetadata(dto: EnrollDto | CheckinDto) {
@@ -331,11 +439,15 @@ export class AgentService {
     };
   }
 
+  /**
+   * Identity of the card. The operator name, country and line number are not
+   * stable: Android often cannot read the ICCID until a second after enroll,
+   * and the line number appears and disappears. Hashing those made every later
+   * check-in look like a SIM swap.
+   */
   private simFingerprint(sim: ReturnType<AgentService['simMetadata']>) {
-    const stable = [sim.simIccid, sim.simOperator, sim.simCountryIso, sim.simPhoneNumber]
-      .filter(Boolean)
-      .join('|');
-    return stable ? sha256(stable) : null;
+    if (!sim.simIccid) return null;
+    return sha256(sim.simIccid);
   }
 
   ack(deviceId: string, commandId: string, dto: AckDto) {
@@ -511,4 +623,30 @@ export class AgentService {
 
 function cleanNullable(value?: string) {
   return value?.trim() || null;
+}
+
+const SIM_CHANGE_LOCK_REASON = 'unauthorized SIM change detected';
+
+/**
+ * Fingerprints the previous code would have stored for this reading: every
+ * non-empty field, and the same list without the ICCID. Enrollment often
+ * hashed only the operator and country, because the ICCID was not readable yet.
+ */
+function legacySimFingerprints(sim: {
+  simIccid: string | null;
+  simOperator: string | null;
+  simCountryIso: string | null;
+  simPhoneNumber: string | null;
+}): string[] {
+  const hashes = new Set<string>();
+  for (const includeIccid of [true, false]) {
+    const parts = [
+      includeIccid ? sim.simIccid : null,
+      sim.simOperator,
+      sim.simCountryIso,
+      sim.simPhoneNumber,
+    ].filter((part): part is string => !!part);
+    if (parts.length) hashes.add(sha256(parts.join('|')));
+  }
+  return [...hashes];
 }
