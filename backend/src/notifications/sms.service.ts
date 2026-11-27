@@ -16,10 +16,10 @@ export class SmsService {
   private lastFundsAlertAt = 0;
 
   constructor(config: ConfigService) {
-    this.sendUrl = config.get<string>('BEEM_SEND_URL')!;
+    this.sendUrl = config.get<string>('BEEM_SMS_BASE_URL')!;
     this.senderId = config.get<string>('BEEM_SENDER_ID', 'INFO');
-    const apiKey = config.get<string>('BEEM_API_KEY');
-    const secret = config.get<string>('BEEM_SECRET_KEY');
+    const apiKey = config.get<string>('BEEM_SMS_API_KEY');
+    const secret = config.get<string>('BEEM_SMS_API_SECRET');
     if (apiKey && secret) {
       this.authHeader =
         'Basic ' + Buffer.from(`${apiKey}:${secret}`).toString('base64');

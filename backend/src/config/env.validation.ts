@@ -40,9 +40,9 @@ export const envSchema = z.object({
   PAYOUT_ACCOUNT_HOLD_HOURS: z.coerce.number().min(0).default(24),
 
   // Beem (SMS)
-  BEEM_SEND_URL: z.string().url().default('https://apisms.beem.africa/v1/send'),
-  BEEM_API_KEY: z.string().optional(),
-  BEEM_SECRET_KEY: z.string().optional(),
+  BEEM_SMS_BASE_URL: z.string().url().default('https://apisms.beem.africa/v1/send'),
+  BEEM_SMS_API_KEY: z.string().optional(),
+  BEEM_SMS_API_SECRET: z.string().optional(),
   BEEM_SENDER_ID: z.string().default('INFO'),
 
   // Voice/IVR provider. Generic JSON POST integration; unset => dev stub.

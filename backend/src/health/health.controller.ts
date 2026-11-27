@@ -30,7 +30,7 @@ export class HealthController {
       { name: 'jwt_refresh_secret', ok: this.present('JWT_REFRESH_SECRET') },
       { name: 'public_base_url', ok: this.present('PUBLIC_BASE_URL'), optional: true },
       { name: 'snippe_credentials', ok: this.allPresent('SNIPPE_API_KEY', 'SNIPPE_WEBHOOK_SECRET'), optional: true },
-      { name: 'beem_credentials', ok: this.allPresent('BEEM_API_KEY', 'BEEM_SECRET_KEY'), optional: true },
+      { name: 'beem_credentials', ok: this.allPresent('BEEM_SMS_API_KEY', 'BEEM_SMS_API_SECRET'), optional: true },
       { name: 'voice_provider', ok: this.allPresent('VOICE_CALL_URL', 'VOICE_API_KEY'), optional: true },
       { name: 'call_provider', ok: this.allPresent('CALL_PROVIDER_URL', 'CALL_PROVIDER_API_KEY'), optional: true },
       { name: 'fcm_service_account', ok: this.present('FCM_SERVICE_ACCOUNT_JSON'), optional: true },
