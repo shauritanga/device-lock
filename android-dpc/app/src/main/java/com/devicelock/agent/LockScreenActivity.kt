@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +14,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.devicelock.agent.databinding.ActivityLockBinding
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Full-screen lock shown to the customer when an installment is overdue.
@@ -30,6 +32,7 @@ class LockScreenActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLockBinding
     private lateinit var controller: DeviceLockController
     private lateinit var agent: AgentManager
+    private val leaving = AtomicBoolean(false)
 
     private val poll = Handler(Looper.getMainLooper())
     private val pollRunnable = object : Runnable {
@@ -202,31 +205,45 @@ class LockScreenActivity : AppCompatActivity() {
         }
     }
 
+    // Block the back button while locked. Once the phone is unlocked, back leaves.
+    @Deprecated("Intentionally swallow back while locked")
+    override fun onBackPressed() {
+        if (!controller.isLocked()) dismiss()
+    }
+
     /**
      * Leave the lock screen and hand control back to the real launcher. Because
      * the lock screen can be the HOME activity, a bare finish() would race the
      * system re-resolving HOME; instead we leave kiosk mode and explicitly launch
      * HOME (the lock alias is already disabled by unlock, so this is the launcher)
      * before finishing.
+     *
+     * Runs at most once. If HOME still resolves to this app — which happens when
+     * the preferred-home hand-off from a lock did not stick — launching it again
+     * restarts this screen forever and Android reports the app as not responding.
+     * Open the account screen instead.
      */
     private fun dismiss() {
+        if (!leaving.compareAndSet(false, true)) return
         poll.removeCallbacks(pollRunnable)
         runCatching { stopLockTask() }
         runCatching { controller.clearLockTaskSession() }
-        runCatching {
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val resolved = runCatching {
+            packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)
+        }.getOrNull()
+        val homeIsUs = resolved?.activityInfo?.packageName == packageName
+        if (homeIsUs) {
             startActivity(
-                Intent(Intent.ACTION_MAIN)
-                    .addCategory(Intent.CATEGORY_HOME)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                Intent(this, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             )
+        } else {
+            runCatching {
+                startActivity(home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
         }
         finish()
-    }
-
-    // Block the back button while locked.
-    @Deprecated("Intentionally swallow back while locked")
-    override fun onBackPressed() {
-        // no-op
     }
 
     companion object {

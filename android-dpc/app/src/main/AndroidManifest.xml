@@ -37,10 +37,14 @@
         </activity>
 
         <!-- Full-screen lock screen shown to the customer when overdue. -->
+        <!-- Own task, so a lock does not replace the account screen. Otherwise the
+             launcher icon resumes the lock screen, which relaunches itself once the
+             phone is unlocked and the app stops responding. -->
         <activity
             android:name=".LockScreenActivity"
             android:exported="false"
             android:launchMode="singleTask"
+            android:taskAffinity="com.devicelock.agent.lock"
             android:excludeFromRecents="true"
             android:stateNotNeeded="true"
             android:theme="@style/Theme.DeviceLock.Lock" />

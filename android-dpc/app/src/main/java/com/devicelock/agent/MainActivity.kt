@@ -14,6 +14,7 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.concurrent.thread
 
 /**
  * Device screen. Its behaviour depends on state:
@@ -72,11 +73,18 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        // Ensure anti-removal restrictions are in force for any managed device
-        // (covers devices enrolled before this became automatic).
-        // A phone held between loans stays unrestricted when the customer opens the app.
-        if (controller.isDeviceOwner() && !AgentStore(applicationContext).dormant) controller.applyManagedRestrictions()
-        if (agent.isEnrolled()) AgentSync.schedulePeriodic(applicationContext)
+        // Device-policy and WorkManager calls can stall the main thread after a
+        // lock (the system service is busy). Doing them here is what makes the
+        // app show "isn't responding" before the account screen can draw.
+        thread(name = "policy", start = true) {
+            val c = DeviceLockController(applicationContext)
+            if (c.isDeviceOwner() && !AgentStore(applicationContext).dormant) {
+                runCatching { c.applyManagedRestrictions() }
+            }
+            if (agent.isEnrolled()) {
+                runCatching { AgentSync.schedulePeriodic(applicationContext) }
+            }
+        }
 
         refreshStatus()
     }
@@ -189,17 +197,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshStatus() {
-        binding.txtStatus.text = controller.statusSummary()
-        binding.txtLockStatus.text = controller.statusSummary()
-        val owner = controller.isDeviceOwner()
         val enrolled = agent.isEnrolled()
-
         val released = agent.isReleased()
-        binding.txtHint.text = when {
-            released -> getString(R.string.released_notice)
-            owner -> getString(R.string.hint_ready)
-            else -> getString(R.string.hint_not_owner)
-        }
         binding.btnUninstall.visibility = if (released) View.VISIBLE else View.GONE
 
         // Managed notice when enrolled; staff actions (once PIN-unlocked) switch
@@ -211,12 +210,32 @@ class MainActivity : AppCompatActivity() {
         if (released) binding.txtAgent.text = getString(R.string.released_notice)
         binding.enrollGroup.visibility = if (enrolled) View.GONE else View.VISIBLE
         binding.btnRelease.visibility = if (enrolled) View.VISIBLE else View.GONE
-        binding.btnDebugRelease.visibility = if (BuildConfig.DEBUG && owner) View.VISIBLE else View.GONE
 
         if (enrolled) {
             loadCustomerSummary()
         } else {
             renderNoSummary(getString(R.string.summary_not_enrolled))
+        }
+
+        // Policy reads talk to the system server. Keep them off this thread so a
+        // slow reply cannot freeze the screen the customer is waiting on.
+        thread(name = "device-status", start = true) {
+            val summary = runCatching { controller.statusSummary() }.getOrNull()
+            val owner = runCatching { controller.isDeviceOwner() }.getOrDefault(false)
+            runOnUiThread {
+                if (isFinishing) return@runOnUiThread
+                if (summary != null) {
+                    binding.txtStatus.text = summary
+                    binding.txtLockStatus.text = summary
+                }
+                binding.txtHint.text = when {
+                    released -> getString(R.string.released_notice)
+                    owner -> getString(R.string.hint_ready)
+                    else -> getString(R.string.hint_not_owner)
+                }
+                binding.btnDebugRelease.visibility =
+                    if (BuildConfig.DEBUG && owner) View.VISIBLE else View.GONE
+            }
         }
     }
 

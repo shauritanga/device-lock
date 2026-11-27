@@ -1,6 +1,7 @@
 package com.devicelock.agent
 
 import android.app.Application
+import kotlin.concurrent.thread
 
 /**
  * Runs whenever the app process starts, including when a push or an alarm wakes
@@ -10,9 +11,14 @@ import android.app.Application
 class AgentApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        runCatching {
-            val store = AgentStore(this)
-            if (store.isEnrolled && !store.released) AgentSync.schedulePeriodic(this)
+        // WorkManager setup can block. The activity must still be able to draw.
+        thread(name = "agent-start", start = true) {
+            runCatching {
+                val store = AgentStore(this@AgentApplication)
+                if (store.isEnrolled && !store.released) {
+                    AgentSync.schedulePeriodic(this@AgentApplication)
+                }
+            }
         }
     }
 }
