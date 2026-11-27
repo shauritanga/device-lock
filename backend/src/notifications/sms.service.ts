@@ -16,7 +16,7 @@ export class SmsService {
   private lastFundsAlertAt = 0;
 
   constructor(config: ConfigService) {
-    this.sendUrl = config.get<string>('BEEM_SMS_BASE_URL')!;
+    this.sendUrl = `${config.get<string>('BEEM_SMS_BASE_URL')!.replace(/\/+$/, '')}/v1/send`;
     this.senderId = config.get<string>('BEEM_SENDER_ID', 'INFO');
     const apiKey = config.get<string>('BEEM_SMS_API_KEY');
     const secret = config.get<string>('BEEM_SMS_API_SECRET');
