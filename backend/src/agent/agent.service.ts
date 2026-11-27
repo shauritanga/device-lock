@@ -613,9 +613,14 @@ export class AgentService {
       },
     });
     if (!device) throw new NotFoundException('Device not found');
-    // No grace period: a phone is locked as soon as an installment is a day past due.
+    // The server locks an unpaid phone at 15:00 Tanzania time on the due date.
+    // The handset only knows the due timestamp (midnight UTC, 03:00 in Tanzania)
+    // and locks itself when that timestamp plus graceDays has passed. graceDays 0
+    // therefore locked a daily payer at 03:00, before they had a chance to pay.
+    // One day lets the 15:00 command do the locking; an offline phone still locks
+    // itself the next morning.
     return {
-      graceDays: 0,
+      graceDays: 1,
       maxOfflineDays: device.maxOfflineDays ?? device.tenant.maxOfflineDays,
     };
   }
