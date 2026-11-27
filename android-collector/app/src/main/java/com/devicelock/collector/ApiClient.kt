@@ -61,10 +61,14 @@ class ApiClient(
         store.accessToken = pair.accessToken
         store.refreshToken = pair.refreshToken
         store.email = email.trim()
-        // decode role from me if needed
+        // Own id is required so reports can be scoped to "me" explicitly,
+        // rather than guessing which row of a report belongs to this user. A
+        // transient failure here shouldn't block sign-in — todayPerformance()
+        // falls back safely if userId never got set.
         runCatching {
             val me = request("GET", "/auth/me", null, auth = true)
             store.role = me.optString("role", null)
+            store.userId = me.optString("userId", null)
         }
         return pair
     }
@@ -98,17 +102,32 @@ class ApiClient(
     fun getCase(id: String): JSONObject =
         request("GET", "/collections/cases/$id", null, auth = true)
 
-    /** Today's collector performance (day period) for the signed-in user. */
+    /**
+     * Today's collector performance (day period) for the signed-in user only.
+     * The report endpoint also serves MASTER_COLLECTOR (whole team) and admin
+     * roles (everyone), so `collectorId` is always passed explicitly and the
+     * matching row is picked by id — never just the first row in the array,
+     * which could belong to a teammate.
+     */
     fun todayPerformance(): TodayPerformance {
-        val json = request(
-            "GET",
-            "/collections/reports/collector-performance?period=day",
-            null,
-            auth = true,
-        )
+        val ownId = store.userId
+        val path = if (!ownId.isNullOrBlank()) {
+            "/collections/reports/collector-performance?period=day&collectorId=$ownId"
+        } else {
+            "/collections/reports/collector-performance?period=day"
+        }
+        val json = request("GET", path, null, auth = true)
         val byCollector = json.optJSONArray("byCollector")
-        if (byCollector != null && byCollector.length() > 0) {
-            val row = byCollector.getJSONObject(0)
+        val row = (0 until (byCollector?.length() ?: 0))
+            .map { byCollector!!.getJSONObject(it) }
+            .let { rows ->
+                if (!ownId.isNullOrBlank()) {
+                    rows.firstOrNull { it.optString("collectorId") == ownId } ?: rows.firstOrNull()
+                } else {
+                    rows.firstOrNull()
+                }
+            }
+        if (row != null) {
             return TodayPerformance(
                 callsCount = row.optInt("callsCount", 0),
                 smsCount = row.optInt("smsCount", 0),

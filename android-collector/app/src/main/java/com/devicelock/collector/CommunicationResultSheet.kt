@@ -23,9 +23,9 @@ import java.util.Calendar
 import java.util.Locale
 
 /**
- * Forced the moment the collector returns to the app after a call/WhatsApp
- * contact: cannot be swiped away or backed out of without submitting a
- * collection record (method, remark, result).
+ * Forced the moment the collector returns to the app after starting a call,
+ * SMS, or WhatsApp contact: cannot be swiped away or backed out of without
+ * submitting a collection record (method, remark, result).
  */
 class CommunicationResultSheet : BottomSheetDialogFragment() {
 
@@ -98,19 +98,34 @@ class CommunicationResultSheet : BottomSheetDialogFragment() {
         binding.inputPromiseDate.setOnClickListener { showDatePicker() }
         binding.btnSubmitResult.setOnClickListener { submit() }
 
-        if (channel == "CALL") findCallLogMatchInBackground()
+        if (channel == "CALL" || channel == "SMS") findLogMatchInBackground()
     }
 
-    private fun findCallLogMatchInBackground() {
+    /**
+     * Looks for a matching outgoing call or SMS log entry in the background
+     * so the result sheet can offer real device-log proof. WhatsApp has no
+     * on-device log to check, so it stays self-reported only.
+     */
+    private fun findLogMatchInBackground() {
+        if (customerPhone.isBlank()) return
+        val permission = if (channel == "CALL") {
+            Manifest.permission.READ_CALL_LOG
+        } else {
+            Manifest.permission.READ_SMS
+        }
         val granted = ContextCompat.checkSelfPermission(
             requireContext(),
-            Manifest.permission.READ_CALL_LOG,
+            permission,
         ) == PackageManager.PERMISSION_GRANTED
-        if (!granted || customerPhone.isBlank()) return
+        if (!granted) return
         lifecycleScope.launch {
             logMatch = withContext(Dispatchers.IO) {
                 runCatching {
-                    LogMatcher.findCallMatch(requireContext(), customerPhone, sessionStartedAt)
+                    if (channel == "CALL") {
+                        LogMatcher.findCallMatch(requireContext(), customerPhone, sessionStartedAt)
+                    } else {
+                        LogMatcher.findSmsMatch(requireContext(), customerPhone, sessionStartedAt)
+                    }
                 }.getOrNull()
             }
         }

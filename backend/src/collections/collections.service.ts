@@ -1304,6 +1304,31 @@ export class CollectionsService {
     };
   }
 
+  /**
+   * Re-checks a collector-submitted deviceMatchMeta claim against the same
+   * window + phone rule /contact-sessions/:id/proof enforces (see §3A of
+   * docs/COLLECTIONS_CALL_CENTRE_PLAN.md): the matched phone must be the
+   * session's customer, and the log timestamp must fall inside the session
+   * window. Without both, the claim is not a "strong" proof.
+   */
+  private isDeviceMatchValid(
+    session: { customerPhone: string; initiatedAt: Date; expiresAt: Date },
+    meta: Record<string, unknown>,
+  ): boolean {
+    const matchedPhone =
+      typeof meta.matchedPhone === 'string' ? meta.matchedPhone : null;
+    const logAtRaw = typeof meta.logAt === 'string' ? meta.logAt : null;
+    if (!matchedPhone || !logAtRaw) return false;
+
+    const logAt = new Date(logAtRaw);
+    if (Number.isNaN(logAt.getTime())) return false;
+    if (logAt < session.initiatedAt || logAt > session.expiresAt) return false;
+
+    const expected = normalizePhoneDigits(session.customerPhone);
+    const got = normalizePhoneDigits(matchedPhone);
+    return phonesMatch(expected, got);
+  }
+
   async completeContact(
     sessionId: string,
     dto: CompleteContactDto,
@@ -1326,18 +1351,36 @@ export class CollectionsService {
     }
 
     const now = new Date();
-    let verification =
-      dto.verificationStatus ?? ContactVerificationStatus.SELF_REPORTED;
+    // The client's own verificationStatus claim is only ever accepted for
+    // the weak/terminal levels. "Strong" levels (DEVICE_LOG_MATCHED,
+    // PROVIDER_VERIFIED) are never taken on the caller's say-so — they are
+    // computed below from evidence this endpoint can check itself, exactly
+    // like /contact-sessions/:id/proof does.
+    let verification: ContactVerificationStatus =
+      dto.verificationStatus &&
+      dto.verificationStatus !== ContactVerificationStatus.DEVICE_LOG_MATCHED &&
+      dto.verificationStatus !== ContactVerificationStatus.PROVIDER_VERIFIED
+        ? dto.verificationStatus
+        : ContactVerificationStatus.SELF_REPORTED;
 
     if (dto.deviceMatchMeta) {
-      verification = ContactVerificationStatus.DEVICE_LOG_MATCHED;
+      // Re-check the same window + phone rule that /contact-sessions/:id/proof
+      // enforces. The raw claim is still stored below for audit, but a claim
+      // that doesn't hold up never upgrades verificationStatus.
+      if (this.isDeviceMatchValid(session, dto.deviceMatchMeta)) {
+        verification = ContactVerificationStatus.DEVICE_LOG_MATCHED;
+      } else {
+        this.logger.warn(
+          `Contact session ${sessionId}: deviceMatchMeta did not verify (phone/window mismatch) — not upgrading verification`,
+        );
+      }
     }
     if (
       session.verificationStatus === ContactVerificationStatus.ATTEMPTED &&
-      !dto.verificationStatus &&
-      !dto.deviceMatchMeta
+      verification === ContactVerificationStatus.SELF_REPORTED
     ) {
-      // Keep ATTEMPTED if already bridge-started and no stronger proof
+      // Keep ATTEMPTED (bridge call already started, server-verified) when
+      // nothing stronger was established on this call.
       verification = ContactVerificationStatus.ATTEMPTED;
     }
     if (session.expiresAt < now && verification === ContactVerificationStatus.SELF_REPORTED) {

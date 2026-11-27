@@ -85,10 +85,13 @@ class CaseActivity : AppCompatActivity() {
         maybeShowCommunicationResultSheet()
     }
 
-    /** Auto-opens the mandatory result sheet when returning from a call/WhatsApp. */
+    /**
+     * Auto-opens the mandatory result sheet when returning from any started
+     * contact (call, SMS, or WhatsApp) — every channel must be logged before
+     * the collector can move on, not just call/WhatsApp.
+     */
     private fun maybeShowCommunicationResultSheet() {
-        val channel = pendingChannel ?: return
-        if (channel != "CALL" && channel != "WHATSAPP") return
+        pendingChannel ?: return
         showCommunicationResultSheet()
     }
 

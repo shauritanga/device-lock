@@ -64,7 +64,19 @@ class QueueActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (store.isLoggedIn) load()
+        if (!store.isLoggedIn) return
+        val pendingCaseId = store.pendingCaseId
+        if (!pendingCaseId.isNullOrBlank()) {
+            // A contact result is still unlogged — send the collector straight
+            // back to log it instead of letting them browse other cases.
+            // Mirrors the same guard in HomeActivity.onResume().
+            startActivity(
+                Intent(this, CaseActivity::class.java)
+                    .putExtra(CaseActivity.EXTRA_CASE_ID, pendingCaseId),
+            )
+            return
+        }
+        load()
     }
 
     private fun load() {

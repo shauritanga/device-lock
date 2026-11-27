@@ -30,6 +30,11 @@ class SessionStore(context: Context) {
         get() = prefs.getString(KEY_ROLE, null)
         set(value) = prefs.edit().putString(KEY_ROLE, value).apply()
 
+    /** The signed-in staff member's own id, used to scope "my" reports correctly. */
+    var userId: String?
+        get() = prefs.getString(KEY_USER_ID, null)
+        set(value) = prefs.edit().putString(KEY_USER_ID, value).apply()
+
     val isLoggedIn: Boolean get() = !accessToken.isNullOrBlank()
 
     // A contact (call/WhatsApp) session the collector started but hasn't logged a
@@ -78,6 +83,7 @@ class SessionStore(context: Context) {
         private const val KEY_REFRESH = "refresh"
         private const val KEY_EMAIL = "email"
         private const val KEY_ROLE = "role"
+        private const val KEY_USER_ID = "user_id"
         private const val KEY_PENDING_SESSION = "pending_session"
         private const val KEY_PENDING_CASE = "pending_case"
         private const val KEY_PENDING_CHANNEL = "pending_channel"

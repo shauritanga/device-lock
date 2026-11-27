@@ -76,7 +76,6 @@ class LoginActivity : AppCompatActivity() {
         val needed = arrayOf(
             Manifest.permission.READ_CALL_LOG,
             Manifest.permission.READ_SMS,
-            Manifest.permission.CALL_PHONE,
         )
         val missing = needed.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
